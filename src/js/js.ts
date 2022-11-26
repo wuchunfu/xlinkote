@@ -1434,6 +1434,7 @@ function version_tr(obj): 集type {
             obj["extra"] = { style: "" };
             obj.meta.version = "0.10.4";
         case "0.10.4":
+        case "0.10.5":
             return obj;
     }
 }
@@ -1520,7 +1521,7 @@ function set_data(l: 集type) {
     location.hash = `#${集.meta.UUID}`;
     document.title = get_title();
 
-    set_css("./md.css");
+    set_css(l.extra.style || "./md.css");
 }
 
 /** 侧栏刷新 */
@@ -1698,21 +1699,18 @@ set_css("./md.css");
 
 /** 设置文件css样式 */
 function set_css(t: string) {
+    let style: HTMLElement;
+    document.getElementById("css")?.remove();
     if (t.includes("\n")) {
+        style = document.createElement("style");
+        style.innerHTML = t;
     } else {
-        fetch(t)
-            .then((v) => v.text())
-            .then((v) => add_md(v));
+        style = document.createElement("link");
+        (style as HTMLLinkElement).href = t;
+        (style as HTMLLinkElement).rel = "stylesheet";
     }
-    function add_md(text: string) {
-        add_css(text);
-    }
-    function add_css(text: string) {
-        let style = document.getElementById("css") || document.createElement("style");
-        style.id = "css";
-        style.innerHTML = text;
-        document.body.append(style);
-    }
+    style.id = "css";
+    document.body.append(style);
 }
 
 function json2md(obj: 集type) {
