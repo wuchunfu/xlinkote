@@ -1435,6 +1435,23 @@ function version_tr(obj): 集type {
             obj.meta.version = "0.10.4";
         case "0.10.4":
         case "0.10.5":
+            for (let i of obj.数据) {
+                w(i.data);
+            }
+            w(obj.中转站);
+            function w(data) {
+                for (let i of data) {
+                    if (i.type == "X-MD") {
+                        let text = i.value;
+                        let o = { type: "text", text: text };
+                        i.value = JSON.stringify(o);
+                    } else {
+                        if (i.子元素) w(i.子元素);
+                    }
+                }
+            }
+            obj.meta.version = "0.11.0";
+        case "0.11.0":
             return obj;
     }
 }
@@ -3391,7 +3408,7 @@ mqList.addEventListener("change", (event) => {
 let ink_cxt = ink_el.getContext("2d");
 let ink_points: [number[], number[]][] = [];
 let ink_move = false;
-let ink_t = {}; // 确保清除所有计时器
+var ink_t = {}; // 确保清除所有计时器
 ink_el.onpointerdown = (e) => {
     e.preventDefault();
 
@@ -3457,19 +3474,22 @@ ink_el.onpointerup = () => {
             }
             ink_t[
                 setTimeout(() => {
+                    set_text(text_l[0]);
                     ink_reset();
                 }, Number(store.ink.延时) * 1000 || 1000)
             ] = "";
-
-            set_text(text_l[0]);
         });
     function set_text(t: string) {
         textel.setRangeText(t);
-        textel.dispatchEvent(new Event("input"));
         textel.selectionEnd += t.length;
+        textel.dispatchEvent(new Event("input"));
     }
 };
 function ink_reset() {
+    for (let t in ink_t) {
+        clearTimeout(Number(t));
+        delete ink_t[t];
+    }
     if (!selections) return;
     let pmd = document.getElementById(selections[0].id);
     if (!pmd) return;
@@ -3479,6 +3499,7 @@ function ink_reset() {
     ink_points = [];
     ink_r.innerHTML = "";
     textel.selectionStart = textel.selectionEnd;
+    selections[0].start = selections[0].end = textel.selectionStart;
 }
 
 // MD
@@ -4047,7 +4068,7 @@ class markdown extends HTMLElement {
         super();
     }
 
-    _value = "";
+    _value: { type: "text"; text: string } = { type: "text", text: "" };
 
     index;
 
@@ -4135,9 +4156,11 @@ class markdown extends HTMLElement {
 
         if (this.getAttribute("value")) {
             let v = this.getAttribute("value");
-            this._value = (<HTMLTextAreaElement>this.childNodes[1]).value = v;
-            this.querySelector("div:nth-child(1)").innerHTML = md.render(v);
-            var l = md.parse(v, {
+            this._value = JSON.parse(v);
+            let t = this._value.text;
+            (<HTMLTextAreaElement>this.childNodes[1]).value = t;
+            this.querySelector("div:nth-child(1)").innerHTML = md.render(t);
+            var l = md.parse(t, {
                 references: {},
             });
             this.index = line_el(l);
@@ -4151,7 +4174,7 @@ class markdown extends HTMLElement {
 
         this.drag();
         text.oninput = () => {
-            this._value = text.value;
+            this._value.text = text.value;
             data_changed();
             setTimeout(() => {
                 s.innerHTML = md.render(text.value);
@@ -4410,7 +4433,7 @@ class markdown extends HTMLElement {
                 let l = text.value.split("\n");
                 l[ln] = l[ln].replace(/(^ *[-+*] +\[)[x\s](\] +)/, `$1${(<HTMLInputElement>el).checked ? "x" : " "}$2`);
                 text.value = l.join("\n");
-                this._value = text.value;
+                this._value.text = text.value;
                 data_changed();
                 return;
             }
@@ -4459,9 +4482,11 @@ class markdown extends HTMLElement {
     }
 
     set value(v) {
-        this._value = (<HTMLTextAreaElement>this.childNodes[1]).value = v;
-        this.querySelector("div:nth-child(1)").innerHTML = md.render(v);
-        var l = md.parse(v, {
+        this._value = JSON.parse(v);
+        let t = this._value.text;
+        (<HTMLTextAreaElement>this.childNodes[1]).value = t;
+        this.querySelector("div:nth-child(1)").innerHTML = md.render(t);
+        var l = md.parse(t, {
             references: {},
         });
         this.index = line_el(l);
@@ -4469,7 +4494,7 @@ class markdown extends HTMLElement {
     }
 
     get value() {
-        return this._value;
+        return JSON.stringify(this._value);
     }
 
     reload() {
