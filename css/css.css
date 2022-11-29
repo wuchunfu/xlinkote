@@ -594,7 +594,7 @@ body > #main > #画布 > x-link-value > div:nth-child(2) > div > div > .icon {
 }
 
 .breadcrumbs {
-    @apply absolute h-4 overflow-hidden flex bg-white dark:bg-black transition-all shadow-sm;
+    @apply absolute overflow-hidden flex bg-white dark:bg-black transition-all;
     top: var(--icon-p-b-size);
     left: var(--icon-p-b-size);
     width: calc(100vw - var(--icon-p-b-size));
@@ -641,6 +641,15 @@ body > #搜索 > #搜索结果 > div > div:last-child {
 }
 .search_item_select {
     background-color: var(--bg-color1);
+}
+
+body > #cmd {
+    position: absolute;
+    transition: opacity var(--transition);
+}
+.cmd_hide {
+    opacity: 0;
+    pointer-events: none;
 }
 body > #viewer {
     position: absolute;
