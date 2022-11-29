@@ -1236,6 +1236,7 @@ type 集type = {
     链接: { [key: string]: { [key: string]: { value?: number; time?: number } } };
     assets: { [key: string]: { url: string; base64: string; sha: string } };
     中转站: data;
+    values: { [key: string]: { [key in md_type]: object } };
 };
 
 type meta = {
@@ -1286,6 +1287,7 @@ function new_集(pname: string): 集type {
         链接: { 0: {} },
         assets: {},
         中转站: [],
+        values: {},
     };
 }
 
@@ -1458,7 +1460,12 @@ function version_tr(obj): 集type {
             obj.meta.version = "0.11.0";
         case "0.11.0":
         case "0.11.1":
+            obj["values"] = {};
+            obj.meta.version = "0.11.2";
+        case "0.11.2":
             return obj;
+        default:
+            put_toast(`文件版本是 ${v}，与当前软件版本 ${packagejson.version} 不兼容，请升级软件`);
     }
 }
 
@@ -4372,6 +4379,8 @@ class markdown extends HTMLElement {
                     if (!(pel.classList.contains("flex-column") || pel.classList.contains("flex-row"))) {
                         let nel = document.createElement("x-x") as x;
                         nel.id = el.id;
+                        el.id = uuid_id();
+                        link(el.id).add();
                         this.remove();
                         el.append(nel);
                         md = document.createElement("x-md") as markdown;
@@ -4382,7 +4391,7 @@ class markdown extends HTMLElement {
                         el = nel;
                         pel.classList.add("flex-column");
                     }
-                    const l = t.split("\n");
+                    const l = t.split(/\n+/);
                     let last_el = el;
                     for (let i in l) {
                         const tt = l[i];
@@ -4397,7 +4406,7 @@ class markdown extends HTMLElement {
                             x.append(md);
                             x.id = uuid_id();
                             link(x.id).add();
-                            md.value = tt;
+                            md.value = JSON.stringify({ type: "p", text: tt });
                             last_el = x;
                         }
                     }
