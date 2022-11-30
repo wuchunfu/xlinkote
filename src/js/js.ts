@@ -1236,7 +1236,7 @@ type 集type = {
     链接: { [key: string]: { [key: string]: { value?: number; time?: number } } };
     assets: { [key: string]: { url: string; base64: string; sha: string } };
     中转站: data;
-    values: { [key: string]: { [key in md_type]: object } };
+    values: { [key: string]: { [key: string]: any } };
 };
 
 type meta = {
@@ -1463,6 +1463,7 @@ function version_tr(obj): 集type {
             obj["values"] = {};
             obj.meta.version = "0.11.2";
         case "0.11.2":
+        case "0.11.3":
             return obj;
         default:
             put_toast(`文件版本是 ${v}，与当前软件版本 ${packagejson.version} 不兼容，请升级软件`);
@@ -1717,6 +1718,12 @@ function set_diff_data(diffl: diff_i[], undo_data: 集type) {
                             }
                         }
                     }
+                }
+                break;
+            case "values":
+                集.values = undo_data.values;
+                if (d.path[1]) {
+                    (document.getElementById(d.path[1]).querySelector("x-md") as markdown).reload();
                 }
                 break;
             default:
@@ -4323,7 +4330,7 @@ class markdown extends HTMLElement {
                     this.remove();
                     p.append(x);
                     x.append(md);
-                    md.value = t;
+                    md.value = JSON.stringify({ type: this.type, text: t });
                     p.id = uuid_id();
                     link(p.id).add();
                     md.edit = true;
@@ -4371,46 +4378,58 @@ class markdown extends HTMLElement {
                 }
             } else {
                 let t = e.clipboardData.getData("text/plain").trim();
-                if (t.includes("\n")) {
-                    e.preventDefault();
-                    let el = this.parentElement as x;
-                    let pel = el.parentElement;
-                    let md: markdown;
-                    if (!(pel.classList.contains("flex-column") || pel.classList.contains("flex-row"))) {
-                        let nel = document.createElement("x-x") as x;
-                        nel.id = el.id;
-                        el.id = uuid_id();
-                        link(el.id).add();
-                        this.remove();
-                        el.append(nel);
-                        md = document.createElement("x-md") as markdown;
-                        nel.append(md);
-                        md.value = this.value;
-                        md.text.setSelectionRange(this.text.selectionStart, this.text.selectionEnd);
-                        pel = el;
-                        el = nel;
-                        pel.classList.add("flex-column");
+                if (this._value.type == "code") {
+                    if (!this._value.text && e.clipboardData.getData("text/html")) {
+                        this.init_v("code");
+                        集.values[this.parentElement.id].code["html"] = e.clipboardData.getData("text/html");
+                    } else {
+                        集.values[this.parentElement.id].code["html"] = "";
                     }
-                    const l = t.split(/\n+/);
-                    let last_el = el;
-                    for (let i in l) {
-                        const tt = l[i];
-                        if (!tt) continue;
-                        if (i == "0") {
-                            md.text.setRangeText(tt);
-                            md.reload();
-                        } else {
-                            let x = document.createElement("x-x") as x;
-                            let md = document.createElement("x-md") as markdown;
-                            last_el.after(x);
-                            x.append(md);
-                            x.id = uuid_id();
-                            link(x.id).add();
-                            md.value = JSON.stringify({ type: "p", text: tt });
-                            last_el = x;
+                    this.reload();
+                    data_changed();
+                } else {
+                    if (this._value.type != "text" && (t.includes("\n") || t.includes("\r"))) {
+                        e.preventDefault();
+                        let el = this.parentElement as x;
+                        let pel = el.parentElement;
+                        let md: markdown;
+                        if (!(pel.classList.contains("flex-column") || pel.classList.contains("flex-row"))) {
+                            let nel = document.createElement("x-x") as x;
+                            nel.id = el.id;
+                            el.id = uuid_id();
+                            link(el.id).add();
+                            this.remove();
+                            el.append(nel);
+                            md = document.createElement("x-md") as markdown;
+                            nel.append(md);
+                            md.value = this.value;
+                            md.text.setSelectionRange(this.text.selectionStart, this.text.selectionEnd);
+                            pel = el;
+                            el = nel;
+                            pel.classList.add("flex-column");
                         }
+                        const l = t.split(/[\n\r]+/);
+                        let last_el = el;
+                        for (let i in l) {
+                            const tt = l[i];
+                            if (!tt) continue;
+                            if (i == "0") {
+                                md._value.text = tt;
+                                md.text.setRangeText(tt);
+                                md.reload();
+                            } else {
+                                let x = document.createElement("x-x") as x;
+                                let md = document.createElement("x-md") as markdown;
+                                last_el.after(x);
+                                x.append(md);
+                                x.id = uuid_id();
+                                link(x.id).add();
+                                md.value = JSON.stringify({ type: "p", text: tt });
+                                last_el = x;
+                            }
+                        }
+                        z.reflash();
                     }
-                    z.reflash();
                 }
             }
         };
@@ -4420,8 +4439,7 @@ class markdown extends HTMLElement {
             if (el.tagName == "TEXTAREA") return;
             if ((<HTMLInputElement>el).type == "checkbox") {
                 // 待办与源文本同步
-                text.value = text.value.replace(/\[[x\s]\]/, `[${(<HTMLInputElement>el).checked ? "x" : " "}]`);
-                this._value.text = text.value;
+                集.values[this.parentElement.id].todo.checked = (<HTMLInputElement>el).checked;
                 data_changed();
                 return;
             }
@@ -4480,21 +4498,29 @@ class markdown extends HTMLElement {
         if (type == "text") {
             this.h.innerHTML = md.render(text);
         } else if (type == "todo") {
-            if (!text.match(/^\[[x\s]\] /)) {
-                text = "[ ] " + text;
-                this.text.value = text;
-            }
-            let check = text.match(/^\[x\]/);
-            let i = `<input type="checkbox" ${check ? "checked" : ""}>`;
-            let t = text.replace(/^\[[x\s]\] +/, "");
-            this.h.innerHTML = i + md.render(t);
+            this.init_v("todo");
+            if (!集.values[this.parentElement.id].todo["checked"])
+                集.values[this.parentElement.id].todo["checked"] = false;
+            let i = `<input type="checkbox" ${集.values[this.parentElement.id].todo.checked ? "checked" : ""}>`;
+            this.h.innerHTML = i + md.render(text);
         } else if (type == "math") {
             this.h.innerHTML = get_svg(`\\displaylines{${text}}`);
         } else if (type == "iframe") {
             this.h.innerHTML = `<iframe src="${text}"></iframe>`;
+        } else if (type == "code") {
+            if (集.values?.[this.parentElement.id]?.code?.["html"]) {
+                this.h.innerHTML = 集.values[this.parentElement.id].code["html"];
+            } else {
+                this.h.innerHTML = md.render(text);
+            }
         } else {
             this.h.innerHTML = md.render(text);
         }
+    }
+
+    init_v(type: md_type) {
+        if (!集.values[this.parentElement.id]) 集.values[this.parentElement.id] = {};
+        if (!集.values[this.parentElement.id][type]) 集.values[this.parentElement.id][type] = {};
     }
 
     set type(type: md_type) {
