@@ -84,7 +84,8 @@ cmd_pel.classList.add("cmd_hide");
 const view_el = document.getElementById("viewer");
 
 const ink_el = document.getElementById("ink") as HTMLCanvasElement;
-const ink_r = document.getElementById("ink_r");
+let ink_cxt = ink_el.getContext("2d");
+let ink_points: [number[], number[]][] = [];
 
 function icon(src: string) {
     return `<img src="${src}" class="icon">`;
@@ -97,7 +98,7 @@ const default_setting = {
     ink: {
         网址: "https://pem.app/inputtools/request?ime=handwriting&app=mobilesearch&cs=1&oe=UTF-8",
         语言: "zh_CN",
-        延时: "1",
+        延时: "0.6",
     },
 };
 if (!store) {
@@ -359,18 +360,17 @@ function set_模式(模式x: "浏览" | "设计" | "绘制") {
         v.classList.remove("模式突出");
     });
     nav.querySelector(`#${模式x}`).classList.add("模式突出");
+    if (O) O.className = 模式x;
     switch (模式x) {
         case "浏览":
             if (<draw>focus_draw_el) {
                 focus_draw_el = null;
             }
-            if (O) O.style.pointerEvents = "";
 
             blur_all();
             画布.style.cursor = "auto";
             document.documentElement.style.setProperty("--x-x-handle-d", "none");
             if (link_value_bar) link_value_bar.style.display = "";
-            画布s.classList.remove("handle_cursor");
 
             ink_el.parentElement.style.display = "";
             pen_pel.style.display = "none";
@@ -382,11 +382,9 @@ function set_模式(模式x: "浏览" | "设计" | "绘制") {
             document.querySelectorAll("x-md").forEach((el) => {
                 (<markdown>el).edit = false;
             });
-            if (O) O.style.pointerEvents = "";
             画布.style.cursor = "crosshair";
             document.documentElement.style.setProperty("--x-x-handle-d", "block");
             if (link_value_bar) link_value_bar.style.display = "none";
-            画布s.classList.add("handle_cursor");
 
             ink_reset();
             ink_el.classList.add("ink_hide");
@@ -398,13 +396,11 @@ function set_模式(模式x: "浏览" | "设计" | "绘制") {
             document.querySelectorAll("x-md").forEach((el) => {
                 (<markdown>el).edit = false;
             });
-            if (O) O.style.pointerEvents = "none";
 
             blur_all();
             画布.style.cursor = "crosshair";
             document.documentElement.style.setProperty("--x-x-handle-d", "none");
             if (link_value_bar) link_value_bar.style.display = "none";
-            画布s.classList.remove("handle_cursor");
 
             ink_reset();
             ink_el.classList.add("ink_hide");
@@ -461,35 +457,6 @@ document.getElementById("常驻").onpointerdown = (e) => {
     console.log((<HTMLElement>e.target).id);
     let v = null;
     let el_n = "";
-    switch ((<HTMLElement>e.target).id) {
-        case "md_h1":
-            v = "# ";
-            break;
-        case "md_h2":
-            v = "## ";
-            break;
-        case "md_h3":
-            v = "### ";
-            break;
-        case "md_h4":
-            v = "#### ";
-            break;
-        case "md_h5":
-            v = "##### ";
-            break;
-        case "md_h6":
-            v = "###### ";
-            break;
-        case "md_list":
-            v = "- ";
-            break;
-        case "md_task":
-            v = "- [ ] ";
-            break;
-        case "md_mathb":
-            v = "$$\n\n$$";
-            break;
-    }
     if ((<HTMLElement>e.target).id == "录音") {
         el_n = "x-record";
     } else {
@@ -653,6 +620,9 @@ document.ontouchend = (e) => {
     } else if (e.targetTouches.length == 2) {
         touch_zoom(e);
     }
+
+    o_touch_e = e;
+    o_rect = { x: el_offset(O).x, y: el_offset(O).y };
 };
 
 var pointer_move = true;
@@ -1464,6 +1434,7 @@ function version_tr(obj): 集type {
             obj.meta.version = "0.11.2";
         case "0.11.2":
         case "0.11.3":
+        case "0.11.4":
             return obj;
         default:
             put_toast(`文件版本是 ${v}，与当前软件版本 ${packagejson.version} 不兼容，请升级软件`);
@@ -3468,8 +3439,6 @@ mqList.addEventListener("change", (event) => {
         ink_color = "#000";
     }
 });
-let ink_cxt = ink_el.getContext("2d");
-let ink_points: [number[], number[]][] = [];
 let ink_move = false;
 var ink_t = {}; // 确保清除所有计时器
 ink_el.onpointerdown = (e) => {
@@ -3515,37 +3484,31 @@ ink_el.onpointerup = () => {
             },
         ],
     });
-    fetch(store.ink.网址 || `https://pem.app/inputtools/request?ime=handwriting&app=mobilesearch&cs=1&oe=UTF-8`, {
-        method: "POST",
-        body: data,
-        headers: { "content-type": "application/json" },
-    })
-        .then((v) => v.json())
-        .then((v) => {
-            console.log(v);
-            let text_l = v[1][0][1];
-            ink_r.innerHTML = "";
-            for (let t of text_l) {
-                let div = document.createElement("div");
-                div.innerText = t;
-                div.onpointerdown = (e) => {
-                    e.preventDefault();
-                    set_text(t);
-                    ink_reset();
-                };
-                ink_r.append(div);
-            }
-            ink_t[
-                setTimeout(() => {
+    ink_t[
+        setTimeout(() => {
+            fetch(
+                store.ink.网址 || `https://pem.app/inputtools/request?ime=handwriting&app=mobilesearch&cs=1&oe=UTF-8`,
+                {
+                    method: "POST",
+                    body: data,
+                    headers: { "content-type": "application/json" },
+                }
+            )
+                .then((v) => v.json())
+                .then((v) => {
+                    console.log(v);
+                    let text_l = v[1][0][1];
                     set_text(text_l[0]);
                     ink_reset();
-                }, Number(store.ink.延时) * 1000 || 1000)
-            ] = "";
-        });
+                });
+        }, Number(store.ink.延时) * 1000 || 600)
+    ] = "";
     function set_text(t: string) {
         textel.setRangeText(t);
         textel.selectionEnd += t.length;
-        textel.dispatchEvent(new Event("input"));
+        textel.selectionStart = textel.selectionEnd;
+        selections[0].start = selections[0].end = textel.selectionStart;
+        md.reload();
     }
 };
 function ink_reset() {
@@ -3553,16 +3516,8 @@ function ink_reset() {
         clearTimeout(Number(t));
         delete ink_t[t];
     }
-    if (!selections) return;
-    let pmd = document.getElementById(selections[0].id);
-    if (!pmd) return;
-    let md = pmd.querySelector("x-md") as markdown;
-    let textel = md.text;
     ink_cxt.clearRect(0, 0, ink_el.width, ink_el.height);
     ink_points = [];
-    ink_r.innerHTML = "";
-    textel.selectionStart = textel.selectionEnd;
-    selections[0].start = selections[0].end = textel.selectionStart;
 }
 
 // MD
@@ -3960,6 +3915,7 @@ class x extends HTMLElement {
         this.onpointerdown = (e) => {
             if (模式 != "设计") return;
             if (this.fixed) return;
+            e.preventDefault();
             let el = e.target as HTMLDivElement;
             if (bar.contains(el) && el != m) return;
             if (el == m) {
@@ -4295,7 +4251,7 @@ class markdown extends HTMLElement {
                     ["~", "~"],
                 ];
                 for (let i of l_l) {
-                    if (e.key == i[0] && e.key != i[1]) {
+                    if (e.key == i[0] && (i[0] == i[1] || e.key != i[1])) {
                         e.preventDefault();
                         let t = text.value.slice(text.selectionStart, text.selectionEnd);
                         let s = text.selectionStart;
@@ -4352,6 +4308,41 @@ class markdown extends HTMLElement {
                     cmd_el.focus();
                 }, 10);
             }
+            if (e.key == " ") {
+                if (this._value.type == "code" || this._value.type == "text") return;
+                let mark = this.text.value.slice(0, text.selectionStart);
+                console.log(mark);
+                let t = this.text.value.slice(text.selectionStart, this.text.value.length);
+                let type: md_type;
+                let m2: { [key: string]: md_type } = {
+                    "#": "h1",
+                    "##": "h2",
+                    "###": "h3",
+                    "####": "h4",
+                    "#####": "h5",
+                    "######": "h6",
+                    "[]": "todo",
+                };
+                for (let m in m2) {
+                    if (m == mark) {
+                        e.preventDefault();
+                        type = m2[m];
+                        break;
+                    }
+                }
+                this.text.value = t;
+                text.selectionStart = text.selectionEnd = 0;
+                this._value = { type, text: t };
+                this.type = type;
+                this.render();
+            }
+            if (e.key == "Backspace") {
+                if (this._value.type != "text") {
+                    if (text.selectionStart == 0 && text.selectionEnd == 0) {
+                        this.type = "p";
+                    }
+                }
+            }
         };
         text.onclick = text.onkeyup = () => {
             if (模式 != "浏览") return;
@@ -4407,6 +4398,8 @@ class markdown extends HTMLElement {
                             pel = el;
                             el = nel;
                             pel.classList.add("flex-column");
+                        } else {
+                            md = this;
                         }
                         const l = t.split(/[\n\r]+/);
                         let last_el = el;
