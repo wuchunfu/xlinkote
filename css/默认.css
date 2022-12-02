@@ -49,6 +49,17 @@ select {
     background-color: transparent;
 }
 
+input:focus,
+textarea:focus,
+select:focus {
+    outline: none;
+}
+
+.bar {
+    background-color: var(--bg-color2);
+    backdrop-filter: var(--blur);
+}
+
 body > #main > #nav {
     background-color: var(--bg1);
 }

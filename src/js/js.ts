@@ -475,7 +475,7 @@ document.getElementById("常驻").onpointerdown = (e) => {
     if (v) (<markdown>md).value = v;
     set_模式("设计");
     free_o_rects = [{ el: xel, x: x / zoom, y: y / zoom }];
-    free_o_e = e;
+    free_old_point = e2p(e);
     drag_block = true;
 };
 
@@ -768,13 +768,28 @@ function zoom_o(z: number) {
     zoom_el.value = `${(z * 100).toFixed(1)}`;
     zoom_el.style.width = zoom_el.value.length + "ch";
     document.documentElement.style.setProperty("--zoom", String(z));
+
+    document.querySelectorAll("x-pdf").forEach((el: pdf_viewer) => {
+        let r = el.getBoundingClientRect();
+        let w = window.innerWidth,
+            h = window.innerHeight;
+        if (r.x < w && r.y < h && r.x + r.width > 0 && r.y + r.height > 0) el.set_m();
+    });
 }
 
 zoom_el.oninput = () => {
     zoom_el.style.width = zoom_el.value.length + "ch";
 };
 zoom_el.onchange = () => {
-    zoom_o((Number(zoom_el.value) || 100) / 100);
+    let nzoom = (Number(zoom_el.value) || 100) / 100;
+    let ozoom = zoom,
+        dzoom = nzoom - zoom;
+    zoom += dzoom;
+    let dx = window.innerWidth / 2 - O.getBoundingClientRect().x,
+        dy = window.innerHeight / 2 - O.getBoundingClientRect().y;
+    O.style.left = el_offset(O).x - dx * (dzoom / ozoom) + "px";
+    O.style.top = el_offset(O).y - dy * (dzoom / ozoom) + "px";
+    zoom_o(zoom);
     zoom_list.classList.add("zoom_list_hide");
 };
 
@@ -790,7 +805,14 @@ for (let i = 25; i <= 200; i += 25) {
     op.innerText = `${i}%`;
     zoom_list.append(op);
     op.onpointerdown = () => {
-        zoom_o(i / 100);
+        let nzoom = i / 100;
+        let ozoom = zoom,
+            dzoom = nzoom - zoom;
+        let dx = window.innerWidth / 2 - O.getBoundingClientRect().x,
+            dy = window.innerHeight / 2 - O.getBoundingClientRect().y;
+        O.style.left = el_offset(O).x - dx * (dzoom / ozoom) + "px";
+        O.style.top = el_offset(O).y - dy * (dzoom / ozoom) + "px";
+        zoom_o(nzoom);
     };
 }
 O.style.left = `${画布.offsetWidth / 2}px`;
@@ -878,14 +900,14 @@ type selection_type = {
 var selections = [{ id: "", start: 0, end: 0 }] as selection_type[];
 
 // 自由元素移动
-let free_o_e: MouseEvent;
+let free_old_point: p_point;
 let free_o_rects = [] as { el: x; x: number; y: number; w?: number; h?: number }[];
 let free_o_a = NaN;
 let free_move = false;
 let free_target_id = "";
 let free_drag = false;
 document.addEventListener("pointermove", (e: PointerEvent) => {
-    if (模式 == "设计" && free_o_e) {
+    if (模式 == "设计" && free_old_point) {
         e.preventDefault();
         free_mouse(e);
         free_move = true;
@@ -893,8 +915,6 @@ document.addEventListener("pointermove", (e: PointerEvent) => {
 });
 document.addEventListener("pointerup", (e: PointerEvent) => {
     if (drag_block) {
-        set_模式("浏览");
-        (<markdown>free_o_rects[0].el.children[1]).edit = true;
         drag_block = false;
         data_changed();
     }
@@ -948,7 +968,7 @@ document.addEventListener("pointerup", (e: PointerEvent) => {
         free_drag = false;
     }
 
-    if (free_o_e && free_o_a == -1 && 临时中转站.contains(e.target as HTMLElement)) {
+    if (free_old_point && free_o_a == -1 && 临时中转站.contains(e.target as HTMLElement)) {
         for (let i of selected_el) {
             集.中转站.push({
                 id: i.id,
@@ -958,15 +978,16 @@ document.addEventListener("pointerup", (e: PointerEvent) => {
                 子元素: i.value,
             });
             if (!e.shiftKey) {
-                z.remove(i);
+                i.remove();
             }
         }
+        free_o_rects = [];
         console.log(集.中转站);
         tmp_s_reflash();
         data_changed();
     }
 
-    if (!free_move && free_o_e) {
+    if (!free_move && free_old_point) {
         document.querySelectorAll("x-x").forEach((el: x) => {
             if (el.contains(e.target as x)) {
                 z.focus(el);
@@ -975,21 +996,22 @@ document.addEventListener("pointerup", (e: PointerEvent) => {
         });
         data_changed();
     }
-    if (free_drag || free_o_e) z.reflash();
-    free_o_e = null;
+    if (free_drag || free_old_point) z.reflash();
+    free_old_point = null;
     free_move = false;
     free_o_rects = [];
 });
 
 /** 调整元素大小、位置以及元素聚焦 */
 var free_mouse = (e: MouseEvent) => {
-    if (free_o_e) {
+    if (free_old_point) {
         for (const xel of free_o_rects) {
             let f =
                 xel.el.parentElement.classList.contains("flex-column") ||
                 xel.el.parentElement.classList.contains("flex-row");
-            let dx = (e.clientX - free_o_e.clientX) / zoom,
-                dy = (e.clientY - free_o_e.clientY) / zoom;
+            let np = e2p(e);
+            let dx = np.x - free_old_point.x,
+                dy = np.y - free_old_point.y;
             let x = xel.x,
                 y = xel.y,
                 w = xel.w,
@@ -1435,6 +1457,7 @@ function version_tr(obj): 集type {
         case "0.11.2":
         case "0.11.3":
         case "0.11.4":
+        case "0.11.5":
             return obj;
         default:
             put_toast(`文件版本是 ${v}，与当前软件版本 ${packagejson.version} 不兼容，请升级软件`);
@@ -3044,7 +3067,7 @@ function run_cmd() {
     const el = get_x_by_id(cmd_el.getAttribute("data-id"));
     const md = el.querySelector("x-md") as markdown;
     let arg = cmd_el.value;
-    let args = arg.split(" ");
+    let args = arg.split(/\s+/);
     if (arg == "/") {
         md.text.setRangeText("/");
         md.text.dispatchEvent(new Event("input"));
@@ -3913,12 +3936,11 @@ class x extends HTMLElement {
         };
 
         this.onpointerdown = (e) => {
-            if (模式 != "设计") return;
             if (this.fixed) return;
-            e.preventDefault();
             let el = e.target as HTMLDivElement;
             if (bar.contains(el) && el != m) return;
             if (el == m) {
+                e.preventDefault();
                 e.stopPropagation();
                 free_drag = true;
                 if (this.parentElement != O) {
@@ -3934,7 +3956,7 @@ class x extends HTMLElement {
                     xel.value = this.value;
                     this.remove();
                     free_o_rects = [{ el: xel, x: x / zoom, y: y / zoom }];
-                    free_o_e = e;
+                    free_old_point = e2p(e);
                     free_o_a = -1;
 
                     set_模式("设计");
@@ -3954,15 +3976,17 @@ class x extends HTMLElement {
                     return;
                 }
             }
+            if (模式 != "设计") return;
+            e.preventDefault();
             if (x_h.includes(el)) {
                 e.stopPropagation();
                 free_o_a = x_h.indexOf(el);
-                free_o_e = e;
+                free_old_point = e2p(e);
                 free_o_rects = [
                     { el: this, x: this.offsetLeft, y: this.offsetTop, w: this.offsetWidth, h: this.offsetHeight },
                 ];
             } else {
-                free_o_e = e;
+                free_old_point = e2p(e);
                 free_o_a = -1;
 
                 if (selected_el.length <= 1) {
@@ -4322,6 +4346,7 @@ class markdown extends HTMLElement {
                     "#####": "h5",
                     "######": "h6",
                     "[]": "todo",
+                    $$: "math",
                 };
                 for (let m in m2) {
                     if (m == mark) {
@@ -4330,6 +4355,7 @@ class markdown extends HTMLElement {
                         break;
                     }
                 }
+                if (!type) return;
                 this.text.value = t;
                 text.selectionStart = text.selectionEnd = 0;
                 this._value = { type, text: t };
@@ -4825,7 +4851,7 @@ class file extends HTMLElement {
 window.customElements.define("x-file", file);
 
 import * as pdfjsLib from "pdfjs-dist";
-pdfjsLib.GlobalWorkerOptions.workerSrc = "https://unpkg.com/pdfjs-dist@2.16.105/build/pdf.worker.min.js";
+pdfjsLib.GlobalWorkerOptions.workerSrc = "https://unpkg.com/pdfjs-dist@3.1.81/build/pdf.worker.min.js";
 
 var pdf_cache = {} as { [key: string]: pdfjsLib.PDFDocumentProxy };
 
@@ -4839,8 +4865,10 @@ class pdf_viewer extends HTMLElement {
     div: HTMLDivElement;
     pages: HTMLElement;
     canvas: HTMLCanvasElement;
+    canvas1: HTMLCanvasElement;
     text: HTMLElement;
     old_id = "";
+    tasks: { [key: string]: pdfjsLib.RenderTask } = {};
 
     load_pdf = async () => {
         let f = 集.assets[this._value.id];
@@ -4883,17 +4911,28 @@ class pdf_viewer extends HTMLElement {
         };
         this.div.append(per, this.pages, next);
         this.canvas = document.createElement("canvas");
+        this.canvas.style.zIndex = "1";
         this.append(this.canvas);
+        this.canvas1 = document.createElement("canvas");
+        this.canvas1.style.zIndex = "2";
+        this.append(this.canvas1);
         this.text = document.createElement("div");
         this.append(this.text);
         if (this.getAttribute("value")) {
             this._value = JSON.parse(this.getAttribute("value"));
             this.set_m();
         }
+
+        const ob = new ResizeObserver((entries) => {
+            this.set_m();
+        });
+        ob.observe(this.parentElement);
     }
 
     async set_m() {
         let pdf = pdf_cache[this._value.id] || (await this.load_pdf());
+        this.canvas.style.zIndex = "1";
+        this.canvas1.style.zIndex = "2";
         pdf.getPage(this._value.page).then(async (page) => {
             let scale = 1.5;
             let viewport = page.getViewport({ scale: scale });
@@ -4917,7 +4956,21 @@ class pdf_viewer extends HTMLElement {
                 transform: transform,
                 viewport: viewport,
             };
-            page.render(renderContext);
+            for (let t in this.tasks) {
+                this.tasks[t].cancel();
+                delete this.tasks[t];
+            }
+            let task = page.render(renderContext);
+            let taskid = uuid_id();
+            this.tasks[taskid] = task;
+            task.promise.then(() => {
+                this.canvas.style.zIndex = "2";
+                this.canvas1.style.zIndex = "1";
+                [this.canvas, this.canvas1] = [this.canvas1, this.canvas];
+            });
+            task.promise.finally(() => {
+                delete this.tasks[taskid];
+            });
 
             this.text.style.transform = `scaleX(${canvas.offsetWidth / viewport.width}) scaleY(${
                 canvas.offsetHeight / viewport.height
