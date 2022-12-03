@@ -18,6 +18,7 @@ import remove_svg from "../../assets/icons/remove.svg";
 import update_svg from "../../assets/icons/update.svg";
 import more1_svg from "../../assets/icons/more1.svg";
 import edit_svg from "../../assets/icons/edit.svg";
+import ocr_svg from "../../assets/icons/ocr.svg";
 
 // el
 var 设置_el = document.getElementById("设置");
@@ -1152,6 +1153,7 @@ function tmp_s_reflash() {
         xel.setAttribute("style", x.style);
         xel.style.left = "0px";
         xel.style.top = "0px";
+        xel.className = x.class;
         xel.value = x.子元素;
     }
 }
@@ -1458,6 +1460,7 @@ function version_tr(obj): 集type {
         case "0.11.3":
         case "0.11.4":
         case "0.11.5":
+        case "0.12.0":
             return obj;
         default:
             put_toast(`文件版本是 ${v}，与当前软件版本 ${packagejson.version} 不兼容，请升级软件`);
@@ -2690,7 +2693,7 @@ var now_dav_data = "";
 
 /** 获取云文件数据并渲染 */
 async function get_xln_value(path: string) {
-    let str = await client.getFileContents(path, { format: "text" });
+    let str = (await client.getFileContents(path, { format: "text" })) as string;
     let o: any;
     try {
         o = JSON.parse(<string>str);
@@ -3161,6 +3164,7 @@ function move_to_x_link(el: x | xlink) {
         xel.setAttribute("style", x.el.getAttribute("style"));
         xel.style.left = x.x - out_rect.left + "px";
         xel.style.top = x.y - out_rect.top + "px";
+        xel.className = x.el.className;
         view_el.append(xel);
         xel.value = x.el.value;
     }
@@ -3508,23 +3512,26 @@ ink_el.onpointerup = () => {
         ],
     });
     ink_t[
-        setTimeout(() => {
-            fetch(
-                store.ink.网址 || `https://pem.app/inputtools/request?ime=handwriting&app=mobilesearch&cs=1&oe=UTF-8`,
-                {
-                    method: "POST",
-                    body: data,
-                    headers: { "content-type": "application/json" },
-                }
-            )
-                .then((v) => v.json())
-                .then((v) => {
-                    console.log(v);
-                    let text_l = v[1][0][1];
-                    set_text(text_l[0]);
-                    ink_reset();
-                });
-        }, Number(store.ink.延时) * 1000 || 600)
+        Number(
+            setTimeout(() => {
+                fetch(
+                    store.ink.网址 ||
+                        `https://pem.app/inputtools/request?ime=handwriting&app=mobilesearch&cs=1&oe=UTF-8`,
+                    {
+                        method: "POST",
+                        body: data,
+                        headers: { "content-type": "application/json" },
+                    }
+                )
+                    .then((v) => v.json())
+                    .then((v) => {
+                        console.log(v);
+                        let text_l = v[1][0][1];
+                        set_text(text_l[0]);
+                        ink_reset();
+                    });
+            }, Number(store.ink.延时) * 1000 || 600)
+        )
     ] = "";
     function set_text(t: string) {
         textel.setRangeText(t);
@@ -4165,7 +4172,8 @@ class markdown extends HTMLElement {
             if (模式 != "浏览") e.preventDefault();
             if (e.key == "Enter") {
                 e.preventDefault();
-                O.style.top = O.offsetTop - this.offsetHeight * zoom + "px";
+                if (this._value.type != "text" && this._value.type != "code")
+                    O.style.top = O.offsetTop - this.offsetHeight * zoom + "px";
                 data_changed();
                 if (this._value.type == "text") {
                     let last_line_start = text.value.lastIndexOf("\n", text.selectionStart - 1) + 1;
@@ -4372,13 +4380,10 @@ class markdown extends HTMLElement {
         };
         text.onclick = text.onkeyup = () => {
             if (模式 != "浏览") return;
-            let el = <HTMLElement>s.querySelector(`#h > *`);
-            if (el) {
-                let x = el_offset2(el, this.h).x,
-                    y = el_offset2(el, this.h).y + el.offsetHeight;
-                text.style.left = x + "px";
-                text.style.top = y + "px";
-            }
+            let x = el_offset2(this.h).x,
+                y = el_offset2(this.h).y + s.offsetHeight;
+            text.style.left = x + "px";
+            text.style.top = y + "px";
 
             selections[0] = { id: this.parentElement.id, start: text.selectionStart, end: text.selectionEnd };
         };
@@ -4468,8 +4473,8 @@ class markdown extends HTMLElement {
                     window.open((el as HTMLAnchorElement).href);
                 }
             }
-            text.style.left = el_offset2(el, this.h).x + "px";
-            text.style.top = el_offset2(el, this.h).y + el.offsetHeight + "px";
+            text.style.left = el_offset2(this.h).x + "px";
+            text.style.top = el_offset2(this.h).y + s.offsetHeight + "px";
             if (模式 == "浏览" && document.getSelection().anchorOffset == document.getSelection().focusOffset)
                 this.edit = true;
             text.focus();
@@ -4808,9 +4813,9 @@ class file extends HTMLElement {
         if (this._value.r) {
             this.div.classList.remove("file");
             if (type[0] == "image") {
-                let img = document.createElement("img");
+                let img = document.createElement("x-img") as img;
                 this.div.append(img);
-                img.src = f.base64;
+                img.value = f.base64;
             }
             if (type[0] == "video") {
                 let video = document.createElement("video");
@@ -5848,3 +5853,80 @@ class three extends HTMLElement {
 window.customElements.define("x-three", three);
 
 ignore_el.push("x-three");
+/** 3d元素 */
+class img extends HTMLElement {
+    constructor() {
+        super();
+    }
+
+    img: HTMLImageElement;
+
+    connectedCallback() {
+        this.img = document.createElement("img");
+        this.append(this.img);
+        let ocr = document.createElement("div");
+        ocr.innerHTML = icon(ocr_svg);
+        ocr.onclick = () => {
+            to_text(this.img);
+        };
+        this.append(ocr);
+    }
+    set value(s: string) {
+        this.img.src = s;
+    }
+}
+
+window.customElements.define("x-img", img);
+
+function to_text(img: HTMLImageElement | HTMLCanvasElement) {
+    let canvas = document.createElement("canvas");
+    canvas.width = img.width;
+    canvas.height = img.height;
+    canvas.getContext("2d").drawImage(img, 0, 0);
+    ocr.ocr(canvas.getContext("2d").getImageData(0, 0, img.width, img.height)).then((v) => {
+        let tl = [];
+        let p = el_offset2(img, O);
+        let pxel = <x>document.createElement("x-x");
+        pxel.id = uuid_id();
+        pxel.style.left = p.x + "px";
+        pxel.style.top = p.y + "px";
+        z.push(pxel);
+        for (let i of v) {
+            if (!i.text) continue;
+            tl.push(i.text);
+            let x0 = i.box[0][0];
+            let y0 = i.box[0][1];
+            let x1 = i.box[2][0];
+            let y1 = i.box[2][1];
+            let xel = <x>document.createElement("x-x");
+            xel.style.left = x0 + "px";
+            xel.style.top = y0 + "px";
+            xel.style.width = x1 - x0 + "px";
+            xel.style.height = y1 - y0 + "px";
+            xel.style.color = "transparent";
+            xel.style.fontSize = `${(x1 - x0) / i.text.length}px`;
+            z.push(xel, pxel);
+            var md = document.createElement("x-md") as markdown;
+            xel.append(md);
+            let v = JSON.stringify({ type: "p", text: i.text });
+            md.value = v;
+        }
+        console.log(tl);
+    });
+}
+
+import ocr from "../../ai/ocr";
+
+start();
+
+import dic from "../../public/ocr/ppocr_keys_v1.txt?raw";
+
+async function start() {
+    await ocr.init({
+        det_path: "./ocr/ppocr_det.onnx",
+        rec_path: "./ocr/ppocr_rec.onnx",
+        dic: dic,
+        dev: false,
+        node: true,
+    });
+}
