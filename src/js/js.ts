@@ -1126,6 +1126,17 @@ var free_mouse = (e: MouseEvent) => {
     }
 };
 
+document.addEventListener("dblclick", (e) => {
+    if (模式 == "设计") {
+        console.log(free_o_a);
+        let el = z.聚焦元素;
+        let xl = [1, 3, 4, 5, 6, 7],
+            yl = [0, 2, 4, 5, 6, 7];
+        if (xl.includes(free_o_a)) el.style.width = "";
+        if (yl.includes(free_o_a)) el.style.height = "";
+    }
+});
+
 /** 通过画布坐标创建主元素 */
 function creat_x_x(x: number, y: number, w: number) {
     let xel = <x>document.createElement("x-x");
@@ -1461,6 +1472,7 @@ function version_tr(obj): 集type {
         case "0.11.5":
         case "0.12.0":
         case "0.12.1":
+        case "0.12.2":
             return obj;
         default:
             put_toast(`文件版本是 ${v}，与当前软件版本 ${packagejson.version} 不兼容，请升级软件`);
@@ -3014,15 +3026,48 @@ let now_focus_id = "0";
 cmd_el.oninput = () => {
     const el = get_x_by_id(cmd_el.getAttribute("data-id"));
     const md = el.querySelector("x-md") as markdown;
-    if ((cmd_el.value = "/")) {
+    if (cmd_el.value == "/") {
         md.text.setRangeText("/");
         md.text.selectionStart = md.text.selectionEnd = md.text.selectionStart + 1;
         md.text.dispatchEvent(new Event("input"));
         data_changed();
         md.edit = true;
+        cmd_el.value = "";
+        cmd_pel.classList.add("cmd_hide");
+    } else {
+        cmd_r.innerHTML = "";
+        let arg = cmd_el.value;
+        let args = arg.split(/\s+/);
+        const fuse = new Fuse(md_type_l, {
+            includeMatches: true,
+            findAllMatches: true,
+            useExtendedSearch: true,
+        });
+        let fr = fuse.search(args[0]);
+        for (let i of fr) {
+            for (let j of i.matches) {
+                let indices = [...j.indices].sort((a, b) => a[0] - b[0]);
+                let line = document.createElement("div");
+                let p = document.createElement("span");
+                for (let i = 0; i < indices.length; i++) {
+                    const k = indices[i];
+                    let h = document.createElement("span");
+                    h.innerText = j.value.slice(k[0], k[1] + 1);
+                    if (Number(i) == indices.length - 1) {
+                        p.append(j.value.slice(indices[i - 1]?.[1] + 1 || 0, k[0]), h, j.value.slice(k[1] + 1));
+                    } else {
+                        p.append(j.value.slice(indices[i - 1]?.[1] + 1 || 0, k[0]), h);
+                    }
+                }
+                line.append(p);
+                cmd_r.append(line);
+                line.onpointerdown = () => {
+                    cmd_el.value = j.value;
+                    run_cmd();
+                };
+            }
+        }
     }
-    cmd_el.value = "";
-    cmd_pel.classList.add("cmd_hide");
 };
 
 cmd_el.onchange = () => {
@@ -3031,6 +3076,7 @@ cmd_el.onchange = () => {
 cmd_el.onblur = () => {
     cmd_el.value = "";
     cmd_pel.classList.add("cmd_hide");
+    cmd_r.innerHTML = "";
 };
 
 const md_type_l: md_type[] = [
@@ -3449,7 +3495,7 @@ var ink_t = {}; // 确保清除所有计时器
 ink_el.onpointerdown = (e) => {
     e.preventDefault();
 
-    ink_points.push([[], []]);
+    ink_points.push([[e.offsetX], [e.offsetY]]);
     ink_move = true;
 
     ink_cxt.beginPath();
