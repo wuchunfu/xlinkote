@@ -203,7 +203,7 @@ document.getElementById("保存设置").onclick = () => {
 };
 document.getElementById("新建元素").onclick = () => {
     const margin = 8 / zoom;
-    creat_x_x(-el_offset2(O).x + margin, -el_offset2(O).y + margin, 画布.offsetWidth / zoom - margin * 2);
+    create_x_x(-el_offset2(O).x + margin, -el_offset2(O).y + margin);
 };
 document.getElementById("删除元素").onclick = () => {
     for (let i of selected_el) {
@@ -310,6 +310,12 @@ document.getElementById("横向堆叠").onclick = () => {
 };
 document.getElementById("成组").onclick = () => {
     to_none_layout(selected_el);
+};
+document.getElementById("转为一行").onclick = () => {
+    to_one_line(selected_el);
+};
+document.getElementById("拆分为多行").onclick = () => {
+    to_more_line(selected_el);
 };
 
 function put_toast(t: string, time?: number) {
@@ -529,7 +535,7 @@ document.onmouseup = (e) => {
             add_blank(o_ab_p, e2p(e));
         } else {
             let r = p2rect(o_ab_p, e2p(e));
-            creat_x_x(r.x, r.y, r.w);
+            create_x_x(r.x, r.y);
         }
     }
     o_e = null;
@@ -1138,11 +1144,10 @@ document.addEventListener("dblclick", (e) => {
 });
 
 /** 通过画布坐标创建主元素 */
-function creat_x_x(x: number, y: number, w: number) {
+function create_x_x(x: number, y: number) {
     let xel = <x>document.createElement("x-x");
     xel.style.left = x + "px";
     xel.style.top = y + "px";
-    xel.style.width = w + "px";
     z.push(xel);
     var md = document.createElement("x-md");
     xel.append(md);
@@ -1225,6 +1230,19 @@ document.onkeydown = (e) => {
                 e.preventDefault();
                 undo(false);
             }
+            break;
+        case "i":
+            if (模式 != "浏览") {
+                set_模式("浏览");
+                e.preventDefault();
+                if (z.聚焦元素.querySelector("x-md")) (z.聚焦元素.querySelector("x-md") as markdown).edit = true;
+            }
+            break;
+        case "Escape":
+            if (模式 == "浏览") {
+                set_模式("设计");
+            }
+            break;
     }
 };
 
@@ -1473,6 +1491,7 @@ function version_tr(obj): 集type {
         case "0.12.0":
         case "0.12.1":
         case "0.12.2":
+        case "0.12.3":
             return obj;
         default:
             put_toast(`文件版本是 ${v}，与当前软件版本 ${packagejson.version} 不兼容，请升级软件`);
@@ -2285,7 +2304,7 @@ function new_draw() {
     xel.append(draw);
 
     focus_draw_el = draw;
-    O.lastElementChild.append(xel);
+    z.push(xel, O.lastElementChild as x);
 }
 var focus_draw_el = null as draw;
 画布.onpointerdown = (e) => {
@@ -2875,6 +2894,10 @@ search_el.oninput = search_el.click = () => {
     let l = search(search_el.value, "str");
     console.log(l);
     show_search_l(l);
+    if (l.length == 0) {
+        view_el.classList.add("viewer_hide");
+        return;
+    }
     select_index = 0;
     let el = select_search(select_index);
     move_to_x_link(get_link_el_by_id(el.getAttribute("data-id")));
@@ -3421,6 +3444,19 @@ function to_flex(els: x[], d: "x" | "y") {
     z.reflash();
 }
 
+/** 判断是否为flex */
+function is_flex(el: x) {
+    if (el.classList.contains("flex-column") || el.classList.contains("flex-row")) {
+        return "flex";
+    }
+    if (el.classList.contains("flex-column")) {
+        return "col";
+    }
+    if (el.classList.contains("flex-row")) {
+        return "row";
+    }
+}
+
 /** 添加一个固定布局元素 */
 function add_none_layout() {
     let x = document.createElement("x-x") as x;
@@ -3467,6 +3503,47 @@ function to_none_layout(els: x[]) {
     }
     x.value = data;
     reflash_none_layout(x);
+}
+
+/** 把flex所有文字转为一行 */
+function to_one_line(xels: x[]) {
+    for (let el of xels) {
+        if (is_flex(el) == "flex") {
+            let t = "";
+            let type: md_type;
+            el.querySelectorAll("x-md").forEach((md: markdown, i) => {
+                t += md._value.text;
+                if (i == 0) type = md._value.type;
+            });
+            el.querySelectorAll("x-x").forEach((el) => z.remove(el as x));
+            let md = document.createElement("x-md") as markdown;
+            el.append(md);
+            md.value = JSON.stringify({ text: t, type });
+            data_changed();
+        }
+    }
+}
+
+/** 按换行拆分 */
+function to_more_line(xels: x[], c?: string | RegExp) {
+    for (let el of xels) {
+        if (is_smallest_el(el) && el.querySelector("x-md")) {
+            let v = (el.querySelector("x-md") as markdown)._value;
+            let l = v.text.trim().split(c || "\n");
+            el.querySelector("x-md").remove();
+            el.classList.add("flex-column");
+            for (let t of l) {
+                if (!t) continue;
+                let x = document.createElement("x-x") as x;
+                x.setAttribute("style", "");
+                let md = document.createElement("x-md") as markdown;
+                x.append(md);
+                z.push(x, el);
+                md.value = JSON.stringify({ text: t, type: v.type });
+            }
+            data_changed();
+        }
+    }
 }
 
 window["xln"] = {};
@@ -4475,6 +4552,16 @@ class markdown extends HTMLElement {
                             }
                         }
                         z.reflash();
+                    } else if (this._value.type != "text") {
+                        e.preventDefault();
+                        let t = e.clipboardData.getData("text/plain").replace("\n", "");
+                        this.text.setRangeText(t);
+                        let s = this.text.selectionStart;
+                        if (s == this.text.selectionEnd) {
+                            this.text.setSelectionRange(s + t.length, s + t.length);
+                        }
+                        this._value.text = this.text.value;
+                        this.reload();
                     }
                 }
             }
@@ -5610,6 +5697,7 @@ class link_value extends HTMLElement {
                                 return JSON.parse(i.value).text;
                             } else {
                                 if (i.子元素) return w(i.子元素);
+                                else return "";
                             }
                         }
                     };
