@@ -24,8 +24,9 @@
 
 ```shell
 npm i # 安装依赖
+node init.js # 下载ocr相关文件
 npm run build # 编译
-npx http-server ./dist # 打开服务器
+npm run preview # 打开服务器
 ```
 
 ## 功能
@@ -34,7 +35,7 @@ npx http-server ./dist # 打开服务器
     -   [x] markdown 语法输入
     -   [x] 无限画布
 -   [ ] 文件
-    -   [x] 与本地文件关联（带注释的 md 文件）
+    -   [x] 与本地文件关联
     -   [x] 默认保存到 indexedDB
     -   [x] 自由导出文件和数据库
     -   [x] webDAV（默认压缩，支持加密）
