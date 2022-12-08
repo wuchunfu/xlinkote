@@ -132,7 +132,7 @@ function uuid() {
 
 /** 七位uuid */
 function uuid_id() {
-    return uuid().slice(0, 7);
+    return uuid().slice(0, 8);
 }
 
 if ("serviceWorker" in navigator) {
@@ -1247,7 +1247,7 @@ document.onkeydown = (e) => {
 };
 
 // 文件数据
-let pname = `画布${uuid().slice(0, 7)}`;
+let pname = `画布${uuid_id()}`;
 /** 文件 */
 type 集type = {
     meta: meta;
@@ -1292,7 +1292,7 @@ var 集 = new_集(pname);
 
 /** 新建默认集 */
 function new_集(pname: string): 集type {
-    if (!pname) pname = `画布${uuid().slice(0, 7)}`;
+    if (!pname) pname = `画布${uuid_id()}`;
     const pid = uuid_id();
     return {
         meta: {
@@ -1324,17 +1324,13 @@ function get_data() {
     for (let O of 画布s.children) {
         let data = [] as data;
         let els = O.querySelectorAll(":scope > *");
-        let map = [];
+        let map: { index: number; z: number }[] = [];
         els.forEach((el: HTMLElement, i) => {
-            if (el.style.zIndex) {
-                map[Number(el.style.zIndex) - 1] = i;
-            } else {
-                map.push(i);
-            }
+            map.push({ index: i, z: Number(el.style.zIndex) || 1 });
         });
-        map = map.flat();
+        map = map.sort((a, b) => a.z - b.z);
         for (let i of map) {
-            let el = <x>els[i];
+            let el = <x>els[i.index];
             let type = "X-X";
             data.push({ id: el.id, style: "", 子元素: el.value, type, fixed: el.fixed });
             if (el.getAttribute("style")) data[data.length - 1].style = el.getAttribute("style");
@@ -1492,6 +1488,7 @@ function version_tr(obj): 集type {
         case "0.12.1":
         case "0.12.2":
         case "0.12.3":
+        case "0.12.4":
             return obj;
         default:
             put_toast(`文件版本是 ${v}，与当前软件版本 ${packagejson.version} 不兼容，请升级软件`);
@@ -1889,7 +1886,7 @@ function load_file_side_bar() {
     let new_d = document.createElement("div");
     new_d.title = "点击重命名以保存";
     let new_t = document.createElement("div");
-    new_t.innerText = `新建集${uuid().slice(0, 7)}`;
+    new_t.innerText = `新建集${uuid_id()}`;
     let dav = document.createElement("div");
     new_d.append(dav, new_t);
     new_d.classList.add("selected_item");
@@ -2148,7 +2145,7 @@ function data_changed() {
 /** 添加画布 */
 function add_画布(xname?: string) {
     get_data(); /* 保存之前的画布 */
-    let name = xname || `画布${uuid().slice(0, 7)}`;
+    let name = xname || `画布${uuid_id()}`;
     let id = uuid_id();
     集.数据.push({ id: id, name, p: { x: 0, y: 0, zoom: 1 }, data: [] });
     集.meta.focus_page = id;
@@ -2240,7 +2237,7 @@ document.addEventListener("message", (msg: any) => {
                 }
                 j.meta.file_name = "摘录";
                 j.中转站.push({
-                    id: uuid().slice(0, 7),
+                    id: uuid_id(),
                     fixed: false,
                     style: "",
                     value: data.text,
@@ -2257,7 +2254,7 @@ import CryptoJS from "crypto-js";
 
 /** 添加资源到assets */
 function put_assets(url: string, base64: string) {
-    let id = uuid().slice(0, 7);
+    let id = uuid_id();
     let sha = "";
     if (base64) {
         sha = CryptoJS.SHA256(base64).toString();
@@ -2503,7 +2500,7 @@ class 图层 {
     }
 
     push(el: x, pel?: x) {
-        el.id = el.id === "undefined" || !el.id ? `${uuid().slice(0, 7)}` : el.id;
+        el.id = el.id === "undefined" || !el.id ? `${uuid_id()}` : el.id;
         if (pel) {
             pel.append(el);
         } else {
@@ -4076,7 +4073,7 @@ class x extends HTMLElement {
                                 集.中转站 = 集.中转站.filter((x) => x != i);
                                 tmp_s_reflash();
                             } else {
-                                xel.id = uuid().slice(0, 7);
+                                xel.id = uuid_id();
                             }
                             data_changed();
                         }
@@ -4149,18 +4146,15 @@ class x extends HTMLElement {
     get value() {
         let list = [] as data;
         let els = this.querySelectorAll(":scope > *");
-        let map = [];
+        let map: { index: number; z: number }[] = [];
+        const _is_flex = is_flex(this);
         els.forEach((el: HTMLElement, i) => {
             if (el.id == "x-x_bar" || el.id == "x-x_handle") return;
-            if (el.style.zIndex && !map[Number(el.style.zIndex) - 1]) {
-                map[Number(el.style.zIndex) - 1] = i;
-            } else {
-                map.push(i);
-            }
+            map.push({ index: i, z: Number(el.style.zIndex) || 1 });
         });
-        map = map.flat();
+        if (!_is_flex) map = map.sort((a, b) => a.z - b.z);
         for (let n of map) {
-            const l = els[n];
+            const l = els[n.index];
             let el = l as HTMLElement;
             if (el.tagName == "X-X") {
                 list.push({
@@ -5751,7 +5745,7 @@ class record extends HTMLElement {
     }
 
     connectedCallback() {
-        if (!this.id) this.id = uuid().slice(0, 7);
+        if (!this.id) this.id = uuid_id();
         let mediaRecorder = null;
         let i = document.createElement("input");
         i.type = "checkbox";
