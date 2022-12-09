@@ -470,11 +470,21 @@ body #main > #nav #ink_r {
     position: absolute;
     right: 4px;
     top: 4px;
+    @apply flex gap-1;
+}
+.侧栏 > #items > #资源 > div > div > :nth-child(1) {
+    @apply w-auto text-xs;
 }
 .侧栏 > #items > #资源 > div > div > div {
     width: 16px;
     height: 16px;
     border-radius: 4px;
+}
+.侧栏 > #items > #资源 x-img > div {
+    @apply hidden;
+}
+.not_click {
+    @apply opacity-50 cursor-not-allowed pointer-events-none;
 }
 
 .侧栏 > #items > #设置 > form input {
@@ -604,6 +614,7 @@ body > #main > #画布 > x-link-value > div:nth-child(2) > div > div > .icon {
     top: var(--icon-p-b-size);
     left: var(--icon-p-b-size);
     width: calc(100vw - var(--icon-p-b-size));
+    height: 0;
 }
 
 .bci {
@@ -682,6 +693,21 @@ body > #toast {
 .toast_show {
     opacity: 1 !important;
     pointer-events: all !important;
+}
+body > #toast progress {
+    @apply appearance-none h-2 border-none rounded-full overflow-hidden block w-32;
+    @apply bg-gray-200;
+}
+body > #toast progress::-moz-progress-bar {
+    @apply bg-gray-900;
+    @apply rounded-full;
+}
+body > #toast progress::-webkit-progress-bar {
+    @apply rounded-full;
+    background: none;
+}
+body > #toast progress[value]::-webkit-progress-value {
+    @apply bg-gray-900;
 }
 
 x-sinppet {

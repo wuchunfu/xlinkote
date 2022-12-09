@@ -1490,6 +1490,7 @@ function version_tr(obj): 集type {
         case "0.12.3":
         case "0.12.4":
         case "0.12.5":
+        case "0.12.6":
             return obj;
         default:
             put_toast(`文件版本是 ${v}，与当前软件版本 ${packagejson.version} 不兼容，请升级软件`);
@@ -1879,7 +1880,7 @@ var file_list: meta[] = [];
 function load_file_side_bar() {
     文件_el.innerHTML = "";
     let load_dav = document.createElement("div");
-    load_dav.innerHTML = `<img src="${cloud_down}" class="icon">`;
+    load_dav.innerHTML = icon(cloud_down);
     文件_el.append(load_dav);
     load_dav.onclick = () => {
         get_all_xln();
@@ -2280,13 +2281,35 @@ function assets_reflash() {
 
         let bar = document.createElement("div");
         let r = document.createElement("div");
-        r.innerHTML = `<img src="${remove_svg}" class="icon">`;
+        r.innerHTML = icon(remove_svg);
+        let id_el = document.createElement("div");
+        id_el.innerText = i;
         div.append(bar);
-        bar.append(r);
         r.onclick = () => {
             delete 集.assets[i];
             div.remove();
         };
+
+        画布s.querySelectorAll("x-file").forEach((el: file) => {
+            if (el._value.id == i) {
+                r.classList.add("not_click");
+            }
+        });
+
+        let add = document.createElement("div");
+        add.onclick = (e) => {
+            let p = e2p(e);
+            let xel = <x>document.createElement("x-x");
+            xel.style.left = p.x + "px";
+            xel.style.top = p.y + "px";
+            z.push(xel);
+            let file = <file>document.createElement("x-file");
+            xel.append(file);
+            file.value = JSON.stringify({ r: true, id: i });
+        };
+        add.innerHTML = icon(add_svg);
+
+        bar.append(id_el, add, r);
     }
 }
 
@@ -2662,7 +2685,7 @@ async function get_all_xln() {
                     document.title = get_title();
                     侧栏.classList.remove("侧栏显示");
                 };
-                dav.innerHTML = `<img src="${cloud_down}" class="icon">`;
+                dav.innerHTML = icon(cloud_down);
                 dav_files = dav_files.filter((v) => v != fi);
                 break;
             }
@@ -2675,7 +2698,7 @@ async function get_all_xln() {
         t.value = fi.basename.replace(/\.xln$/, "") || "";
         t.title = "/" + fi.filename.replace(new RegExp(`^${删除路径}`), "");
         let dav = document.createElement("div");
-        dav.innerHTML = `<img src="${cloud}" class="icon">`;
+        dav.innerHTML = icon(cloud);
         d.append(dav, t);
         文件_el.append(d);
         t.onclick = dav.onclick = () => {
@@ -2691,13 +2714,23 @@ var now_dav_data = "";
 
 /** 获取云文件数据并渲染 */
 async function get_xln_value(path: string) {
-    let str = (await client.getFileContents(path, { format: "text" })) as string;
+    show_upload_pro();
+    let str = (await client.getFileContents(path, {
+        format: "text",
+        onDownloadProgress: (e) => {
+            show_upload_pro(e.loaded, e.total);
+        },
+    })) as string;
     let o: any;
     try {
         o = JSON.parse(<string>str);
     } catch (e) {
         if (store.webdav.加密密钥) {
-            let b = (await client.getFileContents(path)) as ArrayBuffer;
+            let b = (await client.getFileContents(path, {
+                onDownloadProgress: (e) => {
+                    show_upload_pro(e.loaded, e.total);
+                },
+            })) as ArrayBuffer;
             let blob = new Blob([b]);
             const zipFileReader = new zip.BlobReader(blob);
             const zipWriter = new zip.TextWriter();
@@ -2732,20 +2765,35 @@ async function put_xln_value() {
         let reader = new FileReader();
         reader.onload = async function () {
             console.log(this.result);
-            let v = await client.putFileContents(path, this.result);
-            show_upload_pro(v);
+            show_upload_pro();
+            let v = await client.putFileContents(path, this.result, {
+                onUploadProgress: (e) => {
+                    show_upload_pro(e.loaded, e.total);
+                },
+            });
+            show_upload_v(v);
         };
         reader.readAsArrayBuffer(b);
     } else {
         let v = await client.putFileContents(path, t);
-        show_upload_pro(v);
+        show_upload_v(v);
     }
 }
-function show_upload_pro(v: boolean) {
+function show_upload_v(v: boolean) {
     if (v) {
         put_toast("✅文件上传成功");
     } else {
         put_toast("❌文件上传失败", 5);
+    }
+}
+function show_upload_pro(l?: number, t?: number) {
+    let p = document.createElement("progress");
+    if (l) p.value = l / t;
+    toast.classList.add("toast_show");
+    toast.innerHTML = "";
+    toast.append(p);
+    if (l == t) {
+        toast.classList.remove("toast_show");
     }
 }
 
@@ -3989,11 +4037,11 @@ class x extends HTMLElement {
         var bar = document.createElement("div");
         bar.id = "x-x_bar";
         const m = document.createElement("div");
-        m.innerHTML = `<img src="${handle_svg}" class="icon">`;
+        m.innerHTML = icon(handle_svg);
         var f = document.createElement("div");
-        f.innerHTML = `<img src="${ding_svg}" class="icon">`;
+        f.innerHTML = icon(ding_svg);
         var d = document.createElement("div");
-        d.innerHTML = `<img src="${close_svg}" class="icon">`;
+        d.innerHTML = icon(close_svg);
 
         var x_h = [
             document.createElement("div"),
@@ -4130,6 +4178,8 @@ class x extends HTMLElement {
         d.onclick = () => {
             selected_el = selected_el.filter((el) => el != this);
             z.remove(this);
+
+            if (this.querySelector("x-file")) assets_reflash();
         };
 
         if (this.getAttribute("value")) {
@@ -4845,7 +4895,7 @@ class file extends HTMLElement {
         } else {
             this.div.classList.add("file");
             let i = document.createElement("div");
-            i.innerHTML = `<img src="${file_svg}" class="icon">`;
+            i.innerHTML = icon(file_svg);
             let file_name_el = document.createElement("p");
             this.div.append(i);
             this.div.append(file_name_el);
@@ -5657,7 +5707,7 @@ class link_value extends HTMLElement {
                     jump_to_x_link(get_x_by_id(i));
                 };
                 let rm = document.createElement("div");
-                rm.innerHTML = `<img src="${close_svg}" class="icon">`;
+                rm.innerHTML = icon(close_svg);
                 rm.onclick = () => {
                     link(this._id).rm(i);
                     el.remove();
@@ -5665,8 +5715,8 @@ class link_value extends HTMLElement {
                 const add_el = document.createElement("div");
                 const down_el = document.createElement("div");
 
-                add_el.innerHTML = `<img src="${add_svg}" class="icon">`;
-                down_el.innerHTML = `<img src="${minus_svg}" class="icon">`;
+                add_el.innerHTML = icon(add_svg);
+                down_el.innerHTML = icon(minus_svg);
                 add_el.onclick = () => {
                     link(this._id).value(i, 0.1, true);
                     n.innerText = v_text(i);
