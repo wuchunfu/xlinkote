@@ -18,6 +18,7 @@ import remove_svg from "../../assets/icons/remove.svg";
 import update_svg from "../../assets/icons/update.svg";
 import edit_svg from "../../assets/icons/edit.svg";
 import ocr_svg from "../../assets/icons/ocr.svg";
+import play_svg from "../../assets/icons/play.svg";
 
 // el
 var 设置_el = document.getElementById("设置");
@@ -86,6 +87,9 @@ const view_el = document.getElementById("viewer");
 const ink_el = document.getElementById("ink") as HTMLCanvasElement;
 let ink_cxt = ink_el.getContext("2d");
 let ink_points: [number[], number[]][] = [];
+
+const ys_list = document.getElementById("ys_list");
+const ys_add = document.getElementById("ys_add");
 
 function icon(src: string) {
     return `<img src="${src}" class="icon">`;
@@ -281,7 +285,7 @@ document.getElementById("handle").onpointerdown = (e) => {
 for (let el of document.querySelectorAll(".tools")) {
     for (let i of el.children) {
         for (let u of document.querySelectorAll("#nav > div > div")) {
-            if (i.id == u.id) {
+            if (i.id && i.id == u.id) {
                 let x = i as HTMLElement;
                 x.style.display = "none";
             }
@@ -576,7 +580,7 @@ var mouse = (e: MouseEvent) => {
 var o_touch_e: TouchEvent;
 var o_touch_zoom_e: TouchEvent;
 var o_zoom = NaN;
-document.ontouchstart = (e) => {
+画布.ontouchstart = (e) => {
     if (模式 == "绘制") return;
     let el = <HTMLElement>e.changedTouches[0].target;
     if (模式 == "设计" && el != 画布) return;
@@ -604,7 +608,7 @@ document.ontouchstart = (e) => {
         }
     }
 };
-document.ontouchmove = (e) => {
+画布.ontouchmove = (e) => {
     if (e.targetTouches.length == 1) {
         touch_move(e);
         if (o_touch_e) move = true;
@@ -614,7 +618,7 @@ document.ontouchmove = (e) => {
         if (o_touch_zoom_e) move = true;
     }
 };
-document.ontouchend = (e) => {
+画布.ontouchend = (e) => {
     o_touch_e = null;
     move = false;
     o_touch_zoom_e = null;
@@ -829,7 +833,7 @@ function el_offset(el: Element, pel?: Element) {
     if (!pel) pel = el.parentElement;
     let ox = el.getBoundingClientRect().x - pel.getBoundingClientRect().x,
         oy = el.getBoundingClientRect().y - pel.getBoundingClientRect().y;
-    return { x: ox, y: oy };
+    return { x: ox, y: oy, w: el.getBoundingClientRect().width, h: el.getBoundingClientRect().height };
 }
 
 /**元素大小和相对位置（画布坐标） */
@@ -1243,6 +1247,18 @@ document.onkeydown = (e) => {
                 set_模式("设计");
             }
             break;
+        case "ArrowUp":
+            ys_bn("back");
+            break;
+        case "ArrowDown":
+            ys_bn("next");
+            break;
+        case "ArrowLeft":
+            ys_bn("back");
+            break;
+        case "ArrowRight":
+            ys_bn("next");
+            break;
     }
 };
 
@@ -1253,6 +1269,7 @@ type 集type = {
     meta: meta;
     extra: {
         style: string;
+        slide?: ys_type;
     };
     数据: 画布type[];
     链接: { [key: string]: { [key: string]: { value?: number; time?: number } } };
@@ -1491,6 +1508,7 @@ function version_tr(obj): 集type {
         case "0.12.4":
         case "0.12.5":
         case "0.12.6":
+        case "0.13.0":
             return obj;
         default:
             put_toast(`文件版本是 ${v}，与当前软件版本 ${packagejson.version} 不兼容，请升级软件`);
@@ -1580,6 +1598,7 @@ function set_data(l: 集type) {
     document.title = get_title();
 
     set_css(l.extra.style || "./md.css");
+    if (l.extra?.slide) ys_init(l.extra.slide);
 }
 
 /** 侧栏刷新 */
@@ -2525,11 +2544,11 @@ class 图层 {
 
     push(el: x, pel?: x) {
         el.id = el.id === "undefined" || !el.id ? `${uuid_id()}` : el.id;
-        if (pel) {
-            pel.append(el);
-        } else {
-            O.append(el);
+        let ppel = pel || O;
+        if (!el.style.zIndex && !(is_flex(ppel) == "flex")) {
+            el.style.zIndex = String(ppel.childElementCount + 1);
         }
+        ppel.append(el);
         get_data();
         this.focus(el);
         this.reflash();
@@ -3488,7 +3507,7 @@ function to_flex(els: x[], d: "x" | "y") {
 }
 
 /** 判断是否为flex */
-function is_flex(el: x) {
+function is_flex(el: HTMLElement) {
     if (el.classList.contains("flex-column") || el.classList.contains("flex-row")) {
         return "flex";
     }
@@ -3682,7 +3701,7 @@ ink_el.onpointerup = () => {
         textel.selectionEnd += t.length;
         textel.selectionStart = textel.selectionEnd;
         selections[0].start = selections[0].end = textel.selectionStart;
-        md.reload();
+        md.set_text();
     }
 };
 function ink_reset() {
@@ -3693,6 +3712,100 @@ function ink_reset() {
     ink_cxt.clearRect(0, 0, ink_el.width, ink_el.height);
     ink_points = [];
 }
+
+// 演示
+type ys_item = {
+    id?: string;
+    position?: { O: string; p: { x: number; y: number; zoom: number } };
+    transition: string;
+};
+type ys_type = {
+    list: ys_item[];
+};
+var ys_page_i = -1;
+function ys_init(data: ys_type) {
+    let p = document.createDocumentFragment();
+    for (let i in data.list) {
+        let item = create_ys_item(data.list[i], Number(i));
+        p.append(item);
+    }
+    ys_list.append(p);
+}
+function create_ys_item(item: ys_item, index?: number) {
+    let div = document.createElement("div");
+    let jump = document.createElement("div");
+    let play = document.createElement("div");
+    let remove = document.createElement("div");
+    let tran = document.createElement("input");
+    tran.contentEditable = "true";
+    tran.classList.add("ys_tran");
+    tran.value = item.transition;
+    play.innerHTML = icon(play_svg);
+    remove.innerHTML = icon(close_svg);
+    play.onclick = () => {
+        画布s.requestFullscreen();
+        ys_page_i = index;
+        ys_jump(item);
+    };
+    jump.onclick = () => {
+        ys_jump(item);
+    };
+    remove.onclick = () => {
+        div.remove();
+        集.extra.slide.list = 集.extra.slide.list.filter((i) => i != item);
+        data_changed();
+    };
+    tran.onchange = () => {
+        item.transition = tran.value;
+        data_changed();
+    };
+
+    div.append(play, jump, tran, remove);
+    return div;
+}
+function ys_jump(item: ys_item) {
+    if (item.position) {
+        for (let el of 画布s.children) {
+            if (el.id == item.position.O) {
+                O = el as HTMLElement;
+                O.style.display = "block";
+            } else {
+                (el as HTMLElement).style.display = "none";
+            }
+        }
+        O.style.transition = item.transition;
+        O.ontransitioncancel = O.ontransitionend = () => {
+            O.style.transition = "";
+        };
+        let zoom = item.position.p.zoom;
+        zoom_o(zoom);
+        O.style.left = item.position.p.x * zoom - el_offset(画布).w / 2 + "px";
+        O.style.top = item.position.p.y * zoom - el_offset(画布).h / 2 + "px";
+    }
+}
+function ys_bn(fx: "back" | "next") {
+    if (document.fullscreenElement != 画布s) return;
+    if (fx == "back") {
+        ys_page_i = Math.max(0, ys_page_i - 1);
+    }
+    if (fx == "next") {
+        ys_page_i = Math.min(集.extra.slide.list.length - 1, ys_page_i + 1);
+    }
+    ys_jump(集.extra.slide.list[ys_page_i]);
+}
+ys_add.onclick = () => {
+    if (!集.extra?.slide) 集.extra["slide"] = { list: [] } as ys_type;
+    let list = 集.extra.slide.list;
+    let i: ys_item = { position: { O: "", p: { x: 0, y: 0, zoom: 1 } }, transition: "" };
+    let x = (el_offset(O).x + el_offset(画布).w / 2) / zoom;
+    let y = (el_offset(O).y + el_offset(画布).h / 2) / zoom;
+    i.position = { O: O.id, p: { x, y, zoom } };
+    list.push(i);
+    let div = create_ys_item(i);
+    ys_list.append(div);
+
+    data_changed();
+};
 
 // MD
 import markdownit from "markdown-it";
@@ -4701,6 +4814,11 @@ class markdown extends HTMLElement {
     set type(type: md_type) {
         this._value.type = type;
         this.h.className = type;
+        this.render();
+    }
+
+    set_text() {
+        this._value.text = this.text.value;
         this.render();
     }
 }
@@ -5951,6 +6069,9 @@ function to_text(img: HTMLImageElement | HTMLCanvasElement) {
         pxel.style.left = p.x + "px";
         pxel.style.top = p.y + "px";
         pxel.style.color = "transparent";
+        pxel.style.textAlign = "justify";
+        pxel.style.textAlignLast = "justify";
+        pxel.style.fontSize = "12px";
         z.push(pxel);
         for (let i of v) {
             if (!i.text) continue;
@@ -5964,7 +6085,6 @@ function to_text(img: HTMLImageElement | HTMLCanvasElement) {
             xel.style.top = y0 + "px";
             xel.style.width = x1 - x0 + "px";
             xel.style.height = y1 - y0 + "px";
-            xel.style.fontSize = `${(x1 - x0) / i.text.length}px`;
             z.push(xel, pxel);
             var md = document.createElement("x-md") as markdown;
             xel.append(md);

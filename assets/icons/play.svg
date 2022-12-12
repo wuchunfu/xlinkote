@@ -5,9 +5,9 @@
    width="240"
    height="240"
    id="svg5"
-   sodipodi:docname="dir.svg"
+   sodipodi:docname="1temple.svg"
    version="1.1"
-   inkscape:version="1.2 (dc2aedaf03, 2022-05-15)"
+   inkscape:version="1.2.2 (b0a8486541, 2022-12-01)"
    xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
    xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
    xmlns="http://www.w3.org/2000/svg"
@@ -25,7 +25,7 @@
      units="px"
      width="512px"
      inkscape:zoom="1.9776937"
-     inkscape:cx="9.8599697"
+     inkscape:cx="-21.995317"
      inkscape:cy="118.57246"
      inkscape:window-width="1920"
      inkscape:window-height="1031"
@@ -74,8 +74,8 @@
      id="layer1">
     <path
        style="fill:none;stroke:#000000;stroke-width:15;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:1;stroke-dasharray:none"
-       d="M 40,60 V 180 H 200 V 80 H 140 L 120,60 Z"
-       id="path195"
-       sodipodi:nodetypes="ccccccc" />
+       d="M 60,40 V 200 L 180,120 60,40"
+       id="path236"
+       sodipodi:nodetypes="cccc" />
   </g>
 </svg>
