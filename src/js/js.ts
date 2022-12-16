@@ -96,7 +96,8 @@ function icon(src: string) {
 }
 
 // 获取设置
-var store = JSON.parse(localStorage.getItem("config"));
+type setting = typeof default_setting;
+var store: setting = JSON.parse(localStorage.getItem("config"));
 const default_setting = {
     webdav: { 网址: "", 用户名: "", 密码: "", 自动上传: "0", 加密密钥: "" },
     ink: {
@@ -104,6 +105,7 @@ const default_setting = {
         语言: "zh_CN",
         延时: "0.6",
     },
+    sort: { type: "change_time", reverse: false } as sort_type,
 };
 if (!store) {
     localStorage.setItem("config", JSON.stringify(default_setting));
@@ -159,8 +161,11 @@ document.getElementById("导出文件").onclick = () => {
     download_file(xln_out(get_data()));
 };
 
-document.getElementById("从云加载").onclick = () => {
-    if (集.meta.url) get_xln_value(集.meta.url);
+document.getElementById("从云加载").onclick = async () => {
+    if (集.meta.url) {
+        let o = await get_xln_value(集.meta.url);
+        set_data(o);
+    }
 };
 document.getElementById("上传到云").onclick = put_xln_value;
 
@@ -869,26 +874,53 @@ document.getElementById("画布").onwheel = (e) => {
                 if (qel.contains(el)) return;
             }
         }
-        let dx = 0,
-            dy = 0;
-        if (e.shiftKey && !e.deltaX) {
-            if (fxsd == 0 || fxsd == 2) dx = -e.deltaY;
-        } else {
-            if (fxsd == 0 || fxsd == 2) dx = -e.deltaX;
-            if (fxsd == 0 || fxsd == 1) dy = -e.deltaY;
-        }
-        O.style.left = el_offset(O).x + dx + "px";
-        O.style.top = el_offset(O).y + dy + "px";
+        if (document.fullscreenElement != 画布s) {
+            let dx = 0,
+                dy = 0;
+            if (e.shiftKey && !e.deltaX) {
+                if (fxsd == 0 || fxsd == 2) dx = -e.deltaY;
+            } else {
+                if (fxsd == 0 || fxsd == 2) dx = -e.deltaX;
+                if (fxsd == 0 || fxsd == 1) dy = -e.deltaY;
+            }
+            O.style.left = el_offset(O).x + dx + "px";
+            O.style.top = el_offset(O).y + dy + "px";
 
-        link_value_bar.style.left = el_offset(link_value_bar).x + dx + "px";
-        link_value_bar.style.top = el_offset(link_value_bar).y + dy + "px";
-        if (!search_pel.getAttribute("data-fid")) {
-            search_pel.style.left = el_offset(search_pel).x + dx + "px";
-            search_pel.style.top = el_offset(search_pel).y + dy + "px";
+            link_value_bar.style.left = el_offset(link_value_bar).x + dx + "px";
+            link_value_bar.style.top = el_offset(link_value_bar).y + dy + "px";
+            if (!search_pel.getAttribute("data-fid")) {
+                search_pel.style.left = el_offset(search_pel).x + dx + "px";
+                search_pel.style.top = el_offset(search_pel).y + dy + "px";
+            }
+        } else {
+            let a = e.deltaY > 0 ? "next" : "back";
+            ys_bn(a as "next" | "back");
         }
     }
     data_changed();
 };
+
+/** 中键移动画布 */
+let middle_b: PointerEvent;
+let middle_p = { x: 0, y: 0 };
+画布.addEventListener("pointerdown", (e) => {
+    if (e.button == 1) {
+        middle_b = e;
+        middle_p.x = el_offset(O).x;
+        middle_p.y = el_offset(O).y;
+    }
+});
+画布.addEventListener("pointermove", (e) => {
+    if (middle_b) {
+        let dx = e.clientX - middle_b.clientX,
+            dy = e.clientY - middle_b.clientY;
+        O.style.left = middle_p.x + dx + "px";
+        O.style.top = middle_p.y + dy + "px";
+    }
+});
+画布.addEventListener("pointerup", (e) => {
+    middle_b = null;
+});
 
 zoom_o(1);
 
@@ -1284,6 +1316,10 @@ type meta = {
     UUID: string;
     file_name: string;
     version: string;
+    create_time: number;
+    change_time: number;
+    author?: string;
+    dependencies?: { url: string; version: string }[];
 };
 
 /** 主元素 */
@@ -1318,6 +1354,8 @@ function new_集(pname: string): 集type {
             UUID: uuid(),
             file_name: "",
             version: packagejson.version,
+            create_time: new Date().getTime(),
+            change_time: new Date().getTime(),
         },
         extra: {
             style: "",
@@ -1509,6 +1547,10 @@ function version_tr(obj): 集type {
         case "0.12.5":
         case "0.12.6":
         case "0.13.0":
+            obj.meta["create_time"] = new Date().getTime();
+            obj.meta["change_time"] = new Date().getTime();
+        case "0.13.1":
+        case "0.14.0":
             return obj;
         default:
             put_toast(`文件版本是 ${v}，与当前软件版本 ${packagejson.version} 不兼容，请升级软件`);
@@ -1522,13 +1564,15 @@ import diff from "deep-diff";
 window["diff"] = diff;
 
 /** 设置集 */
-function set_data(l: 集type) {
+async function set_data(l: 集type) {
     l = version_tr(l);
     for (let i in l) {
         if (集[i]) 集[i] = l[i];
     }
     画布s.innerHTML = "";
     集_el.innerHTML = "";
+
+    await set_dependencies(集.meta.dependencies || []);
 
     let ps = {};
     for (const p of 集.数据) {
@@ -1796,6 +1840,22 @@ function set_css(t: string) {
     document.body.append(style);
 }
 
+function set_dependencies(ds: meta["dependencies"]) {
+    let p = [];
+    for (let i of ds) {
+        let sc = document.createElement("script");
+        sc.src = i.url;
+        p.push(
+            new Promise((re) => {
+                sc.onload = () => {
+                    re("");
+                };
+            })
+        );
+    }
+    return Promise.all(p);
+}
+
 function xln_out(obj: 集type) {
     let t = JSON.stringify(obj, null, 2);
     return t;
@@ -1959,7 +2019,29 @@ function db_get() {
     };
 }
 
+let collator = new Intl.Collator("cn");
+type sort_type = { type: "change_time" | "create_time" | "name"; reverse: boolean };
+
 function reload_file_list() {
+    file_list = file_list.sort((a, b) => {
+        let n = 0;
+        switch (store.sort.type) {
+            case "change_time":
+                n = a.change_time - b.change_time;
+                break;
+            case "create_time":
+                n = a.create_time - b.create_time;
+                break;
+            case "name":
+                n = collator.compare(a.file_name, b.file_name);
+                break;
+        }
+        if (store.sort.reverse) {
+            return -1 * n;
+        } else {
+            return 1 * n;
+        }
+    });
     for (let f of file_list) {
         let d = document.createElement("div");
         d.setAttribute("data-uuid", f.UUID);
@@ -2155,6 +2237,7 @@ function data_changed() {
             saved = false;
         }
         const data = get_data();
+        data.meta.change_time = new Date().getTime();
         if (集.meta.file_name) {
             write_file(xln_out(data));
             db_put(data);
@@ -2691,18 +2774,16 @@ async function get_all_xln() {
     删除路径 = rplf.filename.replace(b, "");
     for (let f of file_list) {
         let dav: HTMLElement;
-        for (let el of 文件_el.querySelectorAll("input")) {
-            if (el.value == f.file_name) {
-                dav = el.previousElementSibling as HTMLElement;
+        for (let el of 文件_el.querySelectorAll(":scope > div")) {
+            if (el.getAttribute("data-uuid") == f.UUID) {
+                dav = el.firstElementChild as HTMLElement;
                 break;
             }
         }
         for (let fi of dav_files) {
             if ("/" + fi.filename.replace(new RegExp(`^${删除路径}`), "") == f.url) {
                 dav.onclick = () => {
-                    get_xln_value("/" + fi.filename.replace(new RegExp(`^${删除路径}`), ""));
-                    document.title = get_title();
-                    侧栏.classList.remove("侧栏显示");
+                    get_file(fi.filename);
                 };
                 dav.innerHTML = icon(cloud_down);
                 dav_files = dav_files.filter((v) => v != fi);
@@ -2711,7 +2792,6 @@ async function get_all_xln() {
         }
     }
     for (let fi of dav_files) {
-        let new_t = 文件_el.querySelector("div:nth-child(2)") as HTMLElement;
         let d = document.createElement("div");
         let t = rename_el();
         t.value = fi.basename.replace(/\.xln$/, "") || "";
@@ -2721,17 +2801,31 @@ async function get_all_xln() {
         d.append(dav, t);
         文件_el.append(d);
         t.onclick = dav.onclick = () => {
-            if (!集.meta.file_name) new_t.remove();
-            get_xln_value("/" + fi.filename.replace(new RegExp(`^${删除路径}`), ""));
-            document.title = get_title();
-            侧栏.classList.remove("侧栏显示");
+            get_file(fi.filename);
+        };
+    }
+    async function get_file(filename: string) {
+        let o = await get_xln_value("/" + filename.replace(new RegExp(`^${删除路径}`), ""));
+        let customerObjectStore = db.transaction(db_store_name, "readwrite").objectStore(db_store_name);
+        let r = customerObjectStore.get(o.meta.UUID);
+        r.onsuccess = () => {
+            let r = customerObjectStore.put(o);
+            r.onsuccess = () => {
+                open_in_win(o.meta.UUID);
+            };
+        };
+        r.onerror = () => {
+            let r = customerObjectStore.put(o);
+            r.onsuccess = () => {
+                open_in_win(o.meta.UUID);
+            };
         };
     }
 }
 
 var now_dav_data = "";
 
-/** 获取云文件数据并渲染 */
+/** 获取云文件数据 */
 async function get_xln_value(path: string) {
     show_upload_pro();
     let str = (await client.getFileContents(path, {
@@ -2761,10 +2855,7 @@ async function get_xln_value(path: string) {
         }
     }
     now_dav_data = str;
-    set_data(o);
-    data_changed();
-    if (fileHandle) fileHandle = null;
-    集.meta.url = path;
+    return o as 集type;
 }
 
 /** 上传到云 */
@@ -2842,6 +2933,12 @@ async function 压缩(t: string) {
     return zipFileBlob;
 }
 
+function open_in_win(uuid: string) {
+    let url = new URL(location.origin);
+    url.hash = uuid;
+    window.open(url);
+}
+
 // 设置
 
 function save_setting() {
@@ -2853,7 +2950,7 @@ function save_setting() {
             o[f.name][v[0]] = v[1];
         }
     }
-    store = o;
+    store = o as setting;
     localStorage.setItem("config", JSON.stringify(o));
 
     arter_save_setting();
@@ -2894,7 +2991,14 @@ version_el.onclick = async () => {
 
 // 搜索
 import Fuse from "fuse.js";
-type search_result = { id: string; l: readonly Fuse.FuseResultMatch[]; n?: number; type?: "str" | "regex" }[];
+type search_result = {
+    id: string;
+    l?: readonly Fuse.FuseResultMatch[];
+    text?: string;
+    n?: number;
+    type?: "str" | "regex";
+    score: number;
+}[];
 function search(s: string, type: "str" | "regex") {
     let result = [] as search_result;
     画布s.querySelectorAll("x-md, x-pdf").forEach((el: HTMLElement) => {
@@ -2906,16 +3010,25 @@ function search(s: string, type: "str" | "regex") {
         } else {
             text = el.innerText;
         }
+        let is_search = false;
         switch (type) {
             case "str":
                 const fuse = new Fuse(text.split("\n"), {
                     includeMatches: true,
                     findAllMatches: true,
                     useExtendedSearch: true,
+                    includeScore: true,
                 });
                 let fr = fuse.search(s);
                 for (let i of fr) {
-                    result.push({ id: el.parentElement.id, l: i.matches, n: i.refIndex, type: "str" });
+                    is_search = true;
+                    result.push({
+                        id: el.parentElement.id,
+                        l: i.matches,
+                        n: i.refIndex,
+                        type: "str",
+                        score: search_score(el.parentElement.id, 1 - i.score),
+                    });
                 }
                 break;
             case "regex":
@@ -2931,9 +3044,13 @@ function search(s: string, type: "str" | "regex") {
                     l.push({ value: i, indices: s_i(i, text).map((v) => [v, v + i.length]) });
                 }
                 if (l.length != 0) {
-                    result.push({ id: el.parentElement.id, l });
+                    is_search = true;
+                    result.push({ id: el.parentElement.id, l, score: search_score(el.parentElement.id, 1) });
                 }
                 break;
+        }
+        if (!is_search) {
+            result.push({ id: el.parentElement.id, score: search_score(el.parentElement.id, 0), text: text });
         }
     });
 
@@ -2949,6 +3066,17 @@ function search(s: string, type: "str" | "regex") {
         return l;
     }
     return result;
+}
+
+/** 计算 时间 值 搜索匹配度 距离 */
+function search_score(id: string, search_s: number) {
+    const now_t = new Date().getTime();
+    const vt = 集.链接[0][id];
+    let t = (now_t - vt.time) / 1000 / 60 / 60 / 24 / 7;
+    t = 1 / (t + 1);
+    let v = vt.value;
+    let s = search_s;
+    return Math.sqrt(t ** 2 + (1 * v) ** 2 + (2 * s) ** 2);
 }
 
 let select_index = 0;
@@ -3034,7 +3162,7 @@ search_r.onpointerleave = () => {
 /** 展示搜索结果 */
 function show_search_l(l: search_result, exid?: string) {
     l = l.sort((a, b) => {
-        return link(a.id).get_v() - link(b.id).get_v();
+        return a.score - b.score;
     });
     if (exid) l = l.filter((i) => i.id != exid);
     search_r.innerHTML = "";
@@ -3048,29 +3176,37 @@ function show_search_l(l: search_result, exid?: string) {
             ids[i.id] = els.length - 1;
         }
         let div = els[ids[i.id]];
-        for (let j of i.l) {
-            let indices = [...j.indices].sort((a, b) => a[0] - b[0]);
-            let line = document.createElement("div");
-            let p = document.createElement("span");
-            for (let i = 0; i < indices.length; i++) {
-                const k = indices[i];
-                let h = document.createElement("span");
-                h.innerText = j.value.slice(k[0], k[1] + 1);
-                if (Number(i) == indices.length - 1) {
-                    p.append(j.value.slice(indices[i - 1]?.[1] + 1 || 0, k[0]), h, j.value.slice(k[1] + 1));
-                } else {
-                    p.append(j.value.slice(indices[i - 1]?.[1] + 1 || 0, k[0]), h);
+        let line = document.createElement("div");
+        let p = document.createElement("span");
+        if (i.l) {
+            for (let j of i.l) {
+                let indices = [...j.indices].sort((a, b) => a[0] - b[0]);
+                for (let i = 0; i < indices.length; i++) {
+                    const k = indices[i];
+                    let h = document.createElement("span");
+                    h.innerText = j.value.slice(k[0], k[1] + 1);
+                    if (Number(i) == indices.length - 1) {
+                        p.append(j.value.slice(indices[i - 1]?.[1] + 1 || 0, k[0]), h, j.value.slice(k[1] + 1));
+                    } else {
+                        p.append(j.value.slice(indices[i - 1]?.[1] + 1 || 0, k[0]), h);
+                    }
                 }
             }
-            line.append(p);
-            div.append(line);
+        } else {
+            p.append(`#${i.id}`);
         }
+        line.append(p);
+        div.append(line);
         div.setAttribute("data-id", i.id);
+        add_div_event(div, i.id);
+    }
+
+    function add_div_event(div: HTMLElement, id: string) {
         div.onpointerdown = (e) => {
-            click_search_item(i.id);
+            click_search_item(id);
         };
         div.onpointerenter = (e) => {
-            let el = document.getElementById(i.id);
+            let el = document.getElementById(id);
             move_to_x_link(el as x & xlink);
             select_index = Number(div.getAttribute("data-i"));
             select_search(select_index);
@@ -3081,6 +3217,7 @@ function show_search_l(l: search_result, exid?: string) {
             });
         };
     }
+
     for (let div of els) {
         if (search_r.firstChild) {
             search_r.firstChild.before(div);
@@ -3789,6 +3926,10 @@ function ys_bn(fx: "back" | "next") {
         ys_page_i = Math.max(0, ys_page_i - 1);
     }
     if (fx == "next") {
+        if (ys_page_i == 集.extra.slide.list.length - 1) {
+            document.exitFullscreen();
+            return;
+        }
         ys_page_i = Math.min(集.extra.slide.list.length - 1, ys_page_i + 1);
     }
     ys_jump(集.extra.slide.list[ys_page_i]);
@@ -4825,60 +4966,6 @@ class markdown extends HTMLElement {
 
 window.customElements.define("x-md", markdown);
 
-// 几何图形
-import JXG from "jsxgraph";
-class graph extends HTMLElement {
-    constructor() {
-        super();
-    }
-
-    _value = "";
-
-    connectedCallback() {
-        var b = document.createElement("div");
-        b.id = "t_md";
-        var s = document.createElement("div");
-        s.id = `g${new Date().getTime()}`;
-        // s.style.width = "500px";
-        // s.style.height = "500px";
-        var text = document.createElement("textarea");
-        text.value = this.getAttribute("value") || this.innerText;
-        this.setAttribute("value", text.value);
-        this.innerHTML = "";
-        this.append(b);
-        this.append(s);
-        this.append(text);
-
-        if (JXG) {
-            if (text.value)
-                eval(this.querySelector("textarea").value.replace("gid", this.querySelector("div:not(#t_md)").id));
-        }
-
-        b.onclick = () => {
-            text.classList.toggle("show_md");
-            text.focus();
-        };
-        text.oninput = () => {
-            this._value = text.value;
-            this.setAttribute("value", text.value);
-        };
-        text.onchange = () => {
-            eval(text.value.replace("gid", s.id));
-        };
-    }
-
-    set value(v) {
-        this._value = this.querySelector("textarea").value = v;
-        eval(this.querySelector("textarea").value.replace("gid", this.querySelector("div:not(#t_md)").id));
-    }
-
-    get value() {
-        return this._value;
-    }
-}
-
-window.customElements.define("x-graph", graph);
-
 import mathSymbols from "../../lib/tex/x.js";
 class symbols extends HTMLElement {
     constructor() {
@@ -4983,7 +5070,13 @@ class file extends HTMLElement {
         let f = 集.assets[this._value.id];
         if (!f) return;
         let type = f.base64.match(/data:(.*?);/)[1].split("/");
-        if (type[0] != "image" && type[0] != "video" && type[1] != "pdf" && type[1] != "gltf-binary")
+        if (
+            type[0] != "image" &&
+            type[0] != "video" &&
+            type[1] != "pdf" &&
+            type[1] != "gltf-binary" &&
+            type[1] != "vnd.geogebra.file"
+        )
             this._value.r = false;
         this.div.innerHTML = "";
         if (this._value.r) {
@@ -5009,6 +5102,11 @@ class file extends HTMLElement {
                 let td = document.createElement("x-three") as three;
                 this.div.append(td);
                 td.value = this._value.id;
+            }
+            if (type[1] == "vnd.geogebra.file") {
+                let ggb = document.createElement("x-ggb") as ggb;
+                this.div.append(ggb);
+                ggb.value = this._value.id;
             }
         } else {
             this.div.classList.add("file");
@@ -6110,3 +6208,49 @@ async function start() {
         node: true,
     });
 }
+
+// geogebra
+
+let ggb_script = document.createElement("script");
+ggb_script.src = "https://www.geogebra.org/apps/deployggb.js";
+document.body.append(ggb_script);
+
+class ggb extends HTMLElement {
+    constructor() {
+        super();
+    }
+
+    _value;
+    applet;
+    p;
+
+    connectedCallback() {
+        this.p = {
+            id: `ggb${this._value}`,
+            width: 500,
+            height: 500,
+            showResetIcon: true,
+            borderColor: "white",
+            language: "cn",
+            ggbBase64: "",
+        };
+        this.applet = new window["GGBApplet"](this.p, "5.0");
+    }
+    async set_m() {
+        const url = 集.assets[this._value];
+        this.p.id = `ggb${this._value}`;
+        this.p.ggbBase64 = url.base64;
+        this.applet.inject(this);
+    }
+
+    get value() {
+        return this._value;
+    }
+    set value(s) {
+        this._value = s;
+        this.set_m();
+    }
+}
+
+window.customElements.define("x-ggb", ggb);
+ignore_el.push("x-ggb");

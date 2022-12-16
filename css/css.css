@@ -4,7 +4,7 @@
 
 :root {
     --transition: 0.4s cubic-bezier(0.25, 1, 0.5, 1);
-    --blur: blur(10px);
+    --blur: blur(24px);
     --icon-color: none;
     --icon-p-b-size: 32px;
     --icon-size: 24px;
@@ -32,7 +32,7 @@
 }
 
 .icon-pel > div {
-    @apply icon-m;
+    @apply icon-m flex-shrink-0;
 }
 .icon-m {
     @apply h-8 w-8 relative cursor-pointer;
@@ -428,7 +428,7 @@ body #main > #nav #ink_r {
     @apply flex;
 }
 .侧栏 #ys_list > div > .ys_tran {
-    width: calc(100% - var(--icon-p-b-size) * 3)
+    width: calc(100% - var(--icon-p-b-size) * 3);
 }
 .侧栏 #ys_list > div > div {
     @apply icon-m;
@@ -506,7 +506,7 @@ body #main > #nav #ink_r {
     @apply opacity-50 cursor-not-allowed pointer-events-none;
 }
 
-.侧栏 > #items > #设置 > form input {
+.侧栏 > #items > #设置 > form > fieldset > input {
     width: 100%;
 }
 .侧栏 > #items > #设置 > *:not(:last-child) {
@@ -677,7 +677,8 @@ body > #搜索 > #搜索结果 > div > div:last-child {
     top: 0;
 }
 .search_item_select {
-    background-color: var(--bg-color1);
+    background-color: var(--bg-color5);
+    backdrop-filter: var(--blur);
 }
 
 body > #cmd {
@@ -716,10 +717,10 @@ body > #toast {
 }
 body > #toast progress {
     @apply appearance-none h-2 border-none rounded-full overflow-hidden block w-32;
-    @apply bg-gray-200;
+    background-color: var(--bg-color3);
 }
 body > #toast progress::-moz-progress-bar {
-    @apply bg-gray-900;
+    background-color: var(--color6);
     @apply rounded-full;
 }
 body > #toast progress::-webkit-progress-bar {
@@ -727,7 +728,7 @@ body > #toast progress::-webkit-progress-bar {
     background: none;
 }
 body > #toast progress[value]::-webkit-progress-value {
-    @apply bg-gray-900;
+    background-color: var(--color6);
 }
 
 x-sinppet {
@@ -1210,6 +1211,8 @@ x-link {
     .侧栏 > #tabs {
         width: 100%;
         flex-direction: row;
+        flex-shrink: 0;
+        overflow: auto;
     }
 
     x-color {

@@ -71,7 +71,7 @@
                 <div id="归位"><img src="./assets/icons/back.svg" class="icon"></div>
                 <div id="缩放" class="px-1 flex items-center text-black dark:text-white relative font-mono" tabindex="0">
                     <input type="text" name="zoom" id="zoom" class="text-right">% <div id="zooms"
-                        class="zoom_list_hide absolute bottom-4 flex flex-col gap-1 p-1 rounded-sm bar">
+                        class="zoom_list_hide absolute bottom-4 flex flex-col gap-1 p-1 rounded left-0 w-full bar transition-opacity">
                     </div>
                 </div>
             </div>
@@ -187,6 +187,19 @@
                         语言<br><input type="text" name="语言">
                         <br>
                         延时<br><input type="number" name="延时" min="0.1" step="0.1">
+                    </fieldset>
+                </form>
+                <form name="sort">
+                    <fieldset>
+                        <legend class="text-lg font-semibold">排序</legend>
+                        方式
+                        <select name="type">
+                            <option value="change_time">修改时间</option>
+                            <option value="create_time">创建时间</option>
+                            <option value="name">文件名</option>
+                        </select>
+                        <br>
+                        <label><input type="checkbox" name="reverse">逆序</label>
                     </fieldset>
                 </form>
                 <div id="about">
