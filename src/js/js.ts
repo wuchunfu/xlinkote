@@ -1553,6 +1553,7 @@ function version_tr(obj): 集type {
         case "0.13.1":
         case "0.14.0":
         case "0.14.1":
+        case "0.14.2":
             return obj;
         default:
             put_toast(`文件版本是 ${v}，与当前软件版本 ${packagejson.version} 不兼容，请升级软件`);
@@ -1977,6 +1978,7 @@ function load_file_side_bar() {
         let fn = prompt("文件名", new_t.innerText);
         if (fn) {
             集.meta.file_name = new_t.innerText = fn;
+            db_can_save = true;
             data_changed();
         }
     };
@@ -2012,6 +2014,7 @@ function db_get() {
                 set_data(f);
                 文件_el.children[1].remove();
                 文件_el.querySelector(`[data-uuid="${f.meta.UUID}"]`).classList.add("selected_item");
+                db_can_save = true;
             }
         }
 
@@ -2029,10 +2032,10 @@ function reload_file_list() {
         let n = 0;
         switch (store.sort.type) {
             case "change_time":
-                n = a.change_time - b.change_time;
+                n = b.change_time - a.change_time;
                 break;
             case "create_time":
-                n = a.create_time - b.create_time;
+                n = b.create_time - a.create_time;
                 break;
             case "name":
                 n = collator.compare(a.file_name, b.file_name);
@@ -2230,6 +2233,15 @@ async function download_file(text: string) {
 var save_timeout = NaN,
     save_dt = 200;
 
+/**
+ * # 文件是否可以被保存
+ * - 一般db文件可保存；
+ * - 新建集不保存，除非设定保存；
+ * - 网络来源不保存，除非设定保存；
+ * - 本地文件不保存，除非设定保存；
+ */
+var db_can_save = false;
+
 /** 文件状态改变触发 */
 function data_changed() {
     clearTimeout(save_timeout);
@@ -2240,8 +2252,8 @@ function data_changed() {
         }
         const data = get_data();
         data.meta.change_time = new Date().getTime();
-        if (集.meta.file_name) {
-            write_file(xln_out(data));
+        write_file(xln_out(data));
+        if (db_can_save) {
             db_put(data);
         }
         push_undo();
@@ -3761,7 +3773,9 @@ document.getElementById("ink_icon").onpointerdown = (e) => {
 };
 var ink_color = "#000";
 var mqList = window.matchMedia("(prefers-color-scheme: dark)");
+var is_dark = Boolean(mqList.matches);
 mqList.addEventListener("change", (event) => {
+    is_dark = event.matches;
     if (event.matches) {
         ink_color = "#FFF";
     } else {
@@ -3998,6 +4012,68 @@ md.renderer.rules.fence = function (tokens, idx, options, env, self) {
     }
     return f(tokens, idx, options, env, self);
 };
+// 代码来自 https://github.com/artisticat1/obsidian-tikzjax 和 https://github.com/kisonecat/tikzjax
+import tikzjaxJs from "../../lib/tikzjax.js?raw";
+const tikzjax = document.createElement("script");
+tikzjax.id = "tikzjax";
+tikzjax.type = "text/javascript";
+tikzjax.innerText = tikzjaxJs;
+document.body.append(tikzjax);
+document.addEventListener("tikzjax-load-finished", (e) => {
+    const svgEl = e.target as HTMLElement;
+    if (is_dark) svgEl.style.filter = "invert(1)";
+});
+md.renderer.rules.fence = function (tokens, idx, options, env, self) {
+    if (tokens[idx].info == "tikz") {
+        let s = document.createElement("script");
+        s.setAttribute("type", "text/tikz");
+        s.setAttribute("data-show-console", "true");
+        function tidyTikzSource(tikzSource: string) {
+            const remove = "&nbsp;";
+            tikzSource = tikzSource.replaceAll(remove, "");
+            let lines = tikzSource.split("\n");
+            lines = lines.map((line) => line.trim());
+            lines = lines.filter((line) => line);
+            const pack = [
+                "chemfig",
+                "tikz-cd",
+                "circuitikz",
+                "pgfplots",
+                "array",
+                "amsmath",
+                "amstext",
+                "amsfonts",
+                "amssymb",
+                "tikz-3dplot",
+            ];
+            for (let i of pack) {
+                if (tikzSource.includes(i)) {
+                    let has = false;
+                    for (let t of lines) {
+                        if (t == `\\usepackage{${i}}`) has = true;
+                    }
+                    if (!has) {
+                        lines.unshift(`\\usepackage{${i}}`);
+                    }
+                }
+            }
+            if (!tikzSource.includes("\\begin{document}")) {
+                let packi = 0;
+                for (let i in lines) {
+                    if (lines[i].includes(`\\usepackage{`)) packi = Number(i);
+                }
+                lines.splice(packi + 1, 0, "\\begin{document}");
+            }
+            if (!tikzSource.includes("\\end{document}")) {
+                lines.push("\\end{document}");
+            }
+            return lines.join("\n");
+        }
+        s.innerHTML = tidyTikzSource(tokens[idx].content);
+        return s.outerHTML;
+    }
+    return f(tokens, idx, options, env, self);
+};
 md.renderer.rules.image = function (tokens, idx, options, env, self) {
     let value = tokens[idx].attrGet("src");
     let b = 集.assets?.[value]?.base64;
@@ -4016,6 +4092,7 @@ md.renderer.rules.link_open = function (tokens, idx, options, env, self) {
 
 var will_load_math = false;
 var mathjax_cache = {};
+var math_loaded = false;
 function get_svg(c: string) {
     let html: string,
         ca = mathjax_cache?.[c];
@@ -4023,40 +4100,40 @@ function get_svg(c: string) {
         html = ca[0];
         mathjax_cache[c][1] = 2;
     } else {
-        if (window?.MathJax?.tex2svg) {
+        if (math_loaded) {
             html = window.MathJax.tex2svg(c).outerHTML;
             mathjax_cache[c] = [window.MathJax.tex2svg(c).outerHTML, 1];
         } else {
-            html = "<mjx-container></mjx-container>";
-            if (!will_load_math) {
-                window.MathJax = {
-                    tex: {
-                        inlineMath: [["$", "$"]],
-                    },
-                    options: {
-                        enableMenu: false,
-                    },
-                    startup: {
-                        ready: () => {
-                            window.MathJax.startup.defaultReady();
-                            window.MathJax.startup.promise.then(() => {
-                                console.log("MathJax initial typesetting complete");
-                                setTimeout(l_math, 600);
-                                setTimeout(l_math, 200);
-                                l_math();
-                            });
-                        },
-                    },
-                };
-                (function () {
-                    let s = document.createElement("script");
-                    s.src = "https://unpkg.com/mathjax@3.2.2/es5/tex-svg.js";
-                    s.async = true;
-                    will_load_math = true;
-                    document.body.append(s);
-                })();
-            }
+            html = `<mjx-container>${c}</mjx-container>`;
         }
+    }
+    if (!math_loaded && !will_load_math) {
+        window.MathJax = {
+            tex: {
+                inlineMath: [["$", "$"]],
+            },
+            options: {
+                enableMenu: false,
+            },
+
+            startup: {
+                pageReady: () => {
+                    return window.MathJax.startup.defaultPageReady().then(() => {
+                        console.log("MathJax initial typesetting complete");
+                        math_loaded = true;
+                        l_math();
+                    });
+                },
+            },
+        };
+        (function () {
+            if (will_load_math) return;
+            let s = document.createElement("script");
+            s.src = "https://unpkg.com/mathjax@3.2.2/es5/tex-svg-full.js";
+            s.async = true;
+            will_load_math = true;
+            document.body.append(s);
+        })();
     }
     return html;
 }
