@@ -19,6 +19,8 @@ import update_svg from "../../assets/icons/update.svg";
 import edit_svg from "../../assets/icons/edit.svg";
 import ocr_svg from "../../assets/icons/ocr.svg";
 import play_svg from "../../assets/icons/play.svg";
+import down_svg from "../../assets/icons/down.svg";
+import binding_svg from "../../assets/icons/binding_file.svg";
 
 // el
 var 设置_el = document.getElementById("设置");
@@ -375,7 +377,7 @@ function set_模式(模式x: "浏览" | "设计" | "绘制") {
         v.classList.remove("模式突出");
     });
     nav.querySelector(`#${模式x}`).classList.add("模式突出");
-    if (O) O.className = 模式x;
+    画布s.className = 模式x;
     switch (模式x) {
         case "浏览":
             if (<draw>focus_draw_el) {
@@ -585,6 +587,7 @@ var mouse = (e: MouseEvent) => {
 var o_touch_e: TouchEvent;
 var o_touch_zoom_e: TouchEvent;
 var o_zoom = NaN;
+var o_touch_t = NaN;
 画布.ontouchstart = (e) => {
     if (模式 == "绘制") return;
     let el = <HTMLElement>e.changedTouches[0].target;
@@ -599,6 +602,8 @@ var o_zoom = NaN;
         ) &&
         !document.querySelector("x-sinppet").contains(el)
     ) {
+        o_touch_t = new Date().getTime();
+        O.style.transition = "";
         o_touch_e = o_touch_zoom_e = e;
         o_rect = { x: el_offset(O).x, y: el_offset(O).y };
         o_vb_sb = {
@@ -624,6 +629,26 @@ var o_zoom = NaN;
     }
 };
 画布.ontouchend = (e) => {
+    let dt = new Date().getTime() - o_touch_t;
+    let dx = fxsd == 0 || fxsd == 2 ? e.changedTouches[0].clientX - o_touch_e.changedTouches[0].clientX : 0,
+        dy = fxsd == 0 || fxsd == 1 ? e.changedTouches[0].clientY - o_touch_e.changedTouches[0].clientY : 0;
+    let ds = Math.sqrt(dx ** 2 + dy ** 2);
+    const m = 1,
+        a = 0.0015;
+    let p = 0.5 * m * (ds / dt / 2) ** 2;
+    let s = p / (m * a);
+    let t = Math.sqrt((2 * s) / a);
+    console.log(s, t);
+    let x = el_offset(O).x + s * (dx / ds),
+        y = el_offset(O).y + s * (dy / ds);
+    O.style.transition = `${t / 1000}s`;
+    O.style.transitionTimingFunction = "cubic-bezier(.17, .89, .45, 1)";
+    setTimeout(() => {
+        O.style.transition = ``;
+    }, t);
+    O.style.left = x + "px";
+    O.style.top = y + "px";
+
     o_touch_e = null;
     move = false;
     o_touch_zoom_e = null;
@@ -948,11 +973,50 @@ let free_o_a = NaN;
 let free_move = false;
 let free_target_id = "";
 let free_drag = false;
+let free_drag_tip: HTMLElement;
 document.addEventListener("pointermove", (e: PointerEvent) => {
     if (模式 == "设计" && free_old_point) {
         e.preventDefault();
         free_mouse(e);
         free_move = true;
+        if (free_drag) {
+            let els = document.elementsFromPoint(e.clientX, e.clientY) as HTMLElement[];
+            for (let el of els) {
+                if (el.tagName == "X-X") {
+                    let rect = el.getBoundingClientRect();
+                    for (let x of selected_el) {
+                        if (
+                            el.parentElement.classList.contains("flex-column") ||
+                            el.parentElement.classList.contains("flex-row")
+                        ) {
+                            free_drag_tip.style.opacity = "1";
+                            if (el.parentElement.classList.contains("flex-column")) {
+                                if (e.clientY - rect.y < rect.height / 2) {
+                                    free_drag_tip.style.top = rect.top + "px";
+                                } else {
+                                    free_drag_tip.style.top = rect.bottom + "px";
+                                }
+                                free_drag_tip.style.left = rect.left + "px";
+                                free_drag_tip.style.width = rect.width + "px";
+                                free_drag_tip.style.height = "1px";
+                            }
+                            if (el.parentElement.classList.contains("flex-row")) {
+                                if (e.clientX - rect.x < rect.width / 2) {
+                                    free_drag_tip.style.left = rect.left + "px";
+                                } else {
+                                    free_drag_tip.style.left = rect.right + "px";
+                                }
+                                free_drag_tip.style.top = rect.top + "px";
+                                free_drag_tip.style.width = "1px";
+                                free_drag_tip.style.height = rect.height + "px";
+                            }
+                            return;
+                        }
+                    }
+                }
+            }
+            free_drag_tip.style.opacity = "0";
+        }
     }
 });
 document.addEventListener("pointerup", (e: PointerEvent) => {
@@ -964,6 +1028,8 @@ document.addEventListener("pointerup", (e: PointerEvent) => {
     free_mouse(e);
 
     if (free_drag) {
+        O.classList.remove("拖拽");
+        free_drag_tip.remove();
         let els = document.elementsFromPoint(e.clientX, e.clientY);
         for (let el of els) {
             if (el.tagName == "X-X") {
@@ -995,6 +1061,8 @@ document.addEventListener("pointerup", (e: PointerEvent) => {
                     let xel = document.createElement("x-x") as x;
                     xel.id = x.id;
                     xel.setAttribute("style", x.getAttribute("style"));
+                    xel.style.left = "";
+                    xel.style.top = "";
                     xel.className = x.className;
                     const xx = get_x_by_id(x.id);
                     if (before) {
@@ -1178,6 +1246,12 @@ document.addEventListener("dblclick", (e) => {
         if (yl.includes(free_o_a)) el.style.height = "";
     }
 });
+
+function new_free_drag_tip() {
+    free_drag_tip = document.createElement("div");
+    free_drag_tip.classList.add("free_drag_tip");
+    document.body.append(free_drag_tip);
+}
 
 /** 通过画布坐标创建主元素 */
 function create_x_x(x: number, y: number) {
@@ -1554,6 +1628,7 @@ function version_tr(obj): 集type {
         case "0.14.0":
         case "0.14.1":
         case "0.14.2":
+        case "0.14.3":
             return obj;
         default:
             put_toast(`文件版本是 ${v}，与当前软件版本 ${packagejson.version} 不兼容，请升级软件`);
@@ -2425,7 +2500,70 @@ function assets_reflash() {
         };
         add.innerHTML = icon(add_svg);
 
-        bar.append(id_el, add, r);
+        let fileHandle;
+        let download = document.createElement("div");
+        download.onclick = async () => {
+            if (window.showSaveFilePicker) {
+                fileHandle = await window.showSaveFilePicker({
+                    suggestedName: `${get_file_name()}资源文件${i}`,
+                });
+                const writable = await fileHandle.createWritable();
+
+                let arr = 集.assets[i].base64.split(","),
+                    mime = arr[0].match(/:(.*?);/)[1],
+                    bstr = window.atob(arr[1]),
+                    n = bstr.length,
+                    u8arr = new Uint8Array(n);
+                while (n--) {
+                    u8arr[n] = bstr.charCodeAt(n);
+                }
+                let blob = new Blob([u8arr], { type: mime });
+                await writable.write(blob);
+                await writable.close();
+                async.style.display = "";
+                async_init = true;
+                async_file();
+            } else {
+                let a = document.createElement("a");
+                let name = get_file_name();
+                a.download = `${name}资源文件${i}`;
+                a.href = 集.assets[i].base64;
+                a.click();
+                URL.revokeObjectURL(集.assets[i].base64);
+            }
+        };
+        download.innerHTML = icon(down_svg);
+
+        let async_init = false;
+        let async = document.createElement("div");
+        async.onclick = async () => {
+            if (!fileHandle) return;
+            if (async_init) {
+                async_init = false;
+            } else {
+                async_init = true;
+                async_file();
+            }
+        };
+        async.innerHTML = icon(binding_svg);
+        async function async_file() {
+            let r: File = await fileHandle.getFile();
+            let a = new FileReader();
+            a.onload = () => {
+                let t = a.result as string;
+                if (t != 集.assets[i].base64) {
+                    集.assets[i].base64 = t;
+                    集.assets[i].sha = CryptoJS.SHA256(a.result as string).toString();
+                }
+            };
+            a.readAsDataURL(r);
+            if (async_init) {
+                setTimeout(async_file, 1000);
+            }
+        }
+        async.style.display = "none";
+
+        bar.append(id_el, add, download, async, r);
     }
 }
 
@@ -2633,7 +2771,7 @@ class 图层 {
         if (!nosave) data_changed();
 
         if (O.querySelectorAll("x-x").length > 128) {
-            O.style.willChange = "left, top";
+            O.style.willChange = "left, top, transform";
         } else {
             O.style.willChange = "";
         }
@@ -4013,18 +4151,17 @@ md.renderer.rules.fence = function (tokens, idx, options, env, self) {
     return f(tokens, idx, options, env, self);
 };
 // 代码来自 https://github.com/artisticat1/obsidian-tikzjax 和 https://github.com/kisonecat/tikzjax
-import tikzjaxJs from "../../lib/tikzjax.js?raw";
-const tikzjax = document.createElement("script");
-tikzjax.id = "tikzjax";
-tikzjax.type = "text/javascript";
-tikzjax.innerText = tikzjaxJs;
-document.body.append(tikzjax);
+var import_latex = false;
 document.addEventListener("tikzjax-load-finished", (e) => {
     const svgEl = e.target as HTMLElement;
     if (is_dark) svgEl.style.filter = "invert(1)";
 });
 md.renderer.rules.fence = function (tokens, idx, options, env, self) {
     if (tokens[idx].info == "tikz") {
+        if (!import_latex) {
+            import_script("../../lib/tikzjax.js?raw", true);
+            import_latex = true;
+        }
         let s = document.createElement("script");
         s.setAttribute("type", "text/tikz");
         s.setAttribute("data-show-console", "true");
@@ -4427,6 +4564,8 @@ class x extends HTMLElement {
                 e.preventDefault();
                 e.stopPropagation();
                 free_drag = true;
+                O.classList.add("拖拽");
+                new_free_drag_tip();
                 if (this.parentElement != O) {
                     let x = e.clientX - O.getBoundingClientRect().x,
                         y = e.clientY - O.getBoundingClientRect().y + m.offsetHeight - e.offsetX;
@@ -6231,7 +6370,8 @@ class img extends HTMLElement {
 
 window.customElements.define("x-img", img);
 
-function to_text(img: HTMLImageElement | HTMLCanvasElement) {
+async function to_text(img: HTMLImageElement | HTMLCanvasElement) {
+    if (!ocr_init) await ocr_start();
     let canvas = document.createElement("canvas");
     let w = (img as HTMLImageElement).naturalWidth || img.width,
         h = (img as HTMLImageElement).naturalHeight || img.height;
@@ -6272,13 +6412,30 @@ function to_text(img: HTMLImageElement | HTMLCanvasElement) {
     });
 }
 
-import ocr from "../../ai/ocr";
+var ocr_init = false;
+var ocr;
 
-start();
+async function import_script(url: string, use_import?: boolean) {
+    let script = document.createElement("script");
+    if (use_import) {
+        const js = (await import("../../lib/tikzjax.js?raw")).default;
+        script.innerText = js;
+    } else {
+        script.src = url;
+    }
+    document.body.append(script);
+    return new Promise((re, rj) => {
+        script.onload = () => {
+            re(true);
+        };
+    });
+}
 
-import dic from "../../public/ocr/ppocr_keys_v1.txt?raw";
-
-async function start() {
+async function ocr_start() {
+    await import_script("https://unpkg.com/opencv.js@1.2.1/opencv.js");
+    await import_script("https://unpkg.com/onnxruntime-web@1.13.1/dist/ort.min.js");
+    ocr = (await import("../../ai/ocr")).default;
+    var dic = (await import("../../public/ocr/ppocr_keys_v1.txt?raw")).default;
     await ocr.init({
         det_path: "./ocr/ppocr_det.onnx",
         rec_path: "./ocr/ppocr_rec.onnx",
@@ -6286,6 +6443,7 @@ async function start() {
         dev: false,
         node: true,
     });
+    ocr_init = true;
 }
 
 // geogebra
