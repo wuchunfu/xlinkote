@@ -22,76 +22,86 @@ import play_svg from "../../assets/icons/play.svg";
 import down_svg from "../../assets/icons/down.svg";
 import binding_svg from "../../assets/icons/binding_file.svg";
 
+function createEl<K extends keyof HTMLElementTagNameMap>(tagName: K): HTMLElementTagNameMap[K];
+function createEl<K extends keyof HTMLElementDeprecatedTagNameMap>(tagName: K): HTMLElementDeprecatedTagNameMap[K];
+function createEl(tagName: string): HTMLElement;
+function createEl(tagname: string) {
+    return document.createElement(tagname);
+}
+function elFromId(id: string) {
+    return document.getElementById(id);
+}
+
 // el
-var 设置_el = document.getElementById("设置");
-var 侧栏 = document.getElementById("侧栏");
+var 设置_el = elFromId("设置");
+var 侧栏 = elFromId("侧栏");
 const 侧栏_tabs = document.querySelector("#侧栏 > #tabs");
 const 侧栏_items = document.querySelector("#侧栏 > #items");
-const toast = document.getElementById("toast");
+const toast = elFromId("toast");
 
-var nav = document.getElementById("nav");
+var nav = elFromId("nav");
 
-const 画布 = document.getElementById("画布");
-const 画布s = document.getElementById("画布们");
-var O = document.getElementById("O");
+const 画布 = elFromId("画布");
+const 画布s = elFromId("画布们");
+var O = elFromId("O");
 
-const link_value_bar = document.createElement("x-link-value") as link_value;
+const link_value_bar = createEl("x-link-value") as link_value;
 画布.append(link_value_bar);
 
-const breadcrumbs_el = document.getElementById("breadcrumbs");
-const bc_sw_el = document.getElementById("bc_sw");
+const breadcrumbs_el = elFromId("breadcrumbs");
+const bc_sw_el = elFromId("bc_sw");
 
-const 临时中转站 = document.getElementById("临时");
+const 临时中转站 = elFromId("临时");
 
-const 归位 = document.getElementById("归位");
+const 归位 = elFromId("归位");
 
-const zoom_pel = document.getElementById("缩放");
-const zoom_el = document.getElementById("zoom") as HTMLInputElement;
-const zoom_list = document.getElementById("zooms");
+const zoom_pel = elFromId("缩放");
+const zoom_el = elFromId("zoom") as HTMLInputElement;
+const zoom_list = elFromId("zooms");
 
-const 集_el = document.getElementById("集");
+const 集_el = elFromId("集");
 
-const 文件_el = document.getElementById("文件");
+const 文件_el = elFromId("文件");
 
-const assets_el = document.getElementById("资源");
+const assets_el = elFromId("资源");
 
-const pen_pel = document.getElementById("draw_bar");
-const color_yl = document.getElementById("color_yl");
-const penc_el = <xcolor>document.getElementById("penc").querySelector("x-color");
-const pen_el = document.getElementById("笔").querySelector("div");
-const pen_width_el = document.getElementById("笔").querySelector("x-draw-width") as xdraw_width;
-const pen_zoom_el = document.getElementById("缩放跟随") as HTMLInputElement;
-const pen_type_el = document.getElementById("笔刷");
+const pen_pel = elFromId("draw_bar");
+const color_yl = elFromId("color_yl");
+const penc_el = <xcolor>elFromId("penc").querySelector("x-color");
+const pen_el = elFromId("笔").querySelector("div");
+const pen_width_el = elFromId("笔").querySelector("x-draw-width") as xdraw_width;
+const pen_zoom_el = elFromId("缩放跟随") as HTMLInputElement;
+const pen_type_el = elFromId("笔刷");
 
-const 图层_el = document.getElementById("层");
+const 图层_el = elFromId("层");
 
-var el_style = <HTMLTextAreaElement>document.getElementById("el_style");
+var el_style = <HTMLTextAreaElement>elFromId("el_style");
 
-var xywh_x_el = <HTMLInputElement>document.getElementById("xywh_x");
-var xywh_y_el = <HTMLInputElement>document.getElementById("xywh_y");
-var xywh_w_el = <HTMLInputElement>document.getElementById("xywh_w");
-var xywh_h_el = <HTMLInputElement>document.getElementById("xywh_h");
+var xywh_x_el = <HTMLInputElement>elFromId("xywh_x");
+var xywh_y_el = <HTMLInputElement>elFromId("xywh_y");
+var xywh_w_el = <HTMLInputElement>elFromId("xywh_w");
+var xywh_h_el = <HTMLInputElement>elFromId("xywh_h");
 
-const about = document.getElementById("about");
+const about = elFromId("about");
 const version_el = <HTMLElement>about.querySelector("#version");
 
-var search_el = document.getElementById("search") as HTMLInputElement;
-var search_r = document.getElementById("搜索结果");
-var search_pel = document.getElementById("搜索");
+var search_el = elFromId("search") as HTMLInputElement;
+var search_r = elFromId("搜索结果");
+var search_pel = elFromId("搜索");
 
-var cmd_el = document.getElementById("命令框") as HTMLInputElement;
-var cmd_r = document.getElementById("命令输出");
+var cmd_el = elFromId("命令框") as HTMLInputElement;
+var cmd_r = elFromId("命令输出");
 var cmd_pel = cmd_el.parentElement;
 cmd_pel.classList.add("cmd_hide");
 
-const view_el = document.getElementById("viewer");
+const view_el = elFromId("viewer");
 
-const ink_el = document.getElementById("ink") as HTMLCanvasElement;
+const ink_el = elFromId("ink") as HTMLCanvasElement;
 let ink_cxt = ink_el.getContext("2d");
 let ink_points: [number[], number[]][] = [];
 
-const ys_list = document.getElementById("ys_list");
-const ys_add = document.getElementById("ys_add");
+const ys_list = elFromId("ys_list");
+const ys_add = elFromId("ys_add");
 
 function icon(src: string) {
     return `<img src="${src}" class="icon">`;
@@ -155,38 +165,38 @@ const packagejson = JSON.parse(pack);
 // 工具栏
 
 if (window.showOpenFilePicker) {
-    document.getElementById("绑定文件").onclick = file_load;
+    elFromId("绑定文件").onclick = file_load;
 } else {
-    document.getElementById("绑定文件").style.display = "none";
+    elFromId("绑定文件").style.display = "none";
 }
-document.getElementById("导出文件").onclick = () => {
+elFromId("导出文件").onclick = () => {
     download_file(xln_out(get_data()));
 };
 
-document.getElementById("从云加载").onclick = async () => {
+elFromId("从云加载").onclick = async () => {
     if (集.meta.url) {
         let o = await get_xln_value(集.meta.url);
         set_data(o);
     }
 };
-document.getElementById("上传到云").onclick = put_xln_value;
+elFromId("上传到云").onclick = put_xln_value;
 
-document.getElementById("加载数据库").onclick = () => {
-    document.getElementById("db_load").click();
+elFromId("加载数据库").onclick = () => {
+    elFromId("db_load").click();
 };
-document.getElementById("下载数据库").onclick = db_download;
+elFromId("下载数据库").onclick = db_download;
 
-document.getElementById("新建集").onclick = () => {
+elFromId("新建集").onclick = () => {
     window.open(location.origin);
 };
 
-document.getElementById("新建画布").onclick = () => {
+elFromId("新建画布").onclick = () => {
     add_画布();
     data_changed();
 };
 
-document.getElementById("导入设置").onclick = () => {
-    let file = document.createElement("input");
+elFromId("导入设置").onclick = () => {
+    let file = createEl("input");
     file.type = "file";
     file.click();
     file.oninput = () => {
@@ -198,38 +208,38 @@ document.getElementById("导入设置").onclick = () => {
         reader.readAsText(file.files[0]);
     };
 };
-document.getElementById("导出设置").onclick = () => {
-    let a = document.createElement("a");
+elFromId("导出设置").onclick = () => {
+    let a = createEl("a");
     let blob = new Blob([localStorage.getItem("config")]);
     a.download = `xlinkote_config.json`;
     a.href = URL.createObjectURL(blob);
     a.click();
     URL.revokeObjectURL(String(blob));
 };
-document.getElementById("放弃设置").onclick = () => {
+elFromId("放弃设置").onclick = () => {
     show_setting();
 };
-document.getElementById("保存设置").onclick = () => {
+elFromId("偏好设置").onclick = () => {
     save_setting();
 };
-document.getElementById("新建元素").onclick = () => {
+elFromId("新建元素").onclick = () => {
     const margin = 8 / zoom;
     create_x_x(-el_offset2(O).x + margin, -el_offset2(O).y + margin);
 };
-document.getElementById("删除元素").onclick = () => {
+elFromId("删除元素").onclick = () => {
     for (let i of selected_el) {
         z.remove(i);
     }
 };
 
-document.getElementById("撤销").onclick = () => {
+elFromId("撤销").onclick = () => {
     undo(true);
 };
-document.getElementById("重做").onclick = () => {
+elFromId("重做").onclick = () => {
     undo(false);
 };
 
-document.getElementById("搜索操作").onclick = () => {
+elFromId("搜索操作").onclick = () => {
     show_g_search();
 };
 
@@ -260,12 +270,12 @@ document.getElementById("搜索操作").onclick = () => {
         }
     });
 };
-document.getElementById("切换侧栏").onclick = () => {
+elFromId("切换侧栏").onclick = () => {
     侧栏.classList.toggle("侧栏显示");
 };
 var handle_e: MouseEvent, handle_e1: MouseEvent, handle_a: number;
 
-document.getElementById("handle").onpointerdown = (e) => {
+elFromId("handle").onpointerdown = (e) => {
     handle_e = e;
     侧栏.style.transition = "0s";
     let m = (e: MouseEvent) => {
@@ -300,32 +310,32 @@ for (let el of document.querySelectorAll(".tools")) {
     }
 }
 
-document.getElementById("底层").onclick = () => {
+elFromId("底层").onclick = () => {
     z.底层(z.聚焦元素);
 };
-document.getElementById("下一层").onclick = () => {
+elFromId("下一层").onclick = () => {
     z.下一层(z.聚焦元素);
 };
-document.getElementById("上一层").onclick = () => {
+elFromId("上一层").onclick = () => {
     z.上一层(z.聚焦元素);
 };
-document.getElementById("顶层").onclick = () => {
+elFromId("顶层").onclick = () => {
     z.顶层(z.聚焦元素);
 };
 
-document.getElementById("纵向堆叠").onclick = () => {
+elFromId("纵向堆叠").onclick = () => {
     to_flex(selected_el, "y");
 };
-document.getElementById("横向堆叠").onclick = () => {
+elFromId("横向堆叠").onclick = () => {
     to_flex(selected_el, "x");
 };
-document.getElementById("成组").onclick = () => {
+elFromId("成组").onclick = () => {
     to_none_layout(selected_el);
 };
-document.getElementById("转为一行").onclick = () => {
+elFromId("转为一行").onclick = () => {
     to_one_line(selected_el);
 };
-document.getElementById("拆分为多行").onclick = () => {
+elFromId("拆分为多行").onclick = () => {
     to_more_line(selected_el);
 };
 
@@ -356,13 +366,13 @@ bc_sw_el.onclick = () => {
 
 var 模式: "浏览" | "设计" | "绘制";
 
-document.getElementById("浏览").onclick = () => {
+elFromId("浏览").onclick = () => {
     set_模式("浏览");
 };
-document.getElementById("设计").onclick = () => {
+elFromId("设计").onclick = () => {
     set_模式("设计");
 };
-document.getElementById("绘制").onclick = () => {
+elFromId("绘制").onclick = () => {
     set_模式("绘制");
 
     add_none_layout();
@@ -439,7 +449,7 @@ function blur_all() {
 
 // markdown
 function set_md_v(s: string, e: string) {
-    let text = (document.getElementById(selections[0].id).querySelector("x-md") as markdown).text;
+    let text = (elFromId(selections[0].id).querySelector("x-md") as markdown).text;
     let sn = text.selectionStart,
         en = text.selectionEnd;
     let select_text = text.value.slice(sn, en);
@@ -449,28 +459,28 @@ function set_md_v(s: string, e: string) {
     text.dispatchEvent(new InputEvent("input"));
 }
 
-document.getElementById("md_b").onclick = () => {
+elFromId("md_b").onclick = () => {
     set_md_v("**", "**");
 };
-document.getElementById("md_i").onclick = () => {
+elFromId("md_i").onclick = () => {
     set_md_v("*", "*");
 };
-document.getElementById("md_s").onclick = () => {
+elFromId("md_s").onclick = () => {
     set_md_v("~~", "~~");
 };
-document.getElementById("md_link").onclick = () => {
+elFromId("md_link").onclick = () => {
     set_md_v("[]()", "");
 };
-document.getElementById("md_img").onclick = () => {
+elFromId("md_img").onclick = () => {
     set_md_v("~[]()", "");
 };
-document.getElementById("md_mathi").onclick = () => {
+elFromId("md_mathi").onclick = () => {
     set_md_v("$", "$");
 };
 
 var drag_block = false;
 
-document.getElementById("常驻").onpointerdown = (e) => {
+elFromId("常驻").onpointerdown = (e) => {
     console.log((<HTMLElement>e.target).id);
     let v = null;
     let el_n = "";
@@ -482,11 +492,11 @@ document.getElementById("常驻").onpointerdown = (e) => {
     let x = e.clientX - O.getBoundingClientRect().x,
         y = e.clientY - O.getBoundingClientRect().y;
 
-    let xel = <x>document.createElement("x-x");
+    let xel = <x>createEl("x-x");
     xel.style.left = x / zoom + "px";
     xel.style.top = y / zoom + "px";
     z.push(xel);
-    var md = document.createElement(el_n);
+    var md = createEl(el_n);
     xel.append(md);
     set_模式("浏览");
     if (v) (<markdown>md).value = v;
@@ -506,7 +516,7 @@ var o_rect;
 var o_vb_sb = { x0: 0, y0: 0, x1: 0, y1: 0 };
 var move: boolean = false;
 var select_id = "";
-var fxsd_el = document.getElementById("方向锁定");
+var fxsd_el = elFromId("方向锁定");
 var fxsd = 0;
 
 fxsd_el.onclick = () => {
@@ -525,9 +535,9 @@ document.onmousedown = (e) => {
             if (模式 != "设计") return;
             o_e = e;
             o_ab_p = e2p(e);
-            let select = document.createElement("div");
+            let select = createEl("div");
             select_id = select.id = `s${new Date().getTime()}`;
-            document.getElementById("选择").append(select);
+            elFromId("选择").append(select);
             画布.style.userSelect = "none";
         }
     }
@@ -552,7 +562,7 @@ document.onmouseup = (e) => {
     o_e = null;
     move = false;
     画布.style.userSelect = "auto";
-    if (select_id) document.getElementById(select_id).remove();
+    if (select_id) elFromId(select_id).remove();
     select_id = "";
 };
 
@@ -572,7 +582,7 @@ var mouse = (e: MouseEvent) => {
                     selected_el = [];
                 });
                 let rect = p2rect(o_ab_p, now_point);
-                let select = <HTMLDivElement>document.getElementById(select_id);
+                let select = <HTMLDivElement>elFromId(select_id);
                 select.id = select_id;
                 select.style.left = (rect.x + el_offset2(O, select.parentElement).x) * zoom + "px";
                 select.style.top = (rect.y + el_offset2(O, select.parentElement).y) * zoom + "px";
@@ -629,6 +639,7 @@ var o_touch_t = NaN;
     }
 };
 画布.ontouchend = (e) => {
+    // 惯性滚动
     let dt = new Date().getTime() - o_touch_t;
     let dx = fxsd == 0 || fxsd == 2 ? e.changedTouches[0].clientX - o_touch_e.changedTouches[0].clientX : 0,
         dy = fxsd == 0 || fxsd == 1 ? e.changedTouches[0].clientY - o_touch_e.changedTouches[0].clientY : 0;
@@ -638,16 +649,18 @@ var o_touch_t = NaN;
     let p = 0.5 * m * (ds / dt / 2) ** 2;
     let s = p / (m * a);
     let t = Math.sqrt((2 * s) / a);
-    console.log(s, t);
-    let x = el_offset(O).x + s * (dx / ds),
-        y = el_offset(O).y + s * (dy / ds);
-    O.style.transition = `${t / 1000}s`;
-    O.style.transitionTimingFunction = "cubic-bezier(.17, .89, .45, 1)";
-    setTimeout(() => {
-        O.style.transition = ``;
-    }, t);
-    O.style.left = x + "px";
-    O.style.top = y + "px";
+    console.log(ds);
+    if (ds > 30) {
+        let x = el_offset(O).x + s * (dx / ds),
+            y = el_offset(O).y + s * (dy / ds);
+        O.style.transition = `${t / 1000}s`;
+        O.style.transitionTimingFunction = "cubic-bezier(.17, .89, .45, 1)";
+        setTimeout(() => {
+            O.style.transition = ``;
+        }, t);
+        O.style.left = x + "px";
+        O.style.top = y + "px";
+    }
 
     o_touch_e = null;
     move = false;
@@ -655,7 +668,7 @@ var o_touch_t = NaN;
     o_zoom = NaN;
     if (e.targetTouches.length == 1) {
         touch_move(e);
-        if (select_id) document.getElementById(select_id).remove();
+        if (select_id) elFromId(select_id).remove();
         select_id = "";
     } else if (e.targetTouches.length == 2) {
         touch_zoom(e);
@@ -803,6 +816,7 @@ var zoom = 1;
 
 /** 缩放 */
 function zoom_o(z: number) {
+    z = Math.max(z, 0);
     zoom = z;
     O.style.transform = `scale(${z})`;
     zoom_el.value = `${(z * 100).toFixed(1)}`;
@@ -841,7 +855,7 @@ zoom_pel.onclick = () => {
 };
 
 for (let i = 25; i <= 200; i += 25) {
-    let op = document.createElement("div");
+    let op = createEl("div");
     op.innerText = `${i}%`;
     zoom_list.append(op);
     op.onpointerdown = () => {
@@ -879,12 +893,13 @@ function el_offset2(el: Element, pel?: Element) {
     };
 }
 
-document.getElementById("画布").onwheel = (e) => {
+elFromId("画布").onwheel = (e) => {
     if (e.ctrlKey) {
         e.preventDefault();
         let ozoom = zoom,
             dzoom = -e.deltaY / (800 / zoom);
         zoom += dzoom;
+        zoom = Math.abs(zoom);
         let dx = e.clientX - O.getBoundingClientRect().x,
             dy = e.clientY - O.getBoundingClientRect().y;
         O.style.left = el_offset(O).x - dx * (dzoom / ozoom) + "px";
@@ -944,6 +959,9 @@ let middle_p = { x: 0, y: 0 };
     }
 });
 画布.addEventListener("pointerup", (e) => {
+    if (middle_b) {
+        data_changed();
+    }
     middle_b = null;
 });
 
@@ -1058,7 +1076,7 @@ document.addEventListener("pointerup", (e: PointerEvent) => {
                     }
                 }
                 function cx(pel: Element, x: x, before: boolean) {
-                    let xel = document.createElement("x-x") as x;
+                    let xel = createEl("x-x") as x;
                     xel.id = x.id;
                     xel.setAttribute("style", x.getAttribute("style"));
                     xel.style.left = "";
@@ -1248,18 +1266,18 @@ document.addEventListener("dblclick", (e) => {
 });
 
 function new_free_drag_tip() {
-    free_drag_tip = document.createElement("div");
+    free_drag_tip = createEl("div");
     free_drag_tip.classList.add("free_drag_tip");
     document.body.append(free_drag_tip);
 }
 
 /** 通过画布坐标创建主元素 */
 function create_x_x(x: number, y: number) {
-    let xel = <x>document.createElement("x-x");
+    let xel = <x>createEl("x-x");
     xel.style.left = x + "px";
     xel.style.top = y + "px";
     z.push(xel);
-    var md = document.createElement("x-md");
+    var md = createEl("x-md");
     xel.append(md);
     (<markdown>md).edit = true;
     set_模式("浏览");
@@ -1270,9 +1288,9 @@ function tmp_s_reflash() {
     临时中转站.innerHTML = "";
     let l = [...集.中转站, ...global_x];
     for (let x of l) {
-        let t = document.createElement("div");
+        let t = createEl("div");
         临时中转站.append(t);
-        let xel = document.createElement("x-x") as x;
+        let xel = createEl("x-x") as x;
         xel.id = x.id;
         t.append(xel);
         xel.setAttribute("style", x.style);
@@ -1302,7 +1320,7 @@ document.onkeydown = (e) => {
         case "/":
             if (e.ctrlKey) {
                 e.preventDefault();
-                document.getElementById("toggle_md").click();
+                elFromId("toggle_md").click();
             }
             break;
         case "0":
@@ -1485,7 +1503,7 @@ function get_data() {
 }
 
 function rename_el() {
-    let el = document.createElement("input");
+    let el = createEl("input");
     el.type = "text";
     el.readOnly = true;
     el.onkeydown = (e) => {
@@ -1629,6 +1647,7 @@ function version_tr(obj): 集type {
         case "0.14.1":
         case "0.14.2":
         case "0.14.3":
+        case "0.15.0":
             return obj;
         default:
             put_toast(`文件版本是 ${v}，与当前软件版本 ${packagejson.version} 不兼容，请升级软件`);
@@ -1654,9 +1673,9 @@ async function set_data(l: 集type) {
 
     let ps = {};
     for (const p of 集.数据) {
-        let div = document.createElement("div");
+        let div = createEl("div");
         集_el.append(div);
-        let t = document.createElement("div");
+        let t = createEl("div");
         t.innerText = p.name;
         ps[p.id] = render_data(p);
         div.setAttribute("data-id", p.id);
@@ -1676,19 +1695,19 @@ async function set_data(l: 集type) {
             z.reflash(true);
             zoom_o(Number(O.style.transform.match(/scale\((.*)\)/)[1] || p.p.zoom));
         };
-        let more = document.createElement("div");
+        let more = createEl("div");
         more.classList.add("more");
-        let rename = document.createElement("div");
+        let rename = createEl("div");
         rename.innerHTML = icon(edit_svg);
         rename.onclick = () => {
             let n = prompt("重命名画布", p.name);
             if (n) {
-                document.getElementById(p.id).setAttribute("data-name", n);
+                elFromId(p.id).setAttribute("data-name", n);
                 data_changed();
                 t.innerText = n;
             }
         };
-        let rm = document.createElement("div");
+        let rm = createEl("div");
         rm.innerHTML = icon(remove_svg);
         rm.onclick = () => {
             if (集_el.children.length == 1) return;
@@ -1701,7 +1720,7 @@ async function set_data(l: 集type) {
                 select_p(id);
             }
             div.remove();
-            document.getElementById(p.id).remove();
+            elFromId(p.id).remove();
             data_changed();
         };
         more.append(rm, rename);
@@ -1736,7 +1755,7 @@ function reload_side() {
 
 /** 渲染画布 */
 function render_data(inputdata: 画布type) {
-    let el = document.createElement("div");
+    let el = createEl("div");
     el.style.display = "none";
     el.id = inputdata.id;
     el.setAttribute("data-name", inputdata.name);
@@ -1763,11 +1782,15 @@ function render_data(inputdata: 画布type) {
     画布s.append(el);
 
     function v(data: data, pid?: string) {
-        for (let i of data) {
-            if (values[pid]) {
-                (<markdown>get_x_by_id(pid).querySelector(i.type)).value = values[pid];
+        try {
+            for (let i of data) {
+                if (values[pid]) {
+                    (<markdown>get_x_by_id(pid).querySelector(i.type)).value = values[pid];
+                }
+                if (i.子元素) v(i.子元素, i.id);
             }
-            if (i.子元素) v(i.子元素, i.id);
+        } catch (error) {
+            console.log(pid);
         }
     }
     v(inputdata.data);
@@ -1874,7 +1897,7 @@ function set_diff_data(diffl: diff_i[], undo_data: 集type) {
                             } else if (d.path[d.path.length - 1] == "子元素") {
                                 el.value = d["rhs"];
                             } else if (d.path[d.path.length - 1] == "type") {
-                                let new_el = document.createElement(d["rhs"]) as x;
+                                let new_el = createEl(d["rhs"]) as x;
                                 new_el.id = el.id;
                                 new_el.className = el.className;
                                 new_el.setAttribute("style", el.getAttribute("style"));
@@ -1891,7 +1914,7 @@ function set_diff_data(diffl: diff_i[], undo_data: 集type) {
             case "values":
                 集.values = undo_data.values;
                 if (d.path[1]) {
-                    (document.getElementById(d.path[1]).querySelector("x-md") as markdown).reload();
+                    (elFromId(d.path[1]).querySelector("x-md") as markdown).reload();
                 }
                 break;
             default:
@@ -1905,12 +1928,12 @@ set_css("./md.css");
 /** 设置文件css样式 */
 function set_css(t: string) {
     let style: HTMLElement;
-    document.getElementById("css")?.remove();
+    elFromId("css")?.remove();
     if (t.includes("\n")) {
-        style = document.createElement("style");
+        style = createEl("style");
         style.innerHTML = t;
     } else {
-        style = document.createElement("link");
+        style = createEl("link");
         (style as HTMLLinkElement).href = t;
         (style as HTMLLinkElement).rel = "stylesheet";
     }
@@ -1921,7 +1944,7 @@ function set_css(t: string) {
 function set_dependencies(ds: meta["dependencies"]) {
     let p = [];
     for (let i of ds) {
-        let sc = document.createElement("script");
+        let sc = createEl("script");
         sc.src = i.url;
         p.push(
             new Promise((re) => {
@@ -2036,17 +2059,17 @@ var file_list: meta[] = [];
 
 function load_file_side_bar() {
     文件_el.innerHTML = "";
-    let load_dav = document.createElement("div");
+    let load_dav = createEl("div");
     load_dav.innerHTML = icon(cloud_down);
     文件_el.append(load_dav);
     load_dav.onclick = () => {
         get_all_xln();
     };
-    let new_d = document.createElement("div");
+    let new_d = createEl("div");
     new_d.title = "点击重命名以保存";
-    let new_t = document.createElement("div");
+    let new_t = createEl("div");
     new_t.innerText = `新建集${uuid_id()}`;
-    let dav = document.createElement("div");
+    let dav = createEl("div");
     new_d.append(dav, new_t);
     new_d.classList.add("selected_item");
     new_d.onclick = () => {
@@ -2123,19 +2146,19 @@ function reload_file_list() {
         }
     });
     for (let f of file_list) {
-        let d = document.createElement("div");
+        let d = createEl("div");
         d.setAttribute("data-uuid", f.UUID);
-        let t = document.createElement("a");
+        let t = createEl("a");
         t.target = "_blank";
         let url = new URL(location.origin);
         url.hash = f.UUID;
         t.href = url.toString();
         t.innerText = f.file_name;
         if (f.url) t.title = f.url;
-        let dav = document.createElement("div");
-        let more = document.createElement("div");
+        let dav = createEl("div");
+        let more = createEl("div");
         more.classList.add("more");
-        let rename = document.createElement("div");
+        let rename = createEl("div");
         rename.innerHTML = icon(edit_svg);
         rename.onclick = () => {
             let n = prompt("重命名文件", f.file_name);
@@ -2153,7 +2176,7 @@ function reload_file_list() {
                 };
             }
         };
-        let rm = document.createElement("div");
+        let rm = createEl("div");
         rm.innerHTML = icon(remove_svg);
         rm.onclick = () => {
             let x = confirm(`确定删除画布 ${f.file_name}`);
@@ -2185,7 +2208,7 @@ function db_download() {
     let r = customerObjectStore.getAll();
     r.onsuccess = () => {
         let t = JSON.stringify(r.result);
-        let a = document.createElement("a");
+        let a = createEl("a");
         let blob = new Blob([t]);
         a.download = `xlinkote_db.json`;
         a.href = URL.createObjectURL(blob);
@@ -2207,8 +2230,8 @@ function db_load(t: string) {
     db_get();
 }
 
-document.getElementById("db_load").onchange = () => {
-    let file = (<HTMLInputElement>document.getElementById("db_load")).files[0];
+elFromId("db_load").onchange = () => {
+    let file = (<HTMLInputElement>elFromId("db_load")).files[0];
     let reader = new FileReader();
     reader.onload = () => {
         db_load(<string>reader.result);
@@ -2236,8 +2259,8 @@ function undo(v: boolean) {
 
     selections = data.s;
     if (selections[0].id) {
-        (document.getElementById(selections[0].id).querySelector("x-md") as markdown).edit = true;
-        let text = (document.getElementById(selections[0].id).querySelector("x-md") as markdown).text;
+        (elFromId(selections[0].id).querySelector("x-md") as markdown).edit = true;
+        let text = (elFromId(selections[0].id).querySelector("x-md") as markdown).text;
         text.selectionStart = selections[0].start;
         text.selectionEnd = selections[0].end;
     }
@@ -2295,7 +2318,7 @@ async function download_file(text: string) {
         await writable.write(text);
         await writable.close();
     } else {
-        let a = document.createElement("a");
+        let a = createEl("a");
         let blob = new Blob([text]);
         let name = get_file_name();
         a.download = `${name}.xln`;
@@ -2386,12 +2409,12 @@ import TurndownService from "turndown";
 /** 添加文件或文字到画布 */
 function add_file(type: string, text: string, data: string, x: number, y: number) {
     let types = type.split("/");
-    let xel = <x>document.createElement("x-x");
+    let xel = <x>createEl("x-x");
     xel.style.left = x / zoom + "px";
     xel.style.top = y / zoom + "px";
     z.push(xel);
     if (types[0] == "text") {
-        let md = <markdown>document.createElement("x-md");
+        let md = <markdown>createEl("x-md");
         xel.append(md);
         if (type == "text/html") {
             let turndownService = new TurndownService({ headingStyle: "atx" });
@@ -2401,7 +2424,7 @@ function add_file(type: string, text: string, data: string, x: number, y: number
         }
     } else {
         let id = put_assets("", data);
-        let file = <file>document.createElement("x-file");
+        let file = <file>createEl("x-file");
         xel.append(file);
         file.value = JSON.stringify({ r: true, id });
     }
@@ -2464,16 +2487,16 @@ function put_assets(url: string, base64: string) {
 function assets_reflash() {
     assets_el.innerHTML = "";
     for (let i in 集.assets) {
-        let div = document.createElement("div");
+        let div = createEl("div");
         assets_el.append(div);
-        let file = <file>document.createElement("x-file");
+        let file = <file>createEl("x-file");
         div.append(file);
         file.value = JSON.stringify({ r: true, id: i });
 
-        let bar = document.createElement("div");
-        let r = document.createElement("div");
+        let bar = createEl("div");
+        let r = createEl("div");
         r.innerHTML = icon(remove_svg);
-        let id_el = document.createElement("div");
+        let id_el = createEl("div");
         id_el.innerText = i;
         div.append(bar);
         r.onclick = () => {
@@ -2487,21 +2510,21 @@ function assets_reflash() {
             }
         });
 
-        let add = document.createElement("div");
+        let add = createEl("div");
         add.onclick = (e) => {
             let p = e2p(e);
-            let xel = <x>document.createElement("x-x");
+            let xel = <x>createEl("x-x");
             xel.style.left = p.x + "px";
             xel.style.top = p.y + "px";
             z.push(xel);
-            let file = <file>document.createElement("x-file");
+            let file = <file>createEl("x-file");
             xel.append(file);
             file.value = JSON.stringify({ r: true, id: i });
         };
         add.innerHTML = icon(add_svg);
 
         let fileHandle;
-        let download = document.createElement("div");
+        let download = createEl("div");
         download.onclick = async () => {
             if (window.showSaveFilePicker) {
                 fileHandle = await window.showSaveFilePicker({
@@ -2524,7 +2547,7 @@ function assets_reflash() {
                 async_init = true;
                 async_file();
             } else {
-                let a = document.createElement("a");
+                let a = createEl("a");
                 let name = get_file_name();
                 a.download = `${name}资源文件${i}`;
                 a.href = 集.assets[i].base64;
@@ -2535,7 +2558,7 @@ function assets_reflash() {
         download.innerHTML = icon(down_svg);
 
         let async_init = false;
-        let async = document.createElement("div");
+        let async = createEl("div");
         async.onclick = async () => {
             if (!fileHandle) return;
             if (async_init) {
@@ -2569,11 +2592,11 @@ function assets_reflash() {
 
 /** 新建绘制元素 */
 function new_draw() {
-    let xel = <x>document.createElement("x-x");
+    let xel = <x>createEl("x-x");
     xel.id = uuid_id();
     xel.style.left = -el_offset(O).x / zoom + "px";
     xel.style.top = -el_offset(O).y / zoom + "px";
-    let draw = document.createElement("x-draw") as draw;
+    let draw = createEl("x-draw") as draw;
     draw.setAttribute("width", String(画布.offsetWidth / zoom));
     draw.setAttribute("height", String(画布.offsetHeight / zoom));
     xel.append(draw);
@@ -2627,7 +2650,7 @@ penc_el.addEventListener("input", () => {
     pen_width_el.color = penc_el.value;
 });
 
-document.getElementById("笔").onclick = (e) => {
+elFromId("笔").onclick = (e) => {
     if (e.target == pen_el.parentElement) pen_el.classList.toggle("pen_show");
 };
 
@@ -2637,14 +2660,14 @@ window.onbeforeunload = () => {
 
 // 导出
 import html2canvas from "html2canvas";
-document.getElementById("导出图片").onclick = to_canvas;
+elFromId("导出图片").onclick = to_canvas;
 function to_canvas() {
     for (let m of document.querySelectorAll("mjx-assistive-mml")) {
         m.remove();
     }
     html2canvas(画布, { scale: 1 / zoom }).then(function (canvas: HTMLCanvasElement) {
         let url = canvas.toDataURL();
-        let a = document.createElement("a");
+        let a = createEl("a");
         let name = get_file_name();
         a.download = `${name}.png`;
         a.href = url;
@@ -2653,12 +2676,12 @@ function to_canvas() {
 }
 
 function get_x_by_id(id: string) {
-    return document.getElementById(id) as x;
+    return elFromId(id) as x;
 }
 
 /** 获取存在链接值的元素 */
 function get_link_el_by_id(id: string) {
-    return document.getElementById(id) as x | xlink;
+    return elFromId(id) as x | xlink;
 }
 
 class 图层 {
@@ -2676,7 +2699,7 @@ class 图层 {
          * @param pel 要把ul添加到的目标元素
          */
         let w = (data: data, pel: HTMLElement) => {
-            let ul = document.createElement("ul");
+            let ul = createEl("ul");
             for (let n in data) {
                 const i = data[n];
 
@@ -2692,7 +2715,7 @@ class 图层 {
                     return;
                 } else {
                     if (!pel.querySelector("img")) {
-                        let x = document.createElement("img");
+                        let x = createEl("img");
                         x.src = ul_show_svg;
                         pel.firstChild?.before(x);
                         x.onclick = () => {
@@ -2705,10 +2728,10 @@ class 图层 {
                         };
                     }
                 }
-                let li = document.createElement("li");
-                let c = document.createElement("input");
+                let li = createEl("li");
+                let c = createEl("input");
                 c.type = "checkbox";
-                let s = document.createElement("span");
+                let s = createEl("span");
                 s.innerText = i.id;
                 li.setAttribute("data-id", i.id);
                 li.append(c);
@@ -2944,11 +2967,11 @@ async function get_all_xln() {
         }
     }
     for (let fi of dav_files) {
-        let d = document.createElement("div");
+        let d = createEl("div");
         let t = rename_el();
         t.value = fi.basename.replace(/\.xln$/, "") || "";
         t.title = "/" + fi.filename.replace(new RegExp(`^${删除路径}`), "");
-        let dav = document.createElement("div");
+        let dav = createEl("div");
         dav.innerHTML = icon(cloud);
         d.append(dav, t);
         文件_el.append(d);
@@ -3049,7 +3072,7 @@ function show_upload_v(v: boolean) {
     }
 }
 function show_upload_pro(l?: number, t?: number) {
-    let p = document.createElement("progress");
+    let p = createEl("progress");
     if (l) p.value = l / t;
     toast.classList.add("toast_show");
     toast.innerHTML = "";
@@ -3298,7 +3321,7 @@ function select_search(i: number) {
 }
 
 function click_search_item(iid: string) {
-    let el = document.getElementById(iid);
+    let el = elFromId(iid);
     if (search_pel.getAttribute("data-fid") == "0") jump_to_x_link(el as x & xlink);
     else view_el.classList.add("viewer_hide");
     show_search_l([]);
@@ -3322,20 +3345,20 @@ function show_search_l(l: search_result, exid?: string) {
     let ids = {};
     for (let i of l) {
         if (!ids[i.id]) {
-            let div = document.createElement("div");
+            let div = createEl("div");
             div.setAttribute("data-id", i.id);
             els.push(div);
             ids[i.id] = els.length - 1;
         }
         let div = els[ids[i.id]];
-        let line = document.createElement("div");
-        let p = document.createElement("span");
+        let line = createEl("div");
+        let p = createEl("span");
         if (i.l) {
             for (let j of i.l) {
                 let indices = [...j.indices].sort((a, b) => a[0] - b[0]);
                 for (let i = 0; i < indices.length; i++) {
                     const k = indices[i];
-                    let h = document.createElement("span");
+                    let h = createEl("span");
                     h.innerText = j.value.slice(k[0], k[1] + 1);
                     if (Number(i) == indices.length - 1) {
                         p.append(j.value.slice(indices[i - 1]?.[1] + 1 || 0, k[0]), h, j.value.slice(k[1] + 1));
@@ -3358,7 +3381,7 @@ function show_search_l(l: search_result, exid?: string) {
             click_search_item(id);
         };
         div.onpointerenter = (e) => {
-            let el = document.getElementById(id);
+            let el = elFromId(id);
             move_to_x_link(el as x & xlink);
             select_index = Number(div.getAttribute("data-i"));
             select_search(select_index);
@@ -3376,7 +3399,7 @@ function show_search_l(l: search_result, exid?: string) {
         } else {
             search_r.append(div);
         }
-        let value = document.createElement("div");
+        let value = createEl("div");
         value.innerText = `${link(div.getAttribute("data-id")).get_v()}`;
         div.append(value);
     }
@@ -3421,11 +3444,11 @@ cmd_el.oninput = () => {
         for (let i of fr) {
             for (let j of i.matches) {
                 let indices = [...j.indices].sort((a, b) => a[0] - b[0]);
-                let line = document.createElement("div");
-                let p = document.createElement("span");
+                let line = createEl("div");
+                let p = createEl("span");
                 for (let i = 0; i < indices.length; i++) {
                     const k = indices[i];
-                    let h = document.createElement("span");
+                    let h = createEl("span");
                     h.innerText = j.value.slice(k[0], k[1] + 1);
                     if (Number(i) == indices.length - 1) {
                         p.append(j.value.slice(indices[i - 1]?.[1] + 1 || 0, k[0]), h, j.value.slice(k[1] + 1));
@@ -3558,7 +3581,7 @@ function move_to_x_link(el: x | xlink) {
     view_el.innerHTML = "";
     view_el.classList.remove("viewer_hide");
     for (let x of els) {
-        let xel = document.createElement("x-x") as x;
+        let xel = createEl("x-x") as x;
         xel.setAttribute("style", x.el.getAttribute("style"));
         xel.style.left = x.x - out_rect.left + "px";
         xel.style.top = x.y - out_rect.top + "px";
@@ -3610,9 +3633,9 @@ function jump_to_x_link(el: x | xlink) {
 /** 添加到面包屑栏 */
 function add_bci(el: x | xlink) {
     if (el.id == now_data_id) return;
-    let li = document.createElement("div");
-    let main = document.createElement("div");
-    let children = document.createElement("div");
+    let li = createEl("div");
+    let main = createEl("div");
+    let children = createEl("div");
     li.append(main, children);
     li.classList.add("bci");
     main.innerText = `#${el.id}`;
@@ -3770,7 +3793,7 @@ function to_flex(els: x[], d: "x" | "y") {
         let rel = find_root_layout(el);
         if (!xels.includes(rel)) xels.push(rel);
     }
-    let xel = document.createElement("x-x") as x;
+    let xel = createEl("x-x") as x;
     xel.id = uuid_id();
     if (d == "x") {
         xel.classList.add("flex-row");
@@ -3810,7 +3833,7 @@ function is_flex(el: HTMLElement) {
 
 /** 添加一个固定布局元素 */
 function add_none_layout() {
-    let x = document.createElement("x-x") as x;
+    let x = createEl("x-x") as x;
     x.style.left = "0";
     x.style.top = "0";
     z.push(x);
@@ -3867,7 +3890,7 @@ function to_one_line(xels: x[]) {
                 if (i == 0) type = md._value.type;
             });
             el.querySelectorAll("x-x").forEach((el) => z.remove(el as x));
-            let md = document.createElement("x-md") as markdown;
+            let md = createEl("x-md") as markdown;
             el.append(md);
             md.value = JSON.stringify({ text: t, type });
             data_changed();
@@ -3885,9 +3908,9 @@ function to_more_line(xels: x[], c?: string | RegExp) {
             el.classList.add("flex-column");
             for (let t of l) {
                 if (!t) continue;
-                let x = document.createElement("x-x") as x;
+                let x = createEl("x-x") as x;
                 x.setAttribute("style", "");
-                let md = document.createElement("x-md") as markdown;
+                let md = createEl("x-md") as markdown;
                 x.append(md);
                 z.push(x, el);
                 md.value = JSON.stringify({ text: t, type: v.type });
@@ -3900,7 +3923,7 @@ function to_more_line(xels: x[], c?: string | RegExp) {
 window["xln"] = {};
 
 // 手写识别
-document.getElementById("ink_icon").onpointerdown = (e) => {
+elFromId("ink_icon").onpointerdown = (e) => {
     e.preventDefault();
     if (ink_el.classList.contains("ink_hide")) {
         if (!selections[0].id || 模式 != "浏览") return;
@@ -3950,7 +3973,7 @@ ink_el.onpointermove = (e) => {
 ink_el.onpointerup = () => {
     ink_move = false;
 
-    let md = document.getElementById(selections[0].id).querySelector("x-md") as markdown;
+    let md = elFromId(selections[0].id).querySelector("x-md") as markdown;
     let textel = md.text;
     let data = JSON.stringify({
         options: "enable_pre_space",
@@ -4023,11 +4046,11 @@ function ys_init(data: ys_type) {
     ys_list.append(p);
 }
 function create_ys_item(item: ys_item, index?: number) {
-    let div = document.createElement("div");
-    let jump = document.createElement("div");
-    let play = document.createElement("div");
-    let remove = document.createElement("div");
-    let tran = document.createElement("input");
+    let div = createEl("div");
+    let jump = createEl("div");
+    let play = createEl("div");
+    let remove = createEl("div");
+    let tran = createEl("input");
     tran.contentEditable = "true";
     tran.classList.add("ys_tran");
     tran.value = item.transition;
@@ -4162,7 +4185,7 @@ md.renderer.rules.fence = function (tokens, idx, options, env, self) {
             import_script("../../lib/tikzjax.js?raw", true);
             import_latex = true;
         }
-        let s = document.createElement("script");
+        let s = createEl("script");
         s.setAttribute("type", "text/tikz");
         s.setAttribute("data-show-console", "true");
         function tidyTikzSource(tikzSource: string) {
@@ -4265,7 +4288,7 @@ function get_svg(c: string) {
         };
         (function () {
             if (will_load_math) return;
-            let s = document.createElement("script");
+            let s = createEl("script");
             s.src = "https://unpkg.com/mathjax@3.2.2/es5/tex-svg-full.js";
             s.async = true;
             will_load_math = true;
@@ -4504,31 +4527,31 @@ class x extends HTMLElement {
     fixed = false;
 
     connectedCallback() {
-        var bar = document.createElement("div");
+        var bar = createEl("div");
         bar.id = "x-x_bar";
-        const m = document.createElement("div");
+        const m = createEl("div");
         m.innerHTML = icon(handle_svg);
-        var f = document.createElement("div");
+        var f = createEl("div");
         f.innerHTML = icon(ding_svg);
-        var d = document.createElement("div");
+        var d = createEl("div");
         d.innerHTML = icon(close_svg);
 
         var x_h = [
-            document.createElement("div"),
-            document.createElement("div"),
-            document.createElement("div"),
-            document.createElement("div"),
-            document.createElement("div"),
-            document.createElement("div"),
-            document.createElement("div"),
-            document.createElement("div"),
+            createEl("div"),
+            createEl("div"),
+            createEl("div"),
+            createEl("div"),
+            createEl("div"),
+            createEl("div"),
+            createEl("div"),
+            createEl("div"),
         ];
 
         for (const i in x_h) {
             x_h[i].classList.add(`xxhandle${i}`);
         }
 
-        var h = document.createElement("div");
+        var h = createEl("div");
         h.id = "x-x_handle";
 
         h.classList.add("xxhandle");
@@ -4569,7 +4592,7 @@ class x extends HTMLElement {
                 if (this.parentElement != O) {
                     let x = e.clientX - O.getBoundingClientRect().x,
                         y = e.clientY - O.getBoundingClientRect().y + m.offsetHeight - e.offsetX;
-                    let xel = <x>document.createElement("x-x");
+                    let xel = <x>createEl("x-x");
                     xel.id = this.id;
                     xel.setAttribute("style", this.getAttribute("style"));
                     z.push(xel);
@@ -4701,14 +4724,14 @@ class x extends HTMLElement {
     set_v(data: data) {
         for (let d of data) {
             if (d.type == "X-X") {
-                let el = document.createElement(d.type) as x;
+                let el = createEl(d.type) as x;
                 el.setAttribute("style", d.style);
                 el.className = d.class;
                 el.id = d.id;
                 this.append(el);
                 el.value = d.子元素;
             } else {
-                let el = document.createElement(d.type) as markdown;
+                let el = createEl(d.type) as markdown;
                 el.setAttribute("style", d.style);
                 el.className = d.class;
                 el.id = d.id;
@@ -4755,10 +4778,10 @@ class markdown extends HTMLElement {
     h: HTMLElement;
 
     connectedCallback() {
-        var s = document.createElement("div");
+        var s = createEl("div");
         s.id = "h";
         this.h = s;
-        var text = document.createElement("textarea");
+        var text = createEl("textarea");
         this.text = text;
         this.append(s);
         this.append(text);
@@ -4819,12 +4842,12 @@ class markdown extends HTMLElement {
                 if (e.ctrlKey) {
                     if (e.shiftKey) {
                         let rel = find_root_layout(this.parentElement);
-                        let xel = <x>document.createElement("x-x");
+                        let xel = <x>createEl("x-x");
                         xel.style.left = rel.offsetLeft + "px";
                         xel.style.top = rel.offsetTop + rel.offsetHeight + 16 + "px";
                         xel.style.width = rel.offsetWidth + "px";
                         z.push(xel);
-                        var md = document.createElement("x-md");
+                        var md = createEl("x-md");
                         xel.append(md);
                         (<markdown>md).edit = true;
 
@@ -4850,14 +4873,14 @@ class markdown extends HTMLElement {
                             pxel = p.parentElement as x;
                         } else {
                             // 不存在上级堆叠元素，需要新建并把此元素套进去
-                            pxel = document.createElement("x-x") as x;
+                            pxel = createEl("x-x") as x;
                             pxel.id = uuid_id();
                             link(pxel.id).add();
                             pxel.style.left = p.offsetLeft + "px";
                             pxel.style.top = p.offsetTop + "px";
                             pxel.classList.add("flex-column");
                             z.push(pxel);
-                            let x = document.createElement("x-x") as x;
+                            let x = createEl("x-x") as x;
                             x.id = p.id;
                             x.setAttribute("style", p.getAttribute("style"));
                             pxel.append(x);
@@ -4869,8 +4892,8 @@ class markdown extends HTMLElement {
                             p = x;
                         }
 
-                        let xel = <x>document.createElement("x-x");
-                        let md = document.createElement("x-md") as markdown;
+                        let xel = <x>createEl("x-x");
+                        let md = createEl("x-md") as markdown;
                         xel.append(md);
                         xel.id = uuid_id();
                         link(xel.id).add();
@@ -4922,8 +4945,8 @@ class markdown extends HTMLElement {
                 } else {
                     let p = this.parentElement as x;
                     let t = this.text.value;
-                    let x = document.createElement("x-x"),
-                        md = document.createElement("x-md") as markdown;
+                    let x = createEl("x-x"),
+                        md = createEl("x-md") as markdown;
                     x.id = p.id;
                     x.setAttribute("style", p.getAttribute("style"));
                     p.classList.add("flex-column");
@@ -4931,7 +4954,7 @@ class markdown extends HTMLElement {
                     this.remove();
                     p.append(x);
                     x.append(md);
-                    md.value = JSON.stringify({ type: this.type, text: t });
+                    md.value = this.value;
                     p.id = uuid_id();
                     link(p.id).add();
                     md.edit = true;
@@ -5029,13 +5052,13 @@ class markdown extends HTMLElement {
                         let pel = el.parentElement;
                         let md: markdown;
                         if (!(pel.classList.contains("flex-column") || pel.classList.contains("flex-row"))) {
-                            let nel = document.createElement("x-x") as x;
+                            let nel = createEl("x-x") as x;
                             nel.id = el.id;
                             el.id = uuid_id();
                             link(el.id).add();
                             this.remove();
                             el.append(nel);
-                            md = document.createElement("x-md") as markdown;
+                            md = createEl("x-md") as markdown;
                             nel.append(md);
                             md.value = this.value;
                             md.text.setSelectionRange(this.text.selectionStart, this.text.selectionEnd);
@@ -5055,8 +5078,8 @@ class markdown extends HTMLElement {
                                 md.text.setRangeText(tt);
                                 md.reload();
                             } else {
-                                let x = document.createElement("x-x") as x;
-                                let md = document.createElement("x-md") as markdown;
+                                let x = createEl("x-x") as x;
+                                let md = createEl("x-md") as markdown;
                                 last_el.after(x);
                                 x.append(md);
                                 x.id = uuid_id();
@@ -5191,11 +5214,11 @@ class symbols extends HTMLElement {
     }
 
     connectedCallback() {
-        var div = document.createElement("div");
+        var div = createEl("div");
         this.append(div);
         for (const i in mathSymbols) {
             for (const j of mathSymbols[i]) {
-                let img = document.createElement("img");
+                let img = createEl("img");
                 img.title = j.name;
                 img.id = `snippet_${j.source}`;
                 let b = btoa(j.svg);
@@ -5249,8 +5272,8 @@ class progress extends HTMLElement {
 
     connectedCallback() {
         var v = this.getAttribute("value");
-        var div = document.createElement("div");
-        var p = document.createElement("span");
+        var div = createEl("div");
+        var p = createEl("span");
         this.append(div);
         this.append(p);
 
@@ -5276,7 +5299,7 @@ class file extends HTMLElement {
             this._value.r = !this._value.r;
             this.set_m();
         };
-        this.div = document.createElement("div");
+        this.div = createEl("div");
         this.append(this.div);
         if (this.getAttribute("value")) {
             this._value = JSON.parse(this.getAttribute("value"));
@@ -5300,37 +5323,37 @@ class file extends HTMLElement {
         if (this._value.r) {
             this.div.classList.remove("file");
             if (type[0] == "image") {
-                let img = document.createElement("x-img") as img;
+                let img = createEl("x-img") as img;
                 this.div.append(img);
                 img.value = f.base64;
             }
             if (type[0] == "video") {
-                let video = document.createElement("video");
+                let video = createEl("video");
                 video.controls = true;
                 this.div.append(video);
                 video.src = f.base64;
             }
             if (type[1] == "pdf") {
-                let pdf = document.createElement("x-pdf") as pdf_viewer;
+                let pdf = createEl("x-pdf") as pdf_viewer;
                 this.parentElement.append(pdf);
                 pdf.value = JSON.stringify({ id: this._value.id, page: 1 });
                 this.remove();
             }
             if (type[1] == "gltf-binary") {
-                let td = document.createElement("x-three") as three;
+                let td = createEl("x-three") as three;
                 this.div.append(td);
                 td.value = this._value.id;
             }
             if (type[1] == "vnd.geogebra.file") {
-                let ggb = document.createElement("x-ggb") as ggb;
+                let ggb = createEl("x-ggb") as ggb;
                 this.div.append(ggb);
                 ggb.value = this._value.id;
             }
         } else {
             this.div.classList.add("file");
-            let i = document.createElement("div");
+            let i = createEl("div");
             i.innerHTML = icon(file_svg);
-            let file_name_el = document.createElement("p");
+            let file_name_el = createEl("p");
             this.div.append(i);
             this.div.append(file_name_el);
         }
@@ -5375,11 +5398,11 @@ class pdf_viewer extends HTMLElement {
         return pdf_cache[this._value.id];
     };
     connectedCallback() {
-        this.div = document.createElement("div");
+        this.div = createEl("div");
         this.append(this.div);
-        let per = document.createElement("div"),
-            next = document.createElement("div");
-        this.pages = document.createElement("div");
+        let per = createEl("div"),
+            next = createEl("div");
+        this.pages = createEl("div");
         per.onclick = () => {
             this._value.page = Math.max(1, this._value.page - 1);
             this.set_m();
@@ -5390,10 +5413,10 @@ class pdf_viewer extends HTMLElement {
             this.set_m();
         };
 
-        let page_i = document.createElement("input"),
-            page_t = document.createElement("span"),
-            page_bar = document.createElement("div"),
-            pages = document.createElement("div");
+        let page_i = createEl("input"),
+            page_t = createEl("span"),
+            page_bar = createEl("div"),
+            pages = createEl("div");
         page_t.id = "page_i";
         pages.id = "pages";
         page_bar.append(page_i, page_t);
@@ -5407,13 +5430,13 @@ class pdf_viewer extends HTMLElement {
             pages.classList.toggle("hide_pdf_pages");
         };
         this.div.append(per, this.pages, next);
-        this.canvas = document.createElement("canvas");
+        this.canvas = createEl("canvas");
         this.canvas.style.zIndex = "1";
         this.append(this.canvas);
-        this.canvas1 = document.createElement("canvas");
+        this.canvas1 = createEl("canvas");
         this.canvas1.style.zIndex = "2";
         this.append(this.canvas1);
-        this.text = document.createElement("div");
+        this.text = createEl("div");
         this.append(this.text);
         if (this.getAttribute("value")) {
             this._value = JSON.parse(this.getAttribute("value"));
@@ -5480,13 +5503,13 @@ class pdf_viewer extends HTMLElement {
                         this.old_id = this._value.id;
                         let div = this.pages.querySelector("#pages");
                         for (let i = 1; i <= pdf.numPages; i++) {
-                            let page = document.createElement("div");
+                            let page = createEl("div");
                             div.append(page);
                             page.onclick = () => {
                                 this._value.page = i;
                                 this.set_m();
                             };
-                            let p = document.createElement("span");
+                            let p = createEl("span");
                             p.innerText = `${i}`;
                             page.append(p);
                         }
@@ -5494,7 +5517,7 @@ class pdf_viewer extends HTMLElement {
                             pdf.getPage(i).then(async (page) => {
                                 let viewport = page.getViewport({ scale: 0.1 });
 
-                                let canvas = document.createElement("canvas");
+                                let canvas = createEl("canvas");
                                 let context = canvas.getContext("2d");
 
                                 this.pages.querySelectorAll("#pages > div")[i - 1].append(canvas);
@@ -5531,6 +5554,66 @@ class pdf_viewer extends HTMLElement {
 window.customElements.define("x-pdf", pdf_viewer);
 
 /** 绘画元素 */
+import nDollar from "ndollar-js";
+let recognizer = new nDollar.Recognizer(false);
+
+recognizer.AddGesture("line", [[new nDollar.Point(0, 0), new nDollar.Point(100, 0)]]);
+recognizer.AddGesture("triangle", [
+    [new nDollar.Point(30, 7), new nDollar.Point(103, 7)],
+    [new nDollar.Point(103, 7), new nDollar.Point(66, 87)],
+    [new nDollar.Point(66, 87), new nDollar.Point(30, 7)],
+]);
+recognizer.AddGesture("rect", [
+    [new nDollar.Point(0, 0), new nDollar.Point(100, 0)],
+    [new nDollar.Point(100, 0), new nDollar.Point(100, 100)],
+    [new nDollar.Point(100, 100), new nDollar.Point(0, 100)],
+    [new nDollar.Point(0, 100), new nDollar.Point(0, 0)],
+]);
+recognizer.AddGesture("circle", [
+    [
+        new nDollar.Point(382, 310),
+        new nDollar.Point(377, 308),
+        new nDollar.Point(373, 307),
+        new nDollar.Point(366, 307),
+        new nDollar.Point(360, 310),
+        new nDollar.Point(356, 313),
+        new nDollar.Point(353, 316),
+        new nDollar.Point(349, 321),
+        new nDollar.Point(347, 326),
+        new nDollar.Point(344, 331),
+        new nDollar.Point(342, 337),
+        new nDollar.Point(341, 343),
+        new nDollar.Point(341, 350),
+        new nDollar.Point(341, 358),
+        new nDollar.Point(342, 362),
+        new nDollar.Point(344, 366),
+        new nDollar.Point(347, 370),
+        new nDollar.Point(351, 374),
+        new nDollar.Point(356, 379),
+        new nDollar.Point(361, 382),
+        new nDollar.Point(368, 385),
+        new nDollar.Point(374, 387),
+        new nDollar.Point(381, 387),
+        new nDollar.Point(390, 387),
+        new nDollar.Point(397, 385),
+        new nDollar.Point(404, 382),
+        new nDollar.Point(408, 378),
+        new nDollar.Point(412, 373),
+        new nDollar.Point(416, 367),
+        new nDollar.Point(418, 361),
+        new nDollar.Point(419, 353),
+        new nDollar.Point(418, 346),
+        new nDollar.Point(417, 341),
+        new nDollar.Point(416, 336),
+        new nDollar.Point(413, 331),
+        new nDollar.Point(410, 326),
+        new nDollar.Point(404, 320),
+        new nDollar.Point(400, 317),
+        new nDollar.Point(393, 313),
+        new nDollar.Point(392, 312),
+    ],
+]);
+
 class draw extends HTMLElement {
     constructor() {
         super();
@@ -5579,6 +5662,13 @@ class draw extends HTMLElement {
     oy = 0;
     width = NaN;
     height = NaN;
+    t;
+    xz: {
+        rect: { center: { x: number; y: number }; a: number; w: number; h: number };
+        xz: string;
+        start_p: { x: number; y: number };
+        end_p: { x: number; y: number };
+    } = { rect: { center: { x: 0, y: 0 }, a: 0, w: 0, h: 0 }, xz: "", start_p: { x: 0, y: 0 }, end_p: { x: 0, y: 0 } };
 
     draw(e: PointerEvent) {
         if (!e.pressure) return;
@@ -5594,6 +5684,180 @@ class draw extends HTMLElement {
             let t = `translate(${this.ox},${this.oy})`;
             el.setAttribute("transform", t);
         }
+
+        clearTimeout(this.t);
+        this.t = setTimeout(() => {
+            let points = [];
+            for (let p of this.points) {
+                if (!p.p) continue;
+                points.push(p);
+            }
+            console.log(points);
+            let l = [];
+            for (let p of points) {
+                if (!p.p) continue;
+                l.push(new nDollar.Point(p.x, p.y));
+            }
+            let result = recognizer.Recognize([l], false, false);
+            console.log(result);
+            if (result.Score < 0.89) return;
+            function convexHull(points) {
+                // 将点按照横坐标排序
+                points.sort(function (a, b) {
+                    return a.x != b.x ? a.x - b.x : a.y - b.y;
+                });
+
+                // 初始化下凸包
+                var lower = [];
+                for (var i = 0; i < points.length; i++) {
+                    while (
+                        lower.length >= 2 &&
+                        cross(lower[lower.length - 2], lower[lower.length - 1], points[i]) <= 0
+                    ) {
+                        lower.pop();
+                    }
+                    lower.push(points[i]);
+                }
+
+                // 初始化上凸包
+                var upper = [];
+                for (var i = points.length - 1; i >= 0; i--) {
+                    while (
+                        upper.length >= 2 &&
+                        cross(upper[upper.length - 2], upper[upper.length - 1], points[i]) <= 0
+                    ) {
+                        upper.pop();
+                    }
+                    upper.push(points[i]);
+                }
+
+                // 去除重复的点
+                upper.pop();
+                lower.pop();
+
+                // 返回凸包
+                return lower.concat(upper);
+            }
+
+            // 计算向量的叉积
+            function cross(o, a, b) {
+                return (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x);
+            }
+            function getMinimumBoundingBox(points: { x: number; y: number }[]) {
+                // 初始化变量
+                let maxd = -Infinity,
+                    maxd2 = -Infinity,
+                    mind2 = Infinity;
+                let maxd_p;
+                let minArea = Infinity;
+                let main_a: number;
+                let main_b: number;
+                let main_c: number;
+                let main_sqrtab: number;
+                let rect: { center: { x: number; y: number }; a: number; w: number; h: number };
+
+                // 对于每个点对 (p, q)，计算矩形的最小面积
+                for (let i = 0; i < points.length; i++) {
+                    for (let j = i + 1; j < points.length; j++) {
+                        // 计算点对 (p, q) 所在直线的方程
+                        let p = points[i];
+                        let q = points[j];
+                        let a = p.y - q.y;
+                        let b = q.x - p.x;
+                        let c = p.x * q.y - q.x * p.y;
+                        let sqrtab = Math.sqrt(a ** 2 + b ** 2);
+
+                        let mmaxd = -Infinity,
+                            mmaxd2 = -Infinity,
+                            mmind2 = Infinity;
+                        let mmaxd_p;
+
+                        // 遍历点集并更新最小和最大 x 和 y 坐标
+                        for (let k = 0; k < points.length; k++) {
+                            let x = points[k].x;
+                            let y = points[k].y;
+                            let d = Math.abs(a * x + b * y + c) / sqrtab;
+                            let d2 = (-b * x + a * y + c) / sqrtab; // 距离垂线
+                            if (d > mmaxd) {
+                                mmaxd = d;
+                                mmaxd_p = points[k];
+                            }
+                            mmaxd2 = Math.max(mmaxd2, d2);
+                            mmind2 = Math.min(mmind2, d2);
+                        }
+
+                        let area = (mmaxd2 - mmind2) * mmaxd;
+                        if (area < minArea) {
+                            minArea = area;
+                            maxd = mmaxd;
+                            maxd2 = mmaxd2;
+                            mind2 = mmind2;
+                            maxd_p = mmaxd_p;
+                            main_a = a;
+                            main_b = b;
+                            main_c = c;
+                            main_sqrtab = sqrtab;
+                        }
+                    }
+                }
+                let a = main_a,
+                    b = main_b,
+                    c = main_c,
+                    sqrtab = main_sqrtab;
+                // 新的c，矩形两条垂直平分线
+                let cn = -(a * maxd_p.x + b * maxd_p.y + c) / 2 + c;
+                let cn2 = -((maxd2 + mind2) / 2) * sqrtab + c;
+                // 交点
+                let x = (-a * cn + b * cn2) / (a ** 2 + b ** 2),
+                    y = (-a * cn2 - b * cn) / (a ** 2 + b ** 2);
+                rect = { center: { x, y }, w: maxd, a: Math.atan2(2 - 1, (-b * 2 + b * 1) / a), h: maxd2 - mind2 };
+
+                return rect;
+            }
+            let conpoints = convexHull(points);
+
+            let rect = getMinimumBoundingBox(conpoints);
+            console.log(rect);
+            this.xz.rect = rect;
+            this.xz.xz = result.Name;
+            this.xz.start_p = points[0];
+            this.xz.end_p = points[points.length - 1];
+            switch (result.Name) {
+                case "line":
+                    this.tmp_svg.innerHTML = `<line x1="${this.xz.start_p.x}" y1="${this.xz.start_p.y}" x2="${this.xz.end_p.x}" y2="${this.xz.end_p.y}" style="stroke:${this.pen.color};stroke-width:${this.pen.width}px"/>`;
+                    break;
+                case "rect":
+                    let x = this.xz.rect.center.x - Math.abs((this.xz.rect.w / 2) * Math.cos(this.xz.rect.a));
+                    let y = this.xz.rect.center.y - Math.abs((this.xz.rect.h / 2) * Math.cos(this.xz.rect.a));
+                    this.tmp_svg.innerHTML = `<rect x="${x}" y="${y}" width="${this.xz.rect.w}" height="${
+                        this.xz.rect.h
+                    }" transform="rotate(${this.xz.rect.a / (Math.PI / 180) + 90} ${this.xz.rect.center.x} ${
+                        this.xz.rect.center.y
+                    })" style="stroke:${this.pen.color};stroke-width:${this.pen.width}px;fill:#0000"/>`;
+                    break;
+                case "circle":
+                    if (this.xz.rect.w / this.xz.rect.h > 2 || this.xz.rect.h / this.xz.rect.w > 2) {
+                        this.tmp_svg.innerHTML = `<ellipse cx="${rect.center.x}" cy="${rect.center.y}" rx="${
+                            rect.h / 2
+                        }" ry="${rect.w / 2}" transform="rotate(${rect.a / (Math.PI / 180)} ${rect.center.x} ${
+                            rect.center.y
+                        })" style="stroke:${this.pen.color};stroke-width:${this.pen.width}px;fill:#0000;"></ellipse>`;
+                    } else {
+                        let r = (this.xz.rect.h + this.xz.rect.w) / 2 / 2;
+                        this.tmp_svg.innerHTML = `<circle cx="${rect.center.x}" cy="${
+                            rect.center.y
+                        }" r="${r}" transform="rotate(${rect.a / (Math.PI / 180)} ${rect.center.x} ${
+                            rect.center.y
+                        })" style="stroke:${this.pen.color};stroke-width:${this.pen.width}px;fill:#0000;"></circle>`;
+                    }
+                    // this.tmp_svg.innerHTML = `<polygon points="10,0 60,0 35,50" style="stroke:${this.pen.color};" />`;
+                    break;
+                case "triangle":
+                    // this.tmp_svg.innerHTML = `<polygon points="10,0 60,0 35,50" style="stroke:${this.pen.color};" />`;
+                    break;
+            }
+            console.log(this.tmp_svg.innerHTML);
+        }, 600);
 
         // 画
         let type = "p";
@@ -5715,6 +5979,7 @@ class draw extends HTMLElement {
     complete() {
         this.main_svg.append(this.tmp_svg.childNodes[0]);
         this.pointer_ignore();
+        clearTimeout(this.t);
     }
 
     pointer_ignore() {
@@ -5779,7 +6044,7 @@ class draw extends HTMLElement {
         this.oy -= min_y - pb.top / zoom;
         for (let el of els) {
             let t = `translate(${this.ox},${this.oy})`;
-            el.setAttribute("transform", t);
+            el.setAttribute("transform", t + " " + (el.getAttribute("transform") || ""));
         }
 
         this.width = max_x - min_x;
@@ -5824,16 +6089,16 @@ class xcolor extends HTMLElement {
         const hsva = { h: 0, s: 0, l: 0, a: 1 };
 
         const pel = this;
-        const broad = (this.els.broad = document.createElement("div"));
-        const bg0 = (this.els.bg0 = document.createElement("div"));
-        const pb = (this.els.pb = document.createElement("div"));
-        const range = (this.els.range = document.createElement("div"));
-        const pr = (this.els.pr = document.createElement("div"));
-        const arange = (this.els.arange = document.createElement("div"));
-        const par = (this.els.par = document.createElement("div"));
-        const cb = document.createElement("div");
-        const c0 = (this.els.c0 = document.createElement("div"));
-        const ci = (this.els.ci = document.createElement("input"));
+        const broad = (this.els.broad = createEl("div"));
+        const bg0 = (this.els.bg0 = createEl("div"));
+        const pb = (this.els.pb = createEl("div"));
+        const range = (this.els.range = createEl("div"));
+        const pr = (this.els.pr = createEl("div"));
+        const arange = (this.els.arange = createEl("div"));
+        const par = (this.els.par = createEl("div"));
+        const cb = createEl("div");
+        const c0 = (this.els.c0 = createEl("div"));
+        const ci = (this.els.ci = createEl("input"));
 
         pel.classList.add("color");
 
@@ -5869,7 +6134,7 @@ class xcolor extends HTMLElement {
             this.value = ci.value;
         };
         c0.onclick = () => {
-            let div = document.createElement("div");
+            let div = createEl("div");
             const v = this.value;
             div.style.background = c0.style.background;
             div.onclick = () => {
@@ -6006,8 +6271,8 @@ class xdraw_width extends HTMLElement {
         }
         let color_e: { o: { x: number; y: number }; c: { x: number; y: number }; t: HTMLElement } = null;
         const pel = this;
-        const range = (this.els.range = document.createElement("div"));
-        const pr = (this.els.pr = document.createElement("div"));
+        const range = (this.els.range = createEl("div"));
+        const pr = (this.els.pr = createEl("div"));
 
         pel.append(range);
 
@@ -6097,10 +6362,10 @@ class link_value extends HTMLElement {
     _id: string;
 
     connectedCallback() {
-        const add_el = document.createElement("img");
-        const down_el = document.createElement("img");
-        this.v = document.createElement("div");
-        const c = document.createElement("div");
+        const add_el = createEl("img");
+        const down_el = createEl("img");
+        this.v = createEl("div");
+        const c = createEl("div");
         c.append(down_el, this.v, add_el);
         this.append(c);
 
@@ -6119,7 +6384,7 @@ class link_value extends HTMLElement {
             add_bci(get_link_el_by_id(this._id));
         };
 
-        const vl = document.createElement("div");
+        const vl = createEl("div");
         this.append(vl);
         let v_text = (i: string) => {
             return `#${i} ${link(this._id).get()[i].value.toFixed(2)}`;
@@ -6129,9 +6394,9 @@ class link_value extends HTMLElement {
             vl.innerHTML = "";
             for (let i in link(this._id).get()) {
                 if (i == "0") continue;
-                let el = document.createElement("div");
+                let el = createEl("div");
                 vl.append(el);
-                let n = document.createElement("div");
+                let n = createEl("div");
                 n.innerText = v_text(i);
                 el.onpointerover = (e) => {
                     set_viewer_posi(e.clientX, e.clientY);
@@ -6140,14 +6405,14 @@ class link_value extends HTMLElement {
                 n.onpointerup = () => {
                     jump_to_x_link(get_x_by_id(i));
                 };
-                let rm = document.createElement("div");
+                let rm = createEl("div");
                 rm.innerHTML = icon(close_svg);
                 rm.onclick = () => {
                     link(this._id).rm(i);
                     el.remove();
                 };
-                const add_el = document.createElement("div");
-                const down_el = document.createElement("div");
+                const add_el = createEl("div");
+                const down_el = createEl("div");
 
                 add_el.innerHTML = icon(add_svg);
                 down_el.innerHTML = icon(minus_svg);
@@ -6229,9 +6494,9 @@ class record extends HTMLElement {
     connectedCallback() {
         if (!this.id) this.id = uuid_id();
         let mediaRecorder = null;
-        let i = document.createElement("input");
+        let i = createEl("input");
         i.type = "checkbox";
-        let b = document.createElement("div");
+        let b = createEl("div");
         b.onclick = () => {
             i.checked = !i.checked;
             if (i.checked) {
@@ -6267,7 +6532,7 @@ class record extends HTMLElement {
                 b.classList.remove("recording");
             }
         };
-        let audio = document.createElement("audio");
+        let audio = createEl("audio");
         audio.controls = true;
         this.append(i);
         this.append(b);
@@ -6295,7 +6560,7 @@ class three extends HTMLElement {
     renderer: THREE.Renderer;
 
     connectedCallback() {
-        this.div = document.createElement("div");
+        this.div = createEl("div");
         this.append(this.div);
 
         this.scene = new THREE.Scene();
@@ -6354,9 +6619,9 @@ class img extends HTMLElement {
     img: HTMLImageElement;
 
     connectedCallback() {
-        this.img = document.createElement("img");
+        this.img = createEl("img");
         this.append(this.img);
-        let ocr = document.createElement("div");
+        let ocr = createEl("div");
         ocr.innerHTML = icon(ocr_svg);
         ocr.onclick = () => {
             to_text(this.img);
@@ -6372,7 +6637,7 @@ window.customElements.define("x-img", img);
 
 async function to_text(img: HTMLImageElement | HTMLCanvasElement) {
     if (!ocr_init) await ocr_start();
-    let canvas = document.createElement("canvas");
+    let canvas = createEl("canvas");
     let w = (img as HTMLImageElement).naturalWidth || img.width,
         h = (img as HTMLImageElement).naturalHeight || img.height;
     canvas.width = w;
@@ -6381,7 +6646,7 @@ async function to_text(img: HTMLImageElement | HTMLCanvasElement) {
     ocr.ocr(canvas.getContext("2d").getImageData(0, 0, w, h)).then((v) => {
         let tl = [];
         let p = el_offset2(img, O);
-        let pxel = <x>document.createElement("x-x");
+        let pxel = <x>createEl("x-x");
         pxel.id = uuid_id();
         pxel.style.left = p.x + "px";
         pxel.style.top = p.y + "px";
@@ -6397,13 +6662,13 @@ async function to_text(img: HTMLImageElement | HTMLCanvasElement) {
             let y0 = i.box[0][1];
             let x1 = i.box[2][0];
             let y1 = i.box[2][1];
-            let xel = <x>document.createElement("x-x");
+            let xel = <x>createEl("x-x");
             xel.style.left = x0 + "px";
             xel.style.top = y0 + "px";
             xel.style.width = x1 - x0 + "px";
             xel.style.height = y1 - y0 + "px";
             z.push(xel, pxel);
-            var md = document.createElement("x-md") as markdown;
+            var md = createEl("x-md") as markdown;
             xel.append(md);
             let v = JSON.stringify({ type: "p", text: i.text });
             md.value = v;
@@ -6416,7 +6681,7 @@ var ocr_init = false;
 var ocr;
 
 async function import_script(url: string, use_import?: boolean) {
-    let script = document.createElement("script");
+    let script = createEl("script");
     if (use_import) {
         const js = (await import("../../lib/tikzjax.js?raw")).default;
         script.innerText = js;
@@ -6448,7 +6713,7 @@ async function ocr_start() {
 
 // geogebra
 
-let ggb_script = document.createElement("script");
+let ggb_script = createEl("script");
 ggb_script.src = "https://www.geogebra.org/apps/deployggb.js";
 document.body.append(ggb_script);
 
