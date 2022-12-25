@@ -21,6 +21,10 @@ import ocr_svg from "../../assets/icons/ocr.svg";
 import play_svg from "../../assets/icons/play.svg";
 import down_svg from "../../assets/icons/down.svg";
 import binding_svg from "../../assets/icons/binding_file.svg";
+import pause_svg from "../../assets/icons/pause.svg";
+import yl0_svg from "../../assets/icons/yl0.svg";
+import yl1_svg from "../../assets/icons/yl1.svg";
+import yl2_svg from "../../assets/icons/yl2.svg";
 
 function createEl<K extends keyof HTMLElementTagNameMap>(tagName: K): HTMLElementTagNameMap[K];
 function createEl<K extends keyof HTMLElementDeprecatedTagNameMap>(tagName: K): HTMLElementDeprecatedTagNameMap[K];
@@ -81,6 +85,8 @@ var xywh_x_el = <HTMLInputElement>elFromId("xywh_x");
 var xywh_y_el = <HTMLInputElement>elFromId("xywh_y");
 var xywh_w_el = <HTMLInputElement>elFromId("xywh_w");
 var xywh_h_el = <HTMLInputElement>elFromId("xywh_h");
+
+const value_el = elFromId("值");
 
 const about = elFromId("about");
 const version_el = <HTMLElement>about.querySelector("#version");
@@ -1648,6 +1654,7 @@ function version_tr(obj): 集type {
         case "0.14.2":
         case "0.14.3":
         case "0.15.0":
+        case "0.16.0":
             return obj;
         default:
             put_toast(`文件版本是 ${v}，与当前软件版本 ${packagejson.version} 不兼容，请升级软件`);
@@ -2840,6 +2847,7 @@ class 图层 {
         selected_el.push(el);
         el_style.value = el.getAttribute("style").replaceAll("; ", ";\n");
         load_xywh();
+        load_value();
 
         if (模式 == "设计") {
             let d = el.querySelector("x-draw") as draw;
@@ -3316,7 +3324,16 @@ function select_search(i: number) {
     search_r.querySelectorAll(".search_item_select").forEach((el) => {
         el.classList.remove("search_item_select");
     });
-    (<HTMLElement>search_r.children[i]).classList.add("search_item_select");
+    let el = <HTMLElement>search_r.children[i];
+    el.classList.add("search_item_select");
+    let ri = search_r.children[i].getBoundingClientRect();
+    let r = search_r.getBoundingClientRect();
+    if (ri.top < r.top) {
+        search_r.scrollTop = el.offsetTop - (<HTMLElement>search_r.children[0]).offsetTop;
+    }
+    if (ri.bottom > r.bottom) {
+        search_r.scrollTop = el.offsetTop + el.offsetHeight - r.height - (<HTMLElement>search_r.children[0]).offsetTop;
+    }
     return search_r.children[i];
 }
 
@@ -4125,6 +4142,28 @@ ys_add.onclick = () => {
     data_changed();
 };
 
+// 值
+
+function load_value() {
+    if (!集.values) return;
+    let el = z.聚焦元素;
+    let t = createEl("textarea");
+    let value = "";
+    if (集.values[el.id]) value = JSON.stringify(集.values[el.id], null, 2);
+    t.value = value;
+    value_el.innerHTML = "";
+    value_el.append(t);
+    t.oninput = () => {
+        try {
+            let v = JSON.parse(t.value);
+            集.values[el.id] = v;
+            if (el.querySelector("x-md")) {
+                (el.querySelector("x-md") as markdown).reload();
+            }
+        } catch (error) {}
+    };
+}
+
 // MD
 import markdownit from "markdown-it";
 import markdownitTaskLists from "markdown-it-task-lists";
@@ -4443,7 +4482,8 @@ const MARKER_OPEN = "[";
 const MARKER_CLOSE = "]";
 const ESCAPE_CHARACTER = "\\";
 const TAG = "x-link";
-function tlink(state, silent: boolean) {
+
+md.inline.ruler.before("link", "x-link", (state, silent: boolean) => {
     if (silent) {
         return false;
     }
@@ -4502,6 +4542,7 @@ function tlink(state, silent: boolean) {
 
     // start tag
     let t = state.push("x-link_open", TAG, 1);
+    t.markup = "[[";
     // parse inner
     state.pos += 2;
     state.posMax = end;
@@ -4510,12 +4551,11 @@ function tlink(state, silent: boolean) {
     state.pos = end + id_l + 2;
     state.posMax = max;
     // end tag
-    state.push("x-link_close", TAG, -1);
+    let e = state.push("x-link_close", TAG, -1);
+    e.markup = `#${id}]]`;
 
     return true;
-}
-
-md.inline.ruler.before("link", "x-link", tlink);
+});
 
 // template
 /** 主元素 */
@@ -4676,6 +4716,12 @@ class x extends HTMLElement {
 
             if (this.querySelector("x-file")) assets_reflash();
         };
+        d.onpointerenter = () => {
+            this.style.opacity = "0.5";
+        };
+        d.onpointerleave = () => {
+            this.style.opacity = "";
+        };
 
         if (this.getAttribute("value")) {
             this.set_v(JSON.parse(this.getAttribute("value")));
@@ -4790,7 +4836,7 @@ class markdown extends HTMLElement {
             let v = this.getAttribute("value");
             this._value = JSON.parse(v);
             let t = this._value.text;
-            (<HTMLTextAreaElement>this.childNodes[1]).value = t;
+            this.text.value = t;
             this.render();
         }
 
@@ -5013,6 +5059,34 @@ class markdown extends HTMLElement {
                     }
                 }
             }
+            if (e.key == "ArrowUp") {
+                if (
+                    this._value.type != "text" &&
+                    this._value.type != "code" &&
+                    is_flex(this.parentElement.parentElement) == "flex" &&
+                    this.parentElement.previousElementSibling &&
+                    this.parentElement.previousElementSibling.querySelector("x-md")
+                ) {
+                    e.preventDefault();
+                    let md = this.parentElement.previousElementSibling.querySelector("x-md") as markdown;
+                    md.text.setSelectionRange(this.text.selectionStart, this.text.selectionStart);
+                    md.edit = true;
+                }
+            }
+            if (e.key == "ArrowDown") {
+                if (
+                    this._value.type != "text" &&
+                    this._value.type != "code" &&
+                    is_flex(this.parentElement.parentElement) == "flex" &&
+                    this.parentElement.nextElementSibling &&
+                    this.parentElement.nextElementSibling.querySelector("x-md")
+                ) {
+                    e.preventDefault();
+                    let md = this.parentElement.nextElementSibling.querySelector("x-md") as markdown;
+                    md.text.setSelectionRange(this.text.selectionStart, this.text.selectionStart);
+                    md.edit = true;
+                }
+            }
         };
         text.onclick = text.onkeyup = () => {
             if (模式 != "浏览") return;
@@ -5115,20 +5189,118 @@ class markdown extends HTMLElement {
             }
             if (el.tagName == "A") {
                 e.preventDefault();
+                let a = el as HTMLAnchorElement;
                 if (e.ctrlKey) {
-                    window.open((el as HTMLAnchorElement).href);
+                    if (a.getAttribute("href")[0] == "#") {
+                        let ml = a.getAttribute("href").split(":");
+                        const id = ml[0].slice(1);
+                        let el = elFromId(id);
+                        jump_to_x_link(el as x);
+                        let mel = el.querySelector("audio") || el.querySelector("video");
+                        if (ml[1]) {
+                            let ar = ml[1].split(",");
+                            ar.forEach((x) => x.trim());
+                            if (mel.tagName == "AUDIO" || mel.tagName == "VIDEO") {
+                                (mel as HTMLMediaElement).currentTime = Number(ar[0]);
+                            }
+                        }
+                    } else {
+                        window.open((el as HTMLAnchorElement).href);
+                    }
                 }
             }
             text.style.left = el_offset2(this.h).x + "px";
             text.style.top = el_offset2(this.h).y + s.offsetHeight + "px";
-            if (模式 == "浏览" && document.getSelection().anchorOffset == document.getSelection().focusOffset)
-                this.edit = true;
-            text.focus();
+        };
+        s.contentEditable = "true";
+        s.spellcheck = false;
+        s.onpointerup = (e) => {
+            if (模式 != "浏览") return;
+            console.log(document.getSelection().getRangeAt(0));
+            let r = document.getSelection().getRangeAt(0);
+            function get_text(node: Node, of: number) {
+                let before = "",
+                    after = "",
+                    x = false;
+                let w = (pn: Node) => {
+                    for (let n of pn.childNodes) {
+                        if (!n.contains(node)) {
+                            if (!x) {
+                                before += n.textContent;
+                            } else {
+                                after += n.textContent;
+                            }
+                        } else {
+                            if (n == node) {
+                                before += n.textContent.slice(0, of);
+                                after += n.textContent.slice(of);
+                                x = true;
+                            } else {
+                                w(n);
+                            }
+                        }
+                    }
+                };
+                w(s);
+                return { before, after };
+            }
+            let start_t = get_text(r.startContainer, r.startOffset);
+            let end_t = get_text(r.endContainer, r.endOffset);
+            console.log(start_t, end_t);
+            let p2p = (of: number) => {
+                let list = [];
+                let w = (l) => {
+                    for (let i of l) {
+                        if (i.children) {
+                            w(i.children);
+                        } else {
+                            if (i.markup) {
+                                if (i.type == "emoji") {
+                                    list.push({ text: `:${i.markup}`, type: "mu" });
+                                    // 删去一个冒号以匹配
+                                } else {
+                                    list.push({ text: i.markup, type: "mu" });
+                                }
+                            } else if (i.type == "html_inline" || i.type == "html_block") {
+                                list.push({ text: i.content, type: "mu" });
+                            } else if (i.content) {
+                                list.push({ text: i.content, type: "ct" });
+                            }
+                        }
+                    }
+                };
+                if (this.index) w(this.index);
+                if (this._value.type == "code") {
+                    list = [{ text: this._value.text, type: "ct" }];
+                }
+                console.log(list);
+                let true_o = 0;
+                let tmp_o = 0;
+                for (let i of list) {
+                    if (i.type == "ct") {
+                        if (tmp_o <= of && of <= tmp_o + i.text.length) {
+                            return true_o + (of - tmp_o);
+                        }
+                        tmp_o += i.text.length;
+                    }
+                    true_o += i.text.length;
+                }
+            };
+            let start_p = 0;
+            let end_p = 0;
+            start_p = p2p(start_t.before.length);
+            end_p = p2p(end_t.before.length);
+            if (start_p > end_p) {
+                [start_p, end_p] = [end_p, start_p];
+            }
+            console.log(start_p, end_p);
+            this.text.setSelectionRange(start_p, end_p);
+            this.edit = true;
         };
     }
 
     set edit(v: boolean | "cr") {
-        var text = <HTMLTextAreaElement>this.childNodes[1];
+        var text = this.text;
         if (v) {
             text.classList.add("show_md");
             if (v != "cr") text.focus();
@@ -5142,7 +5314,7 @@ class markdown extends HTMLElement {
     }
 
     get edit() {
-        var text = <HTMLTextAreaElement>this.childNodes[1];
+        var text = this.text;
         return text.classList.contains("show_md");
     }
 
@@ -5150,7 +5322,7 @@ class markdown extends HTMLElement {
         this._value = JSON.parse(v);
         this.type = this._value.type;
         let t = this._value.text;
-        (<HTMLTextAreaElement>this.childNodes[1]).value = t;
+        this.text.value = t;
         this.render();
     }
 
@@ -5166,24 +5338,30 @@ class markdown extends HTMLElement {
         let type = this._value.type;
         let text = this.text.value;
         if (type == "text") {
+            this.index = md.parse(text, null);
             this.h.innerHTML = md.render(text);
         } else if (type == "todo") {
             this.init_v("todo");
             if (!集.values[this.parentElement.id].todo["checked"])
                 集.values[this.parentElement.id].todo["checked"] = false;
             let i = `<input type="checkbox" ${集.values[this.parentElement.id].todo.checked ? "checked" : ""}>`;
+            this.index = md.parse(text, null);
             this.h.innerHTML = i + md.render(text);
         } else if (type == "math") {
             this.h.innerHTML = get_svg(`\\displaylines{${text}}`);
         } else if (type == "iframe") {
             this.h.innerHTML = `<iframe src="${text}"></iframe>`;
         } else if (type == "code") {
+            this.init_v("code");
+            if (!集.values[this.parentElement.id].code?.lan) 集.values[this.parentElement.id].code["lan"] = "";
             if (集.values?.[this.parentElement.id]?.code?.["html"]) {
                 this.h.innerHTML = 集.values[this.parentElement.id].code["html"];
             } else {
-                this.h.innerHTML = md.render(text);
+                this.h.innerText = text;
             }
         } else {
+            this.index = md.parse(text, null);
+            console.log(this.index);
             this.h.innerHTML = md.render(text);
         }
     }
@@ -5313,6 +5491,7 @@ class file extends HTMLElement {
         let type = f.base64.match(/data:(.*?);/)[1].split("/");
         if (
             type[0] != "image" &&
+            type[0] != "audio" &&
             type[0] != "video" &&
             type[1] != "pdf" &&
             type[1] != "gltf-binary" &&
@@ -5326,6 +5505,11 @@ class file extends HTMLElement {
                 let img = createEl("x-img") as img;
                 this.div.append(img);
                 img.value = f.base64;
+            }
+            if (type[0] == "audio") {
+                let audio = createEl("x-audio") as audio;
+                this.div.append(audio);
+                audio.value = f.base64;
             }
             if (type[0] == "video") {
                 let video = createEl("video");
@@ -6541,6 +6725,174 @@ class record extends HTMLElement {
 }
 
 window.customElements.define("x-record", record);
+/** 录音元素 */
+class audio extends HTMLElement {
+    constructor() {
+        super();
+    }
+
+    audio: HTMLAudioElement;
+    _value: string;
+
+    connectedCallback() {
+        if (!this.id) this.id = uuid_id();
+        this.audio = createEl("audio");
+        this.audio.style.display = "none";
+        let button = createEl("div");
+        button.classList.add("audio_button");
+        let playtime = createEl("div");
+        let jd = createEl("div");
+        jd.classList.add("audio_jd");
+        let jd2 = createEl("div");
+        let yl = createEl("div");
+        yl.classList.add("audio_yl");
+        let yl2 = createEl("div"); // 按钮
+        let yl3 = createEl("div"); // 滑槽
+        let yl4 = createEl("div"); // 滑块
+        this.append(this.audio);
+        this.append(button, jd, playtime, yl);
+        button.innerHTML = icon(play_svg);
+        button.onclick = () => {
+            if (this.audio.paused) {
+                this.audio.play();
+            } else {
+                this.audio.pause();
+            }
+        };
+        this.audio.onplay = () => {
+            button.innerHTML = icon(pause_svg);
+        };
+        this.audio.onpause = () => {
+            button.innerHTML = icon(play_svg);
+        };
+        let show_t = (n: number, t: number) => {
+            let s0 = Math.round(n);
+            let m0 = Math.floor(s0 / 60);
+            let ss0 = `${s0 % 60 < 10 ? "0" : ""}${s0 % 60}`;
+            let s1 = Math.round(t);
+            let m1 = Math.floor(s1 / 60);
+            let ss1 = `${s1 % 60 < 10 ? "0" : ""}${s1 % 60}`;
+            return `${m0}:${ss0}/${m1}:${ss1}`;
+        };
+        this.audio.oncanplay = () => {
+            playtime.innerText = show_t(this.audio.currentTime, this.audio.duration);
+        };
+        this.audio.ontimeupdate = () => {
+            playtime.innerText = show_t(this.audio.currentTime, this.audio.duration);
+            jd2.style.width = `${(this.audio.currentTime / this.audio.duration) * 100}%`;
+        };
+        jd.append(jd2);
+        let jde: PointerEvent;
+        jd.onpointerdown = (e) => {
+            jde = e;
+            f(e);
+            e.preventDefault();
+        };
+        document.addEventListener("pointermove", (e) => {
+            if (jde) {
+                e.preventDefault();
+                f(e);
+            }
+        });
+        document.addEventListener("pointerup", (e) => {
+            if (jde) {
+                e.preventDefault();
+                jde = null;
+                f(e);
+            }
+        });
+
+        let f = (e: PointerEvent) => {
+            let r = jd.getBoundingClientRect();
+            let pw = e.clientX - r.x;
+            let p = pw / r.width;
+            p = Math.max(Math.min(1, p), 0);
+
+            this.audio.currentTime = this.audio.duration * p;
+        };
+
+        this.audio.volume = 1;
+        yl3.title = "100%";
+        this.audio.onvolumechange = () => {
+            yl4.style.width = `${(this.audio.volume / 1) * 100}%`;
+            yl_icon();
+        };
+        let yl_icon = () => {
+            if (this.audio.volume == 0 || this.audio.muted) {
+                yl2.innerHTML = icon(yl0_svg);
+            } else if (this.audio.volume < 0.5) {
+                yl2.innerHTML = icon(yl1_svg);
+            } else {
+                yl2.innerHTML = icon(yl2_svg);
+            }
+        };
+        yl.onpointerenter = () => {
+            jd.style.width = "calc(256px - 48px)";
+        };
+        yl.onpointerleave = () => {
+            jd.style.width = "";
+        };
+        yl.onwheel = (e) => {
+            let p = this.audio.volume;
+            if (e.deltaY < 0) {
+                p += 0.1;
+            } else {
+                p -= 0.1;
+            }
+            p = Math.max(Math.min(1, p), 0);
+            this.audio.volume = p;
+        };
+        yl.append(yl3, yl2);
+        yl3.append(yl4);
+        yl2.innerHTML = icon(yl2_svg);
+        yl2.onclick = () => {
+            this.audio.muted = !this.audio.muted;
+            yl_icon();
+        };
+        let yle: PointerEvent;
+        yl3.onpointerdown = (e) => {
+            yle = e;
+            ylf(e);
+            e.preventDefault();
+        };
+        document.addEventListener("pointermove", (e) => {
+            if (yle) {
+                e.preventDefault();
+                ylf(e);
+            }
+        });
+        document.addEventListener("pointerup", (e) => {
+            if (yle) {
+                e.preventDefault();
+                yle = null;
+                ylf(e);
+            }
+        });
+
+        let ylf = (e: PointerEvent) => {
+            let r = yl3.getBoundingClientRect();
+            let pw = e.clientX - r.x;
+            let p = pw / r.width;
+            p = Math.max(Math.min(1, p), 0);
+
+            this.audio.volume = p;
+
+            yl3.title = `${Math.round(p * 100)}%`;
+        };
+    }
+
+    set value(v) {
+        this._value = v;
+        this.audio.src = v;
+    }
+    get value() {
+        return this._value;
+    }
+}
+
+window.customElements.define("x-audio", audio);
+
+ignore_el.push("x-audio");
 
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
