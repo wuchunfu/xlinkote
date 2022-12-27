@@ -25,6 +25,10 @@ import pause_svg from "../../assets/icons/pause.svg";
 import yl0_svg from "../../assets/icons/yl0.svg";
 import yl1_svg from "../../assets/icons/yl1.svg";
 import yl2_svg from "../../assets/icons/yl2.svg";
+import asr_svg from "../../assets/icons/asr.svg";
+import right_svg from "../../assets/icons/right.svg";
+import left_svg from "../../assets/icons/left.svg";
+import copy_svg from "../../assets/icons/copy.svg";
 
 function createEl<K extends keyof HTMLElementTagNameMap>(tagName: K): HTMLElementTagNameMap[K];
 function createEl<K extends keyof HTMLElementDeprecatedTagNameMap>(tagName: K): HTMLElementDeprecatedTagNameMap[K];
@@ -34,6 +38,10 @@ function createEl(tagname: string) {
 }
 function elFromId(id: string) {
     return document.getElementById(id);
+}
+
+function is_input_el(el: HTMLElement) {
+    return el.tagName == "INPUT" || el.tagName == "TEXTAREA" || el.isContentEditable;
 }
 
 // el
@@ -124,6 +132,9 @@ const default_setting = {
         延时: "0.6",
     },
     sort: { type: "change_time", reverse: false } as sort_type,
+    asr: {
+        url: "",
+    },
 };
 if (!store) {
     localStorage.setItem("config", JSON.stringify(default_setting));
@@ -525,6 +536,15 @@ var select_id = "";
 var fxsd_el = elFromId("方向锁定");
 var fxsd = 0;
 
+function set_O_p(x: number | null, y: number | null) {
+    if (x) {
+        O.style.left = x + "px";
+    }
+    if (y) {
+        O.style.top = y + "px";
+    }
+}
+
 fxsd_el.onclick = () => {
     let o = { 0: 1, 1: 2, 2: 0 };
     fxsd = o[fxsd];
@@ -579,8 +599,7 @@ var mouse = (e: MouseEvent) => {
         if (e.buttons == 2) {
             let x = o_rect.x + (fxsd == 0 || fxsd == 2 ? e.clientX - o_e.clientX : 0),
                 y = o_rect.y + (fxsd == 0 || fxsd == 1 ? e.clientY - o_e.clientY : 0);
-            O.style.left = x + "px";
-            O.style.top = y + "px";
+            set_O_p(x, y);
         } else if (e.button == 0) {
             if (select_id) {
                 画布.querySelectorAll(".x-x_selected").forEach((el) => {
@@ -664,8 +683,7 @@ var o_touch_t = NaN;
         setTimeout(() => {
             O.style.transition = ``;
         }, t);
-        O.style.left = x + "px";
-        O.style.top = y + "px";
+        set_O_p(x, y);
     }
 
     o_touch_e = null;
@@ -694,8 +712,7 @@ var touch_move = (e: TouchEvent) => {
                 dy = fxsd == 0 || fxsd == 1 ? e.changedTouches[0].clientY - o_touch_e.changedTouches[0].clientY : 0;
             let x = o_rect.x + dx,
                 y = o_rect.y + dy;
-            O.style.left = x + "px";
-            O.style.top = y + "px";
+            set_O_p(x, y);
 
             link_value_bar.style.left = o_vb_sb.x0 + dx + "px";
             link_value_bar.style.top = o_vb_sb.y0 + dy + "px";
@@ -728,8 +745,7 @@ var touch_zoom = (e: TouchEvent) => {
                 dzoom = z - zoom;
             let dx = p[0] - O.getBoundingClientRect().x,
                 dy = p[1] - O.getBoundingClientRect().y;
-            O.style.left = el_offset(O).x - dx * (dzoom / ozoom) + "px";
-            O.style.top = el_offset(O).y - dy * (dzoom / ozoom) + "px";
+            set_O_p(el_offset(O).x - dx * (dzoom / ozoom), el_offset(O).y - dy * (dzoom / ozoom));
             zoom_o(z);
         }
     }
@@ -810,8 +826,7 @@ function add_blank(op: p_point, p: p_point) {
 
 归位.onclick = () => {
     O.style.transition = "0.4s";
-    O.style.left = `${画布.offsetWidth / 2}px`;
-    O.style.top = `${画布.offsetHeight / 2}px`;
+    set_O_p(画布.offsetWidth / 2, 画布.offsetHeight / 2);
     setTimeout(() => {
         O.style.transition = "";
     }, 400);
@@ -847,8 +862,7 @@ zoom_el.onchange = () => {
     zoom += dzoom;
     let dx = window.innerWidth / 2 - O.getBoundingClientRect().x,
         dy = window.innerHeight / 2 - O.getBoundingClientRect().y;
-    O.style.left = el_offset(O).x - dx * (dzoom / ozoom) + "px";
-    O.style.top = el_offset(O).y - dy * (dzoom / ozoom) + "px";
+    set_O_p(el_offset(O).x - dx * (dzoom / ozoom), el_offset(O).y - dy * (dzoom / ozoom));
     zoom_o(zoom);
     zoom_list.classList.add("zoom_list_hide");
 };
@@ -870,13 +884,11 @@ for (let i = 25; i <= 200; i += 25) {
             dzoom = nzoom - zoom;
         let dx = window.innerWidth / 2 - O.getBoundingClientRect().x,
             dy = window.innerHeight / 2 - O.getBoundingClientRect().y;
-        O.style.left = el_offset(O).x - dx * (dzoom / ozoom) + "px";
-        O.style.top = el_offset(O).y - dy * (dzoom / ozoom) + "px";
+        set_O_p(el_offset(O).x - dx * (dzoom / ozoom), el_offset(O).y - dy * (dzoom / ozoom));
         zoom_o(nzoom);
     };
 }
-O.style.left = `${画布.offsetWidth / 2}px`;
-O.style.top = `${画布.offsetHeight / 2}px`;
+set_O_p(画布.offsetWidth / 2, 画布.offsetHeight / 2);
 
 /**元素相对位置（屏幕坐标） */
 function el_offset(el: Element, pel?: Element) {
@@ -908,8 +920,7 @@ elFromId("画布").onwheel = (e) => {
         zoom = Math.abs(zoom);
         let dx = e.clientX - O.getBoundingClientRect().x,
             dy = e.clientY - O.getBoundingClientRect().y;
-        O.style.left = el_offset(O).x - dx * (dzoom / ozoom) + "px";
-        O.style.top = el_offset(O).y - dy * (dzoom / ozoom) + "px";
+        set_O_p(el_offset(O).x - dx * (dzoom / ozoom), el_offset(O).y - dy * (dzoom / ozoom));
         zoom_o(zoom);
     } else {
         let el = <HTMLElement>e.target;
@@ -929,8 +940,7 @@ elFromId("画布").onwheel = (e) => {
                 if (fxsd == 0 || fxsd == 2) dx = -e.deltaX;
                 if (fxsd == 0 || fxsd == 1) dy = -e.deltaY;
             }
-            O.style.left = el_offset(O).x + dx + "px";
-            O.style.top = el_offset(O).y + dy + "px";
+            set_O_p(el_offset(O).x + dx, el_offset(O).y + dy);
 
             link_value_bar.style.left = el_offset(link_value_bar).x + dx + "px";
             link_value_bar.style.top = el_offset(link_value_bar).y + dy + "px";
@@ -960,8 +970,7 @@ let middle_p = { x: 0, y: 0 };
     if (middle_b) {
         let dx = e.clientX - middle_b.clientX,
             dy = e.clientY - middle_b.clientY;
-        O.style.left = middle_p.x + dx + "px";
-        O.style.top = middle_p.y + dy + "px";
+        set_O_p(middle_p.x + dx, middle_p.y + dy);
     }
 });
 画布.addEventListener("pointerup", (e) => {
@@ -1311,11 +1320,14 @@ var global_x = [] as data;
 
 // 快捷键
 document.onkeydown = (e) => {
+    const target = e.target as HTMLElement;
     switch (e.key) {
         case "Delete":
-            for (let el of selected_el) {
-                z.remove(el);
-            }
+            if (模式 != "设计") return;
+            if (!is_input_el(target))
+                for (let el of selected_el) {
+                    z.remove(el);
+                }
             selected_el = [];
             break;
         case "Home":
@@ -1336,8 +1348,7 @@ document.onkeydown = (e) => {
                 zoom += dzoom;
                 let dx = now_mouse_e.clientX - O.getBoundingClientRect().x,
                     dy = now_mouse_e.clientY - O.getBoundingClientRect().y;
-                O.style.left = el_offset(O).x - dx * (dzoom / ozoom) + "px";
-                O.style.top = el_offset(O).y - dy * (dzoom / ozoom) + "px";
+                set_O_p(el_offset(O).x - dx * (dzoom / ozoom), el_offset(O).y - dy * (dzoom / ozoom));
                 zoom_o(1);
                 data_changed();
             }
@@ -1655,6 +1666,9 @@ function version_tr(obj): 集type {
         case "0.14.3":
         case "0.15.0":
         case "0.16.0":
+        case "0.16.1":
+        case "0.16.2":
+        case "0.17.0":
             return obj;
         default:
             put_toast(`文件版本是 ${v}，与当前软件版本 ${packagejson.version} 不兼容，请升级软件`);
@@ -1787,6 +1801,8 @@ function render_data(inputdata: 画布type) {
     el.style.top = (inputdata?.p?.y || 0) + 画布.offsetHeight / 2 + "px";
     el.style.transform = `scale(${inputdata.p.zoom})`;
     画布s.append(el);
+
+    fixed_el();
 
     function v(data: data, pid?: string) {
         try {
@@ -3632,8 +3648,7 @@ function jump_to_x_link(el: x | xlink) {
                         O.style.transitionDuration = "";
                     }, t);
                     zoom_o(Number(O.style.transform.match(/scale\((.*)\)/)[1] || p.p.zoom));
-                    O.style.left = ex + "px";
-                    O.style.top = ey + "px";
+                    set_O_p(ex, ey);
                     if (el.tagName == "X-X") {
                         z.focus(el as x);
                     }
@@ -3937,6 +3952,36 @@ function to_more_line(xels: x[], c?: string | RegExp) {
     }
 }
 
+/** 刷新定位元素 */
+function fixed_el() {
+    for (let i in 集.values) {
+        if (集.values[i]?.fixed) {
+            const el = elFromId(i);
+            if (!el) return;
+            let fixed: { left?: string; top?: string; right?: string; bottom?: string } = 集.values[i].fixed;
+            try {
+                let top = el_offset2(O).y,
+                    left = el_offset2(O).x,
+                    width = el_offset2(画布).w,
+                    height = el_offset2(画布).h;
+                if (fixed.left) {
+                    el.style.left = `calc(${-left}px + ${fixed.left})`;
+                }
+                if (fixed.top) {
+                    el.style.top = `calc(${-top}px + ${fixed.top})`;
+                }
+                if (fixed.right) {
+                    el.style.left = `calc(${-left + width - el_offset2(el).w}px - ${fixed.right})`;
+                }
+                if (fixed.bottom) {
+                    el.style.top = `calc(${-top + height - el_offset2(el).h}px - ${fixed.bottom})`;
+                }
+            } catch (error) {}
+        }
+    }
+    requestAnimationFrame(fixed_el);
+}
+
 window["xln"] = {};
 
 // 手写识别
@@ -4110,8 +4155,7 @@ function ys_jump(item: ys_item) {
         };
         let zoom = item.position.p.zoom;
         zoom_o(zoom);
-        O.style.left = item.position.p.x * zoom - el_offset(画布).w / 2 + "px";
-        O.style.top = item.position.p.y * zoom - el_offset(画布).h / 2 + "px";
+        set_O_p(item.position.p.x * zoom - el_offset(画布).w / 2, item.position.p.y * zoom - el_offset(画布).h / 2);
     }
 }
 function ys_bn(fx: "back" | "next") {
@@ -4143,19 +4187,36 @@ ys_add.onclick = () => {
 };
 
 // 值
+import JSON5 from "json5";
 
 function load_value() {
     if (!集.values) return;
     let el = z.聚焦元素;
     let t = createEl("textarea");
     let value = "";
-    if (集.values[el.id]) value = JSON.stringify(集.values[el.id], null, 2);
+    if (集.values[el.id]) {
+        let t = JSON5.stringify(集.values[el.id], null, 2);
+        value = t.slice(1, t.length - 2).replace(/^  /gm, "");
+    }
     t.value = value;
     value_el.innerHTML = "";
     value_el.append(t);
-    t.oninput = () => {
+    t.oninput = (e: InputEvent) => {
+        const a = [
+            ["'", "'"],
+            ['"', '"'],
+            ["{", "}"],
+            ["(", ")"],
+        ];
+        if (e.inputType == "insertText") {
+            for (let i of a) {
+                if (i[0] == t.value[t.selectionStart - 1]) {
+                    t.setRangeText(i[1]);
+                }
+            }
+        }
         try {
-            let v = JSON.parse(t.value);
+            let v = JSON5.parse(`{${t.value}}`);
             集.values[el.id] = v;
             if (el.querySelector("x-md")) {
                 (el.querySelector("x-md") as markdown).reload();
@@ -4167,7 +4228,6 @@ function load_value() {
 // MD
 import markdownit from "markdown-it";
 import markdownitTaskLists from "markdown-it-task-lists";
-import markdownitContainer from "markdown-it-container";
 import markdownitEmoji from "markdown-it-emoji";
 var md = markdownit({
     html: true,
@@ -4175,24 +4235,6 @@ var md = markdownit({
     typographer: true,
 })
     .use(markdownitTaskLists, { enabled: true })
-    .use(markdownitContainer, "spoiler", {
-        validate: function (params) {
-            return params.trim().match(/^(.*)$/);
-        },
-
-        render: function (tokens, idx) {
-            var m = tokens[idx].info.trim().match(/^(.*)$/);
-
-            if (tokens[idx].nesting === 1) {
-                // opening tag
-                return "<details><summary>" + md.render(m[1]) + "</summary>\n";
-            } else {
-                // closing tag
-                return "</details>\n";
-            }
-        },
-        marker: "+",
-    })
     .use(markdownitEmoji);
 
 var defaultRender =
@@ -4204,14 +4246,17 @@ let f = md.renderer.rules.fence;
 import mermaid from "mermaid";
 md.renderer.rules.fence = function (tokens, idx, options, env, self) {
     if (tokens[idx].info == "mermaid") {
-        let o = "";
-        mermaid.mermaidAPI.render("mgraph" + String(new Date().getTime()), tokens[idx].content, (svg) => {
-            o = svg;
-        });
-        return o;
+        return mermaid_code(tokens[idx].content);
     }
     return f(tokens, idx, options, env, self);
 };
+function mermaid_code(content: string) {
+    let o = "";
+    mermaid.mermaidAPI.render("mgraph" + String(new Date().getTime()), content, (svg) => {
+        o = svg;
+    });
+    return o;
+}
 // 代码来自 https://github.com/artisticat1/obsidian-tikzjax 和 https://github.com/kisonecat/tikzjax
 var import_latex = false;
 document.addEventListener("tikzjax-load-finished", (e) => {
@@ -4220,59 +4265,62 @@ document.addEventListener("tikzjax-load-finished", (e) => {
 });
 md.renderer.rules.fence = function (tokens, idx, options, env, self) {
     if (tokens[idx].info == "tikz") {
-        if (!import_latex) {
-            import_script("../../lib/tikzjax.js?raw", true);
-            import_latex = true;
-        }
-        let s = createEl("script");
-        s.setAttribute("type", "text/tikz");
-        s.setAttribute("data-show-console", "true");
-        function tidyTikzSource(tikzSource: string) {
-            const remove = "&nbsp;";
-            tikzSource = tikzSource.replaceAll(remove, "");
-            let lines = tikzSource.split("\n");
-            lines = lines.map((line) => line.trim());
-            lines = lines.filter((line) => line);
-            const pack = [
-                "chemfig",
-                "tikz-cd",
-                "circuitikz",
-                "pgfplots",
-                "array",
-                "amsmath",
-                "amstext",
-                "amsfonts",
-                "amssymb",
-                "tikz-3dplot",
-            ];
-            for (let i of pack) {
-                if (tikzSource.includes(i)) {
-                    let has = false;
-                    for (let t of lines) {
-                        if (t == `\\usepackage{${i}}`) has = true;
-                    }
-                    if (!has) {
-                        lines.unshift(`\\usepackage{${i}}`);
-                    }
-                }
-            }
-            if (!tikzSource.includes("\\begin{document}")) {
-                let packi = 0;
-                for (let i in lines) {
-                    if (lines[i].includes(`\\usepackage{`)) packi = Number(i);
-                }
-                lines.splice(packi + 1, 0, "\\begin{document}");
-            }
-            if (!tikzSource.includes("\\end{document}")) {
-                lines.push("\\end{document}");
-            }
-            return lines.join("\n");
-        }
-        s.innerHTML = tidyTikzSource(tokens[idx].content);
-        return s.outerHTML;
+        return tikz_code(tokens[idx].content);
     }
     return f(tokens, idx, options, env, self);
 };
+function tikz_code(content: string) {
+    if (!import_latex) {
+        import_script("../../lib/tikzjax.js?raw", true);
+        import_latex = true;
+    }
+    let s = createEl("script");
+    s.setAttribute("type", "text/tikz");
+    s.setAttribute("data-show-console", "true");
+    function tidyTikzSource(tikzSource: string) {
+        const remove = "&nbsp;";
+        tikzSource = tikzSource.replaceAll(remove, "");
+        let lines = tikzSource.split("\n");
+        lines = lines.map((line) => line.trim());
+        lines = lines.filter((line) => line);
+        const pack = [
+            "chemfig",
+            "tikz-cd",
+            "circuitikz",
+            "pgfplots",
+            "array",
+            "amsmath",
+            "amstext",
+            "amsfonts",
+            "amssymb",
+            "tikz-3dplot",
+        ];
+        for (let i of pack) {
+            if (tikzSource.includes(i)) {
+                let has = false;
+                for (let t of lines) {
+                    if (t == `\\usepackage{${i}}`) has = true;
+                }
+                if (!has) {
+                    lines.unshift(`\\usepackage{${i}}`);
+                }
+            }
+        }
+        if (!tikzSource.includes("\\begin{document}")) {
+            let packi = 0;
+            for (let i in lines) {
+                if (lines[i].includes(`\\usepackage{`)) packi = Number(i);
+            }
+            lines.splice(packi + 1, 0, "\\begin{document}");
+        }
+        if (!tikzSource.includes("\\end{document}")) {
+            lines.push("\\end{document}");
+        }
+        return lines.join("\n");
+    }
+    s.innerHTML = tidyTikzSource(content);
+    return s.outerHTML;
+}
 md.renderer.rules.image = function (tokens, idx, options, env, self) {
     let value = tokens[idx].attrGet("src");
     let b = 集.assets?.[value]?.base64;
@@ -4575,6 +4623,8 @@ class x extends HTMLElement {
         f.innerHTML = icon(ding_svg);
         var d = createEl("div");
         d.innerHTML = icon(close_svg);
+        let copy = createEl("div");
+        copy.innerHTML = icon(copy_svg);
 
         var x_h = [
             createEl("div"),
@@ -4600,6 +4650,7 @@ class x extends HTMLElement {
 
         bar.append(m);
         bar.append(f);
+        bar.append(copy);
         bar.append(d);
         this.append(bar);
 
@@ -4631,7 +4682,7 @@ class x extends HTMLElement {
                 new_free_drag_tip();
                 if (this.parentElement != O) {
                     let x = e.clientX - O.getBoundingClientRect().x,
-                        y = e.clientY - O.getBoundingClientRect().y + m.offsetHeight - e.offsetX;
+                        y = e.clientY - O.getBoundingClientRect().y + m.offsetHeight - e.offsetY;
                     let xel = <x>createEl("x-x");
                     xel.id = this.id;
                     xel.setAttribute("style", this.getAttribute("style"));
@@ -4709,6 +4760,27 @@ class x extends HTMLElement {
                     f.classList.add("buttom_a");
                     break;
                 }
+
+        copy.onpointerdown = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            free_drag = true;
+            O.classList.add("拖拽");
+            new_free_drag_tip();
+            let x = e.clientX - O.getBoundingClientRect().x - copy.offsetLeft - e.offsetX,
+                y = e.clientY - O.getBoundingClientRect().y + copy.offsetHeight - e.offsetY;
+            let xel = <x>createEl("x-x");
+            xel.id = uuid_id();
+            xel.setAttribute("style", this.getAttribute("style"));
+            z.push(xel);
+            xel.style.left = el_offset2(this, O).x + "px";
+            xel.style.top = el_offset2(this, O).y + "px";
+            xel.style.position = "absolute";
+            xel.value = this.value;
+            free_o_rects = [{ el: xel, x: x / zoom, y: y / zoom }];
+            free_old_point = e2p(e);
+            free_o_a = -1;
+        };
 
         d.onclick = () => {
             selected_el = selected_el.filter((el) => el != this);
@@ -4855,7 +4927,7 @@ class markdown extends HTMLElement {
             if (e.key == "Enter") {
                 e.preventDefault();
                 if (this._value.type != "text" && this._value.type != "code")
-                    O.style.top = O.offsetTop - this.offsetHeight * zoom + "px";
+                    set_O_p(null, O.offsetTop - this.offsetHeight * zoom);
                 data_changed();
                 if (this._value.type == "text") {
                     let last_line_start = text.value.lastIndexOf("\n", text.selectionStart - 1) + 1;
@@ -5212,10 +5284,15 @@ class markdown extends HTMLElement {
             text.style.left = el_offset2(this.h).x + "px";
             text.style.top = el_offset2(this.h).y + s.offsetHeight + "px";
         };
-        s.contentEditable = "true";
         s.spellcheck = false;
         s.onpointerup = (e) => {
             if (模式 != "浏览") return;
+            let el = <HTMLElement>e.target;
+            if (el.tagName != "INPUT") {
+                s.contentEditable = "true";
+            } else {
+                return;
+            }
             console.log(document.getSelection().getRangeAt(0));
             let r = document.getSelection().getRangeAt(0);
             function get_text(node: Node, of: number) {
@@ -5296,6 +5373,7 @@ class markdown extends HTMLElement {
             console.log(start_p, end_p);
             this.text.setSelectionRange(start_p, end_p);
             this.edit = true;
+            s.contentEditable = "false";
         };
     }
 
@@ -5338,14 +5416,14 @@ class markdown extends HTMLElement {
         let type = this._value.type;
         let text = this.text.value;
         if (type == "text") {
-            this.index = md.parse(text, null);
+            this.index = md.parse(text, {});
             this.h.innerHTML = md.render(text);
         } else if (type == "todo") {
             this.init_v("todo");
             if (!集.values[this.parentElement.id].todo["checked"])
                 集.values[this.parentElement.id].todo["checked"] = false;
             let i = `<input type="checkbox" ${集.values[this.parentElement.id].todo.checked ? "checked" : ""}>`;
-            this.index = md.parse(text, null);
+            this.index = md.parse(text, {});
             this.h.innerHTML = i + md.render(text);
         } else if (type == "math") {
             this.h.innerHTML = get_svg(`\\displaylines{${text}}`);
@@ -5357,10 +5435,20 @@ class markdown extends HTMLElement {
             if (集.values?.[this.parentElement.id]?.code?.["html"]) {
                 this.h.innerHTML = 集.values[this.parentElement.id].code["html"];
             } else {
-                this.h.innerText = text;
+                switch (集.values[this.parentElement.id].code["lan"]) {
+                    case "mermaid":
+                        this.h.innerHTML = mermaid_code(text);
+                        break;
+                    case "tikz":
+                        this.h.innerHTML = tikz_code(text);
+                        break;
+                    default:
+                        this.h.innerText = text;
+                        break;
+                }
             }
         } else {
-            this.index = md.parse(text, null);
+            this.index = md.parse(text, {});
             console.log(this.index);
             this.h.innerHTML = md.render(text);
         }
@@ -6749,8 +6837,9 @@ class audio extends HTMLElement {
         let yl2 = createEl("div"); // 按钮
         let yl3 = createEl("div"); // 滑槽
         let yl4 = createEl("div"); // 滑块
+        let asr = createEl("div");
         this.append(this.audio);
-        this.append(button, jd, playtime, yl);
+        this.append(button, jd, playtime, yl, asr);
         button.innerHTML = icon(play_svg);
         button.onclick = () => {
             if (this.audio.paused) {
@@ -6879,6 +6968,12 @@ class audio extends HTMLElement {
 
             yl3.title = `${Math.round(p * 100)}%`;
         };
+
+        asr.innerHTML = icon(asr_svg);
+        asr.classList.add("asr");
+        asr.onclick = () => {
+            audio_to_text(this.audio, this.id);
+        };
     }
 
     set value(v) {
@@ -6893,6 +6988,48 @@ class audio extends HTMLElement {
 window.customElements.define("x-audio", audio);
 
 ignore_el.push("x-audio");
+
+function audio_to_text(el: HTMLAudioElement, id: string) {
+    let arr = el.src.split(","),
+        mime = arr[0].match(/:(.*?);/)[1],
+        bstr = window.atob(arr[1]),
+        n = bstr.length,
+        u8arr = new Uint8Array(n);
+    while (n--) {
+        u8arr[n] = bstr.charCodeAt(n);
+    }
+    let blob = new Blob([u8arr], { type: mime });
+
+    const form = new FormData();
+    form.append("file", blob, "x.flac");
+    fetch(store.asr.url, {
+        method: "POST",
+        body: form,
+    })
+        .then((r) => r.json())
+        .then(async (j) => {
+            console.log(j);
+            let pel = createEl("x-x") as x;
+            pel.style.left = el_offset2(el.parentElement, O).x + "px";
+            pel.style.top = el_offset2(el.parentElement, O).y + el_offset2(el.parentElement, O).h + "px";
+            z.push(pel);
+            if (j.language == "zh" && navigator.language == "zh-CN") {
+                let t = (await import("../../lib/hant2hans")).default;
+                for (let i of j.segments) {
+                    i.text = t(i.text);
+                }
+            }
+            for (let i of j.segments) {
+                let x = createEl("x-x") as x;
+                z.push(x, pel);
+                let md = createEl("x-md") as markdown;
+                x.append(md);
+                let mdtext = `[${i.start}](#${id}:${i.start})${i.text}`;
+                md.value = JSON.stringify({ type: "p", text: mdtext });
+            }
+            pel.classList.add("flex-column");
+        });
+}
 
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
@@ -7108,3 +7245,107 @@ class ggb extends HTMLElement {
 
 window.customElements.define("x-ggb", ggb);
 ignore_el.push("x-ggb");
+
+class calendar extends HTMLElement {
+    constructor() {
+        super();
+    }
+
+    _value;
+    applet;
+    p;
+
+    connectedCallback() {
+        const today = new Date();
+        let year = today.getFullYear();
+        let month = today.getMonth();
+        let day = today.getDate();
+        let bar = createEl("div");
+        bar.classList.add("calendar_bar");
+        let last = createEl("div");
+        let next = createEl("div");
+        let text = createEl("div");
+        last.innerHTML = icon(left_svg);
+        next.innerHTML = icon(right_svg);
+        bar.append(last, text, next);
+        last.onclick = () => {
+            month--;
+            if (month == -1) {
+                month = 11;
+                year--;
+            }
+            render(year, month, day);
+        };
+        next.onclick = () => {
+            month++;
+            if (month == 12) {
+                month = 0;
+                year++;
+            }
+            render(year, month, day);
+        };
+        let c = createEl("div");
+        c.classList.add("calendar");
+
+        render(year, month, day);
+
+        function render(year: number, month: number, day: number) {
+            text.innerText = `${year} / ${month + 1} / ${day}`;
+            let date_list: Date[] = [];
+            let now_date = new Date(year, month, 1);
+            while (now_date.getDay() != 0) {
+                now_date = new Date(now_date.getTime() - 24 * 60 * 60 * 1000);
+                date_list.unshift(now_date);
+            }
+            now_date = new Date(year, month, 1);
+            while (now_date.getMonth() == month) {
+                date_list.push(now_date);
+                now_date = new Date(now_date.getTime() + 24 * 60 * 60 * 1000);
+            }
+            now_date = new Date(year, month, date_list[date_list.length - 1].getDate());
+            while (now_date.getDay() != 6) {
+                now_date = new Date(now_date.getTime() + 24 * 60 * 60 * 1000);
+                date_list.push(now_date);
+            }
+            console.log(date_list);
+            let pel = document.createDocumentFragment();
+            let day_list = ["日", "一", "二", "三", "四", "五", "六"];
+            for (let i of day_list) {
+                let div = createEl("div");
+                div.innerText = `${i}`;
+                div.classList.add("calendar_week");
+                pel.append(div);
+            }
+            for (let i of date_list) {
+                let div = createEl("div");
+                div.innerText = `${i.getDate()}`;
+                if (i.getMonth() == month) {
+                    div.classList.add("calendar_month");
+                }
+                if (i.getDate() == day && i.getMonth() == month) {
+                    div.classList.add("calendar_today");
+
+                    div.onclick = () => {
+                        render(today.getFullYear(), today.getMonth(), today.getDate());
+                    };
+                }
+                pel.append(div);
+            }
+            c.innerHTML = "";
+            c.append(pel);
+        }
+
+        this.append(bar, c);
+    }
+    async set_m() {}
+
+    get value() {
+        return this._value;
+    }
+    set value(s) {
+        this._value = s;
+        this.set_m();
+    }
+}
+
+window.customElements.define("x-calendar", calendar);
