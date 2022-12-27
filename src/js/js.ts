@@ -501,8 +501,8 @@ elFromId("常驻").onpointerdown = (e) => {
     console.log((<HTMLElement>e.target).id);
     let v = null;
     let el_n = "";
-    if ((<HTMLElement>e.target).id == "录音") {
-        el_n = "x-record";
+    if ((<HTMLElement>e.target).id && e.target != elFromId("常驻")) {
+        el_n = (<HTMLElement>e.target).id;
     } else {
         el_n = "x-md";
     }
@@ -1378,14 +1378,16 @@ document.onkeydown = (e) => {
             break;
         case "i":
             if (模式 != "浏览") {
-                set_模式("浏览");
-                e.preventDefault();
-                if (z.聚焦元素.querySelector("x-md")) (z.聚焦元素.querySelector("x-md") as markdown).edit = true;
+                if (!is_input_el(target)) {
+                    set_模式("浏览");
+                    e.preventDefault();
+                    if (z.聚焦元素.querySelector("x-md")) (z.聚焦元素.querySelector("x-md") as markdown).edit = true;
+                }
             }
             break;
         case "Escape":
             if (模式 == "浏览") {
-                set_模式("设计");
+                if (!is_input_el(target)) set_模式("设计");
             }
             break;
         case "ArrowUp":
@@ -1669,6 +1671,7 @@ function version_tr(obj): 集type {
         case "0.16.1":
         case "0.16.2":
         case "0.17.0":
+        case "0.17.1":
             return obj;
         default:
             put_toast(`文件版本是 ${v}，与当前软件版本 ${packagejson.version} 不兼容，请升级软件`);
@@ -4190,39 +4193,66 @@ ys_add.onclick = () => {
 import JSON5 from "json5";
 
 function load_value() {
-    if (!集.values) return;
     let el = z.聚焦元素;
-    let t = createEl("textarea");
-    let value = "";
-    if (集.values[el.id]) {
-        let t = JSON5.stringify(集.values[el.id], null, 2);
-        value = t.slice(1, t.length - 2).replace(/^  /gm, "");
-    }
-    t.value = value;
     value_el.innerHTML = "";
-    value_el.append(t);
-    t.oninput = (e: InputEvent) => {
-        const a = [
-            ["'", "'"],
-            ['"', '"'],
-            ["{", "}"],
-            ["(", ")"],
-        ];
-        if (e.inputType == "insertText") {
-            for (let i of a) {
-                if (i[0] == t.value[t.selectionStart - 1]) {
-                    t.setRangeText(i[1]);
+    if (el.value && is_smallest_el(el)) {
+        let t = createEl("textarea");
+        let value = JSON5.stringify(el.value, null, 2);
+        t.value = value;
+        value_el.append(t);
+        t.oninput = (e: InputEvent) => {
+            const a = [
+                ["'", "'"],
+                ['"', '"'],
+                ["{", "}"],
+                ["(", ")"],
+            ];
+            if (e.inputType == "insertText") {
+                for (let i of a) {
+                    if (i[0] == t.value[t.selectionStart - 1]) {
+                        t.setRangeText(i[1]);
+                    }
                 }
             }
+            try {
+                let v = JSON5.parse(t.value);
+                el.innerHTML = "";
+                el.value = v;
+            } catch (error) {}
+        };
+    }
+    if (集.values) {
+        let t = createEl("textarea");
+        let value = "";
+        if (集.values[el.id]) {
+            let t = JSON5.stringify(集.values[el.id], null, 2);
+            value = t.slice(1, t.length - 2).replace(/^  /gm, "");
         }
-        try {
-            let v = JSON5.parse(`{${t.value}}`);
-            集.values[el.id] = v;
-            if (el.querySelector("x-md")) {
-                (el.querySelector("x-md") as markdown).reload();
+        t.value = value;
+        value_el.append(t);
+        t.oninput = (e: InputEvent) => {
+            const a = [
+                ["'", "'"],
+                ['"', '"'],
+                ["{", "}"],
+                ["(", ")"],
+            ];
+            if (e.inputType == "insertText") {
+                for (let i of a) {
+                    if (i[0] == t.value[t.selectionStart - 1]) {
+                        t.setRangeText(i[1]);
+                    }
+                }
             }
-        } catch (error) {}
-    };
+            try {
+                let v = JSON5.parse(`{${t.value}}`);
+                集.values[el.id] = v;
+                if (el.querySelector("x-md")) {
+                    (el.querySelector("x-md") as markdown).reload();
+                }
+            } catch (error) {}
+        };
+    }
 }
 
 // MD
@@ -4605,6 +4635,38 @@ md.inline.ruler.before("link", "x-link", (state, silent: boolean) => {
     return true;
 });
 
+function time_text(time: number) {
+    return {
+        ss() {
+            return `${time % 1000}`;
+        },
+        s() {
+            return `${Math.floor(time / 1000)}`;
+        },
+        m() {
+            return `${Math.floor(time / 1000 / 60)}`;
+        },
+        ms() {
+            return `${Math.floor(time / 1000 / 60)}:${Math.floor(time / 1000)}`;
+        },
+        hms() {
+            let h = Math.floor(time / 1000 / 60 / 60);
+            let m = Math.floor(time / 1000 / 60) % 60;
+            let s = Math.floor(time / 1000) % 60;
+            let t = `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+            if (h > 0) t = `${h}:` + t;
+            return t;
+        },
+        hms2() {
+            let h = Math.floor(time / 1000 / 60 / 60);
+            let m = Math.floor(time / 1000 / 60) % 60;
+            let s = Math.floor(time / 1000) % 60;
+            let t = `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+            return t;
+        },
+    };
+}
+
 // template
 /** 主元素 */
 class x extends HTMLElement {
@@ -4649,8 +4711,8 @@ class x extends HTMLElement {
         this.append(h);
 
         bar.append(m);
-        bar.append(f);
         bar.append(copy);
+        bar.append(f);
         bar.append(d);
         this.append(bar);
 
@@ -6765,12 +6827,11 @@ class record extends HTMLElement {
 
     connectedCallback() {
         if (!this.id) this.id = uuid_id();
-        let mediaRecorder = null;
+        let mediaRecorder: MediaRecorder = null;
         let i = createEl("input");
         i.type = "checkbox";
-        let b = createEl("div");
-        b.onclick = () => {
-            i.checked = !i.checked;
+        let t = 0;
+        i.onclick = () => {
             if (i.checked) {
                 navigator.mediaDevices.getUserMedia({ audio: true }).then((stream) => {
                     let chunks = [];
@@ -6778,6 +6839,8 @@ class record extends HTMLElement {
                     mediaRecorder.start();
                     mediaRecorder.onstart = () => {
                         console.log("开始录制");
+                        t = new Date().getTime();
+                        reflash();
                     };
 
                     mediaRecorder.ondataavailable = (e) => {
@@ -6789,26 +6852,30 @@ class record extends HTMLElement {
                         let blob = new Blob(chunks, { type: "audio/webm;codecs=opus" });
                         let a = new FileReader();
                         a.onload = () => {
-                            audio.src = a.result as string;
-                            if (!集.assets[this.id]) 集.assets[this.id] = { url: "", base64: "", sha: "" };
-                            集.assets[this.id].base64 = a.result as string;
-                            集.assets[this.id].sha = CryptoJS.SHA256(a.result as string).toString();
+                            let id = put_assets("", a.result as string);
+                            let file = <file>createEl("x-file");
+                            this.parentElement.append(file);
+                            file.value = JSON.stringify({ r: true, id });
+                            this.remove();
                         };
                         a.readAsDataURL(blob);
                         stream.getAudioTracks()[0].stop();
                     };
                 });
-                b.classList.add("recording");
+                i.classList.add("recording");
             } else {
                 mediaRecorder.stop();
-                b.classList.remove("recording");
+                i.classList.remove("recording");
             }
         };
-        let audio = createEl("audio");
-        audio.controls = true;
+        let time = createEl("div");
         this.append(i);
-        this.append(b);
-        this.append(audio);
+        this.append(time);
+        let reflash = () => {
+            let now = new Date().getTime();
+            time.innerText = time_text(now - t).hms();
+            if (mediaRecorder.state == "recording") requestAnimationFrame(reflash);
+        };
     }
 }
 
@@ -6855,13 +6922,9 @@ class audio extends HTMLElement {
             button.innerHTML = icon(play_svg);
         };
         let show_t = (n: number, t: number) => {
-            let s0 = Math.round(n);
-            let m0 = Math.floor(s0 / 60);
-            let ss0 = `${s0 % 60 < 10 ? "0" : ""}${s0 % 60}`;
-            let s1 = Math.round(t);
-            let m1 = Math.floor(s1 / 60);
-            let ss1 = `${s1 % 60 < 10 ? "0" : ""}${s1 % 60}`;
-            return `${m0}:${ss0}/${m1}:${ss1}`;
+            let t0 = time_text(n * 1000).hms();
+            let t1 = time_text(t * 1000).hms();
+            return `${t0}/${t1}`;
         };
         this.audio.oncanplay = () => {
             playtime.innerText = show_t(this.audio.currentTime, this.audio.duration);
@@ -7349,3 +7412,273 @@ class calendar extends HTMLElement {
 }
 
 window.customElements.define("x-calendar", calendar);
+
+class time_s extends HTMLElement {
+    constructor() {
+        super();
+    }
+
+    _value: number;
+    h: HTMLInputElement;
+    m: HTMLInputElement;
+    s: HTMLInputElement;
+
+    connectedCallback() {
+        this.h = document.createElement("input");
+        this.m = document.createElement("input");
+        this.s = document.createElement("input");
+        this.h.style.width = "1ch";
+        this.h.inputMode = "tel";
+        this.m.inputMode = "tel";
+        this.s.inputMode = "tel";
+        this.h.value = "--";
+        this.m.value = "--";
+        this.s.value = "--";
+        this.h.onfocus = () => {
+            this.h.select();
+        };
+        this.m.onfocus = () => {
+            this.m.select();
+        };
+        this.s.onfocus = () => {
+            this.s.select();
+        };
+        this.h.oninput = () => {
+            if (isNaN(Number(this.h.value))) {
+                this.h.value = String(Math.floor(this._value / 1000 / 60 / 60));
+            } else {
+                this.h.style.width = this.h.value.length + "ch";
+            }
+        };
+        this.m.oninput = () => {
+            if (isNaN(Number(this.m.value))) {
+                this.m.value = String(Math.floor(this._value / 1000 / 60) % 6).padStart(2, "0");
+            } else {
+                if (Number(this.m.value) >= 60) {
+                    this.value = this.value;
+                }
+            }
+        };
+        this.s.oninput = () => {
+            if (isNaN(Number(this.s.value))) {
+                this.s.value = String(Math.floor(this._value / 1000) % 60).padStart(2, "0");
+            } else {
+                if (Number(this.s.value) >= 60) {
+                    this.value = this.value;
+                }
+            }
+        };
+        this.m.onblur = () => {
+            this.m.value = this.m.value.padStart(2, "0");
+        };
+        this.s.onblur = () => {
+            this.s.value = this.s.value.padStart(2, "0");
+        };
+        this.h.onkeyup = (e) => {
+            switch (e.key) {
+                case "ArrowRight":
+                    this.m.select();
+                    break;
+            }
+        };
+        this.m.onkeyup = (e) => {
+            switch (e.key) {
+                case "ArrowRight":
+                    this.s.select();
+                    break;
+                case "ArrowLeft":
+                    this.h.select();
+                    break;
+            }
+        };
+        this.s.onkeyup = (e) => {
+            switch (e.key) {
+                case "ArrowLeft":
+                    this.m.select();
+                    break;
+            }
+        };
+        this.append(this.h, ":", this.m, ":", this.s);
+    }
+
+    set value(time: number) {
+        this._value = time;
+        let h = Math.floor(time / 1000 / 60 / 60);
+        let m = Math.floor(time / 1000 / 60) % 60;
+        let s = Math.floor(time / 1000) % 60;
+        this.h.value = String(h);
+        this.m.value = String(m).padStart(2, "0");
+        this.s.value = String(s).padStart(2, "0");
+        this.h.style.width = String(h).length + "ch";
+    }
+
+    get value() {
+        return (Number(this.h.value) * 60 * 60 + Number(this.m.value) * 60 + Number(this.s.value)) * 1000;
+    }
+}
+
+window.customElements.define("time-b", time_s);
+
+class time extends HTMLElement {
+    constructor() {
+        super();
+    }
+
+    _value: string;
+    _value2: { pro: number; end: number; run: number[]; countdown: boolean } = {
+        pro: 0,
+        end: 0,
+        run: [],
+        countdown: false,
+    };
+    count_down: HTMLInputElement;
+    process: time_s;
+    end: HTMLInputElement;
+    time_t: HTMLDivElement;
+    start_b: HTMLElement;
+    time_setting: HTMLElement;
+    time_group: HTMLElement;
+    jd: HTMLElement;
+
+    connectedCallback() {
+        this.count_down = createEl("input");
+        this.count_down.type = "checkbox";
+        this.process = createEl("time-b") as time_s;
+        this.end = createEl("input");
+        this.end.type = "datetime-local";
+        this.count_down.oninput = () => {
+            this._value2.countdown = this.count_down.checked;
+            this._value = JSON.stringify(this._value2);
+        };
+        this.process.oninput = () => {
+            if (this.process.value) {
+                let t = this.process.value;
+                this._value2.pro = t;
+            } else {
+                this._value2.pro = 0;
+            }
+            this._value = JSON.stringify(this._value2);
+        };
+        this.end.oninput = () => {
+            if (this.end.value) {
+                this._value2.end = new Date(this.end.value).getTime();
+            } else {
+                this._value2.end = 0;
+            }
+            this._value = JSON.stringify(this._value2);
+        };
+        this.start_b = createEl("div");
+        this.start_b.innerHTML = icon(play_svg);
+        this.start_b.classList.add("time_play");
+        this.start_b.onclick = () => {
+            this.classList.add("x-time");
+            this._value2.run.push(new Date().getTime());
+            this._value = JSON.stringify(this._value2);
+            this.render();
+        };
+        this.time_t = createEl("div");
+
+        let jdt = createEl("div");
+        this.jd = createEl("div");
+        jdt.append(this.time_t, this.jd);
+        jdt.classList.add("time_jdt");
+
+        this.time_setting = createEl("div");
+        this.time_group = createEl("div");
+        this.time_group.append(this.process, this.end);
+        this.time_setting.append(this.count_down, this.time_group);
+        this.append(this.time_setting, this.start_b, jdt);
+    }
+
+    is_no = false;
+    render() {
+        let no = (t: string) => {
+            if (this.is_no) return;
+            this.is_no = true;
+            put_toast(`计时器已${t}`);
+            Notification.requestPermission(() => {
+                new Notification(`计时器已${t}`, {
+                    body: `${get_title()} 中的${this._value2.countdown ? "倒" : ""}计时器已${t}`,
+                });
+            });
+        };
+        let now = new Date().getTime();
+        if (this._value2.countdown) {
+            if (this._value2.end) {
+                let t = this._value2.end - now;
+                this.time_t.innerText = time_text(Math.max(0, t)).hms();
+                this.jd.style.width = ((this._value2.end - now) / (this._value2.end - this._value2.run[0])) * 100 + "%";
+                if (t <= 0) {
+                    no("停止");
+                    this._value2.run = [];
+                    this._value = JSON.stringify(this._value2);
+                }
+            } else {
+                if (this._value2.run.length % 2 != 0) {
+                    let t = this._value2.pro - this.add_times(this._value2.run, now);
+                    this.time_t.innerText = time_text(Math.max(0, t)).hms();
+                    this.jd.style.width = (t / this._value2.pro) * 100 + "%";
+                    if (t <= 0) {
+                        no("停止");
+                        this._value2.run = [];
+                        this._value = JSON.stringify(this._value2);
+                    }
+                }
+            }
+        } else {
+            if (this._value2.run.length % 2 != 0) {
+                this.jd.style.width = (this.add_times(this._value2.run, now) / this._value2.pro) * 100 + "%";
+                this.time_t.innerText = time_text(this.add_times(this._value2.run, now)).hms();
+                if (this.add_times(this._value2.run, now) > this._value2.pro) no("超时");
+            }
+        }
+        if ((this._value2.countdown && this._value2.end) || this._value2.run.length % 2 != 0) {
+            this.start_b.innerHTML = icon(pause_svg);
+        } else {
+            this.start_b.innerHTML = icon(play_svg);
+        }
+    }
+
+    add_times(input_list: number[], now: number) {
+        let list: number[] = [];
+        for (let i of input_list) list.push(i);
+        let t = 0;
+        if (list.length % 2 != 0) {
+            list.push(now);
+        }
+        for (let i = 0; i < list.length; i += 2) {
+            t += list[i + 1] - list[i];
+        }
+        return t;
+    }
+
+    async set_m() {
+        this._value2 = JSON.parse(this._value);
+        this.count_down.checked = this._value2.countdown;
+        if (this._value2.pro) this.process.value = this._value2.pro;
+        if (this._value2.end) {
+            let t = new Date(this._value2.end).toLocaleString();
+            t = t
+                .slice(0, t.length - 3)
+                .replaceAll("/", "-")
+                .replace(" ", "T");
+            this.end.value = t;
+        }
+    }
+
+    get value() {
+        return this._value;
+    }
+    set value(s) {
+        this._value = s;
+        this.set_m();
+    }
+}
+
+window.customElements.define("x-time", time);
+
+setInterval(() => {
+    document.querySelectorAll("x-time").forEach((el: time) => {
+        el.render();
+    });
+});
