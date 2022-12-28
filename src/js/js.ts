@@ -1113,16 +1113,28 @@ document.addEventListener("pointerup", (e: PointerEvent) => {
 
     if (free_old_point && free_o_a == -1 && 临时中转站.contains(e.target as HTMLElement)) {
         for (let i of selected_el) {
+            let had = false;
+            for (let x of global_x) {
+                if (x.id == i.id) {
+                    had = true;
+                    break;
+                }
+            }
+            for (let x of 集.中转站) {
+                if (x.id == i.id) {
+                    had = true;
+                    break;
+                }
+            }
+            if (had) continue;
             集.中转站.push({
                 id: i.id,
-                fixed: i.fixed,
                 style: i.getAttribute("style"),
                 type: i.tagName,
                 子元素: i.value,
+                class: i.className,
             });
-            if (!e.shiftKey) {
-                i.remove();
-            }
+            i.remove();
         }
         free_o_rects = [];
         console.log(集.中转站);
@@ -1439,7 +1451,6 @@ type data = Array<{
     style: string;
     class?: string;
     type: string;
-    fixed?: boolean;
     子元素?: data;
     value?: string;
     global?: boolean;
@@ -1498,7 +1509,7 @@ function get_data() {
         for (let i of map) {
             let el = <x>els[i.index];
             let type = "X-X";
-            data.push({ id: el.id, style: "", 子元素: el.value, type, fixed: el.fixed });
+            data.push({ id: el.id, style: "", 子元素: el.value, type });
             if (el.getAttribute("style")) data[data.length - 1].style = el.getAttribute("style");
             if (el.className) data[data.length - 1].class = el.className;
         }
@@ -1672,6 +1683,19 @@ function version_tr(obj): 集type {
         case "0.16.2":
         case "0.17.0":
         case "0.17.1":
+            {
+                for (let i of obj.数据) {
+                    w(i.data);
+                }
+                w(obj.中转站);
+                function w(data) {
+                    for (let i of data) {
+                        delete i.fixed;
+                    }
+                }
+            }
+            obj.meta.version = "0.17.2";
+        case "0.17.2":
             return obj;
         default:
             put_toast(`文件版本是 ${v}，与当前软件版本 ${packagejson.version} 不兼容，请升级软件`);
@@ -2480,7 +2504,6 @@ document.addEventListener("message", (msg: any) => {
                 j.meta.file_name = "摘录";
                 j.中转站.push({
                     id: uuid_id(),
-                    fixed: false,
                     style: "",
                     value: data.text,
                     type: "X-MD",
@@ -4763,11 +4786,9 @@ class x extends HTMLElement {
                     for (let i of 集.中转站) {
                         if (xel.id == i.id) {
                             drag_block = true;
-                            if (!e.shiftKey && !i.global) {
+                            if (!i.global) {
                                 集.中转站 = 集.中转站.filter((x) => x != i);
                                 tmp_s_reflash();
-                            } else {
-                                xel.id = uuid_id();
                             }
                             data_changed();
                         }
@@ -4838,7 +4859,9 @@ class x extends HTMLElement {
             xel.style.left = el_offset2(this, O).x + "px";
             xel.style.top = el_offset2(this, O).y + "px";
             xel.style.position = "absolute";
+            xel.className = this.className;
             xel.value = this.value;
+            xel.querySelectorAll("x-x").forEach((el) => (el.id = uuid_id()));
             free_o_rects = [{ el: xel, x: x / zoom, y: y / zoom }];
             free_old_point = e2p(e);
             free_o_a = -1;
@@ -4886,7 +4909,6 @@ class x extends HTMLElement {
                     class: el.className,
                     子元素: (el as x).value,
                     type: el.tagName,
-                    fixed: (el as x).fixed,
                 });
             } else {
                 list.push({
