@@ -30,8 +30,31 @@ import right_svg from "../../assets/icons/right.svg";
 import left_svg from "../../assets/icons/left.svg";
 import copy_svg from "../../assets/icons/copy.svg";
 
+interface x_tag_map {
+    "x-x": x;
+    "x-md": markdown;
+    "x-sinppet": symbols;
+    "x-pro": progress;
+    "x-progress": progress2;
+    "x-file": file;
+    "x-pdf": pdf_viewer;
+    "x-draw": draw;
+    "x-color": xcolor;
+    "x-draw-width": xdraw_width;
+    "x-link": xlink;
+    "x-link-value": link_value;
+    "x-record": record;
+    "x-audio": audio;
+    "x-three": three;
+    "x-img": img;
+    "x-ggb": ggb;
+    "x-calendar": calendar;
+    "time-b": time_s;
+    "x-time": time;
+}
 function createEl<K extends keyof HTMLElementTagNameMap>(tagName: K): HTMLElementTagNameMap[K];
 function createEl<K extends keyof HTMLElementDeprecatedTagNameMap>(tagName: K): HTMLElementDeprecatedTagNameMap[K];
+function createEl<K extends keyof x_tag_map>(tagName: K): x_tag_map[K];
 function createEl(tagName: string): HTMLElement;
 function createEl(tagname: string) {
     return document.createElement(tagname);
@@ -57,7 +80,7 @@ const 画布 = elFromId("画布");
 const 画布s = elFromId("画布们");
 var O = elFromId("O");
 
-const link_value_bar = createEl("x-link-value") as link_value;
+const link_value_bar = createEl("x-link-value");
 画布.append(link_value_bar);
 
 const breadcrumbs_el = elFromId("breadcrumbs");
@@ -509,7 +532,7 @@ elFromId("常驻").onpointerdown = (e) => {
     let x = e.clientX - O.getBoundingClientRect().x,
         y = e.clientY - O.getBoundingClientRect().y;
 
-    let xel = <x>createEl("x-x");
+    let xel = createEl("x-x");
     xel.style.left = x / zoom + "px";
     xel.style.top = y / zoom + "px";
     z.push(xel);
@@ -1091,7 +1114,7 @@ document.addEventListener("pointerup", (e: PointerEvent) => {
                     }
                 }
                 function cx(pel: Element, x: x, before: boolean) {
-                    let xel = createEl("x-x") as x;
+                    let xel = createEl("x-x");
                     xel.id = x.id;
                     xel.setAttribute("style", x.getAttribute("style"));
                     xel.style.left = "";
@@ -1300,7 +1323,7 @@ function new_free_drag_tip() {
 
 /** 通过画布坐标创建主元素 */
 function create_x_x(x: number, y: number) {
-    let xel = <x>createEl("x-x");
+    let xel = createEl("x-x");
     xel.style.left = x + "px";
     xel.style.top = y + "px";
     z.push(xel);
@@ -1317,7 +1340,7 @@ function tmp_s_reflash() {
     for (let x of l) {
         let t = createEl("div");
         临时中转站.append(t);
-        let xel = createEl("x-x") as x;
+        let xel = createEl("x-x");
         xel.id = x.id;
         t.append(xel);
         xel.setAttribute("style", x.style);
@@ -1399,20 +1422,36 @@ document.onkeydown = (e) => {
             break;
         case "Escape":
             if (模式 == "浏览") {
-                if (!is_input_el(target)) set_模式("设计");
+                if (画布.contains(target)) set_模式("设计");
             }
             break;
         case "ArrowUp":
             ys_bn("back");
+            if (!is_input_el(target)) {
+                let el = get_nearest_x(z.聚焦元素, "up");
+                jump_to_x_link(el);
+            }
             break;
         case "ArrowDown":
             ys_bn("next");
+            if (!is_input_el(target)) {
+                let el = get_nearest_x(z.聚焦元素, "down");
+                jump_to_x_link(el);
+            }
             break;
         case "ArrowLeft":
             ys_bn("back");
+            if (!is_input_el(target)) {
+                let el = get_nearest_x(z.聚焦元素, "left");
+                jump_to_x_link(el);
+            }
             break;
         case "ArrowRight":
             ys_bn("next");
+            if (!is_input_el(target)) {
+                let el = get_nearest_x(z.聚焦元素, "right");
+                jump_to_x_link(el);
+            }
             break;
     }
 };
@@ -1449,7 +1488,7 @@ type meta = {
 type data = Array<{
     id: string;
     style: string;
-    class?: string;
+    class: string;
     type: string;
     子元素?: data;
     value?: string;
@@ -1509,9 +1548,9 @@ function get_data() {
         for (let i of map) {
             let el = <x>els[i.index];
             let type = "X-X";
-            data.push({ id: el.id, style: "", 子元素: el.value, type });
+            data.push({ id: el.id, style: "", 子元素: el.value, type, class: "" });
             if (el.getAttribute("style")) data[data.length - 1].style = el.getAttribute("style");
-            if (el.className) data[data.length - 1].class = el.className;
+            data[data.length - 1].class = el.className;
         }
         if ((O as HTMLElement).style.display == "block") {
             p[O.id] = { x: el_offset(O).x - 画布.offsetWidth / 2, y: el_offset(O).y - 画布.offsetHeight / 2, zoom };
@@ -1696,6 +1735,7 @@ function version_tr(obj): 集type {
             }
             obj.meta.version = "0.17.2";
         case "0.17.2":
+        case "0.17.3":
             return obj;
         default:
             put_toast(`文件版本是 ${v}，与当前软件版本 ${packagejson.version} 不兼容，请升级软件`);
@@ -2459,12 +2499,12 @@ import TurndownService from "turndown";
 /** 添加文件或文字到画布 */
 function add_file(type: string, text: string, data: string, x: number, y: number) {
     let types = type.split("/");
-    let xel = <x>createEl("x-x");
+    let xel = createEl("x-x");
     xel.style.left = x / zoom + "px";
     xel.style.top = y / zoom + "px";
     z.push(xel);
     if (types[0] == "text") {
-        let md = <markdown>createEl("x-md");
+        let md = createEl("x-md");
         xel.append(md);
         if (type == "text/html") {
             let turndownService = new TurndownService({ headingStyle: "atx" });
@@ -2474,7 +2514,7 @@ function add_file(type: string, text: string, data: string, x: number, y: number
         }
     } else {
         let id = put_assets("", data);
-        let file = <file>createEl("x-file");
+        let file = createEl("x-file");
         xel.append(file);
         file.value = JSON.stringify({ r: true, id });
     }
@@ -2505,6 +2545,7 @@ document.addEventListener("message", (msg: any) => {
                 j.中转站.push({
                     id: uuid_id(),
                     style: "",
+                    class: "",
                     value: data.text,
                     type: "X-MD",
                 });
@@ -2538,7 +2579,7 @@ function assets_reflash() {
     for (let i in 集.assets) {
         let div = createEl("div");
         assets_el.append(div);
-        let file = <file>createEl("x-file");
+        let file = createEl("x-file");
         div.append(file);
         file.value = JSON.stringify({ r: true, id: i });
 
@@ -2562,11 +2603,11 @@ function assets_reflash() {
         let add = createEl("div");
         add.onclick = (e) => {
             let p = e2p(e);
-            let xel = <x>createEl("x-x");
+            let xel = createEl("x-x");
             xel.style.left = p.x + "px";
             xel.style.top = p.y + "px";
             z.push(xel);
-            let file = <file>createEl("x-file");
+            let file = createEl("x-file");
             xel.append(file);
             file.value = JSON.stringify({ r: true, id: i });
         };
@@ -2641,11 +2682,11 @@ function assets_reflash() {
 
 /** 新建绘制元素 */
 function new_draw() {
-    let xel = <x>createEl("x-x");
+    let xel = createEl("x-x");
     xel.id = uuid_id();
     xel.style.left = -el_offset(O).x / zoom + "px";
     xel.style.top = -el_offset(O).y / zoom + "px";
-    let draw = createEl("x-draw") as draw;
+    let draw = createEl("x-draw");
     draw.setAttribute("width", String(画布.offsetWidth / zoom));
     draw.setAttribute("height", String(画布.offsetHeight / zoom));
     xel.append(draw);
@@ -3640,7 +3681,7 @@ function move_to_x_link(el: x | xlink) {
     view_el.innerHTML = "";
     view_el.classList.remove("viewer_hide");
     for (let x of els) {
-        let xel = createEl("x-x") as x;
+        let xel = createEl("x-x");
         xel.setAttribute("style", x.el.getAttribute("style"));
         xel.style.left = x.x - out_rect.left + "px";
         xel.style.top = x.y - out_rect.top + "px";
@@ -3653,7 +3694,7 @@ function move_to_x_link(el: x | xlink) {
 var now_data_id = "0";
 
 /** 跳转到元素位置并记录 */
-function jump_to_x_link(el: x | xlink) {
+function jump_to_x_link(el: x | xlink, nrc?: boolean) {
     view_el.classList.add("viewer_hide");
 
     for (let 画布el of 画布s.querySelectorAll(":scope > div")) {
@@ -3685,7 +3726,7 @@ function jump_to_x_link(el: x | xlink) {
             (画布el as HTMLElement).style.display = "none";
         }
     }
-    add_bci(el);
+    if (!nrc) add_bci(el);
 }
 
 /** 添加到面包屑栏 */
@@ -3844,6 +3885,16 @@ function els_to_rels(els: x[]) {
     return xels;
 }
 
+function copy_x(x: x, pel?: x) {
+    let new_x = createEl("x-x");
+    z.push(new_x, pel);
+    new_x.id = x.id;
+    new_x.setAttribute("style", x.getAttribute("style"));
+    new_x.className = x.className;
+    new_x.value = x.value;
+    return new_x;
+}
+
 /** 转化为堆叠布局 */
 function to_flex(els: x[], d: "x" | "y") {
     let xels = [] as x[];
@@ -3851,7 +3902,7 @@ function to_flex(els: x[], d: "x" | "y") {
         let rel = find_root_layout(el);
         if (!xels.includes(rel)) xels.push(rel);
     }
-    let xel = createEl("x-x") as x;
+    let xel = createEl("x-x");
     xel.id = uuid_id();
     if (d == "x") {
         xel.classList.add("flex-row");
@@ -3868,7 +3919,13 @@ function to_flex(els: x[], d: "x" | "y") {
         el.style.left = "";
         el.style.top = "";
         el.style.position = "relative";
-        data.push({ id: el.id, style: el.getAttribute("style"), type: el.tagName, 子元素: el.value });
+        data.push({
+            id: el.id,
+            style: el.getAttribute("style"),
+            class: el.className,
+            type: el.tagName,
+            子元素: el.value,
+        });
         el.remove();
     }
     xel.value = data;
@@ -3891,7 +3948,7 @@ function is_flex(el: HTMLElement) {
 
 /** 添加一个固定布局元素 */
 function add_none_layout() {
-    let x = createEl("x-x") as x;
+    let x = createEl("x-x");
     x.style.left = "0";
     x.style.top = "0";
     z.push(x);
@@ -3930,7 +3987,13 @@ function to_none_layout(els: x[]) {
     let data = [] as data;
     let xels = els_to_rels(els);
     for (let el of xels) {
-        data.push({ id: el.id, style: el.getAttribute("style"), type: el.tagName, 子元素: el.value });
+        data.push({
+            id: el.id,
+            style: el.getAttribute("style"),
+            class: el.className,
+            type: el.tagName,
+            子元素: el.value,
+        });
         z.remove(el);
     }
     x.value = data;
@@ -3948,7 +4011,7 @@ function to_one_line(xels: x[]) {
                 if (i == 0) type = md._value.type;
             });
             el.querySelectorAll("x-x").forEach((el) => z.remove(el as x));
-            let md = createEl("x-md") as markdown;
+            let md = createEl("x-md");
             el.append(md);
             md.value = JSON.stringify({ text: t, type });
             data_changed();
@@ -3966,9 +4029,9 @@ function to_more_line(xels: x[], c?: string | RegExp) {
             el.classList.add("flex-column");
             for (let t of l) {
                 if (!t) continue;
-                let x = createEl("x-x") as x;
+                let x = createEl("x-x");
                 x.setAttribute("style", "");
-                let md = createEl("x-md") as markdown;
+                let md = createEl("x-md");
                 x.append(md);
                 z.push(x, el);
                 md.value = JSON.stringify({ text: t, type: v.type });
@@ -4006,6 +4069,49 @@ function fixed_el() {
         }
     }
     requestAnimationFrame(fixed_el);
+}
+
+/** 获取从近到远元素列表 */
+function match_nearest_x(x: x) {
+    let l: { el: x; x: number; y: number; r: number }[] = [];
+    let r = el_offset2(x, O);
+    let center = { x: r.x + r.w / 2, y: r.y + r.h / 2 };
+    画布.querySelectorAll("x-x").forEach((el: x) => {
+        if (is_smallest_el(el)) {
+            let r = el_offset2(el, O);
+            let center2 = { x: r.x + r.w / 2, y: r.y + r.h / 2 };
+            l.push({
+                el: el,
+                x: center2.x - center.x,
+                y: center2.y - center.y,
+                r: Math.sqrt((center2.x - center.x) ** 2 + (center2.y - center.y) ** 2),
+            });
+        }
+    });
+    l.sort((a, b) => a.r - b.r);
+    return l;
+}
+
+function get_nearest_x(x: x, a: "left" | "right" | "up" | "down") {
+    console.log(match_nearest_x(x));
+    for (let i of match_nearest_x(x)) {
+        if (i.el == x) continue;
+        switch (a) {
+            case "down":
+                if (i.y > 0) return i.el;
+                break;
+            case "up":
+                if (i.y <= 0) return i.el;
+                break;
+            case "left":
+                if (i.x <= 0) return i.el;
+                break;
+            case "right":
+                if (i.x > 0) return i.el;
+                break;
+        }
+    }
+    return x;
 }
 
 window["xln"] = {};
@@ -4768,14 +4874,11 @@ class x extends HTMLElement {
                 if (this.parentElement != O) {
                     let x = e.clientX - O.getBoundingClientRect().x,
                         y = e.clientY - O.getBoundingClientRect().y + m.offsetHeight - e.offsetY;
-                    let xel = <x>createEl("x-x");
-                    xel.id = this.id;
-                    xel.setAttribute("style", this.getAttribute("style"));
-                    z.push(xel);
+
+                    let xel = copy_x(this);
                     xel.style.left = el_offset2(this, O).x + "px";
                     xel.style.top = el_offset2(this, O).y + "px";
                     xel.style.position = "absolute";
-                    xel.value = this.value;
                     this.remove();
                     free_o_rects = [{ el: xel, x: x / zoom, y: y / zoom }];
                     free_old_point = e2p(e);
@@ -4852,15 +4955,11 @@ class x extends HTMLElement {
             new_free_drag_tip();
             let x = e.clientX - O.getBoundingClientRect().x - copy.offsetLeft - e.offsetX,
                 y = e.clientY - O.getBoundingClientRect().y + copy.offsetHeight - e.offsetY;
-            let xel = <x>createEl("x-x");
+            let xel = copy_x(this);
             xel.id = uuid_id();
-            xel.setAttribute("style", this.getAttribute("style"));
-            z.push(xel);
             xel.style.left = el_offset2(this, O).x + "px";
             xel.style.top = el_offset2(this, O).y + "px";
             xel.style.position = "absolute";
-            xel.className = this.className;
-            xel.value = this.value;
             xel.querySelectorAll("x-x").forEach((el) => (el.id = uuid_id()));
             free_o_rects = [{ el: xel, x: x / zoom, y: y / zoom }];
             free_old_point = e2p(e);
@@ -4973,7 +5072,7 @@ class markdown extends HTMLElement {
 
     _value: { type: md_type; text: string } = { type: "p", text: "" };
 
-    index;
+    index: ReturnType<typeof md.parse>;
 
     text: HTMLTextAreaElement;
 
@@ -5044,14 +5143,13 @@ class markdown extends HTMLElement {
                 if (e.ctrlKey) {
                     if (e.shiftKey) {
                         let rel = find_root_layout(this.parentElement);
-                        let xel = <x>createEl("x-x");
+                        let xel = createEl("x-x");
                         xel.style.left = rel.offsetLeft + "px";
                         xel.style.top = rel.offsetTop + rel.offsetHeight + 16 + "px";
-                        xel.style.width = rel.offsetWidth + "px";
                         z.push(xel);
                         var md = createEl("x-md");
                         xel.append(md);
-                        (<markdown>md).edit = true;
+                        md.edit = true;
 
                         z.reflash();
                     }
@@ -5075,14 +5173,14 @@ class markdown extends HTMLElement {
                             pxel = p.parentElement as x;
                         } else {
                             // 不存在上级堆叠元素，需要新建并把此元素套进去
-                            pxel = createEl("x-x") as x;
+                            pxel = createEl("x-x");
                             pxel.id = uuid_id();
                             link(pxel.id).add();
                             pxel.style.left = p.offsetLeft + "px";
                             pxel.style.top = p.offsetTop + "px";
                             pxel.classList.add("flex-column");
                             z.push(pxel);
-                            let x = createEl("x-x") as x;
+                            let x = createEl("x-x");
                             x.id = p.id;
                             x.setAttribute("style", p.getAttribute("style"));
                             pxel.append(x);
@@ -5094,8 +5192,8 @@ class markdown extends HTMLElement {
                             p = x;
                         }
 
-                        let xel = <x>createEl("x-x");
-                        let md = createEl("x-md") as markdown;
+                        let xel = createEl("x-x");
+                        let md = createEl("x-md");
                         xel.append(md);
                         xel.id = uuid_id();
                         link(xel.id).add();
@@ -5148,7 +5246,7 @@ class markdown extends HTMLElement {
                     let p = this.parentElement as x;
                     let t = this.text.value;
                     let x = createEl("x-x"),
-                        md = createEl("x-md") as markdown;
+                        md = createEl("x-md");
                     x.id = p.id;
                     x.setAttribute("style", p.getAttribute("style"));
                     p.classList.add("flex-column");
@@ -5227,6 +5325,9 @@ class markdown extends HTMLElement {
                     let md = this.parentElement.previousElementSibling.querySelector("x-md") as markdown;
                     md.text.setSelectionRange(this.text.selectionStart, this.text.selectionStart);
                     md.edit = true;
+                } else {
+                    z.focus(this.parentElement as x);
+                    set_模式("设计");
                 }
             }
             if (e.key == "ArrowDown") {
@@ -5241,6 +5342,44 @@ class markdown extends HTMLElement {
                     let md = this.parentElement.nextElementSibling.querySelector("x-md") as markdown;
                     md.text.setSelectionRange(this.text.selectionStart, this.text.selectionStart);
                     md.edit = true;
+                } else {
+                    z.focus(this.parentElement as x);
+                    set_模式("设计");
+                }
+            }
+            if (e.key == "ArrowLeft") {
+                if (is_flex(this.parentElement.parentElement) == "flex" && this.text.selectionStart == 0) {
+                    if (
+                        this.parentElement.previousElementSibling &&
+                        this.parentElement.previousElementSibling.querySelector("x-md")
+                    ) {
+                        e.preventDefault();
+                        let md = this.parentElement.previousElementSibling.querySelector("x-md") as markdown;
+                        md.edit = true;
+                        md.text.setSelectionRange(md.text.value.length, md.text.value.length);
+                    } else {
+                        z.focus(this.parentElement as x);
+                        set_模式("设计");
+                    }
+                }
+            }
+            if (e.key == "ArrowRight") {
+                if (
+                    is_flex(this.parentElement.parentElement) == "flex" &&
+                    this.text.selectionEnd == this.text.value.length
+                ) {
+                    if (
+                        this.parentElement.nextElementSibling &&
+                        this.parentElement.nextElementSibling.querySelector("x-md")
+                    ) {
+                        e.preventDefault();
+                        let md = this.parentElement.nextElementSibling.querySelector("x-md") as markdown;
+                        md.edit = true;
+                        md.text.setSelectionRange(0, 0);
+                    } else {
+                        z.focus(this.parentElement as x);
+                        set_模式("设计");
+                    }
                 }
             }
         };
@@ -5282,13 +5421,13 @@ class markdown extends HTMLElement {
                         let pel = el.parentElement;
                         let md: markdown;
                         if (!(pel.classList.contains("flex-column") || pel.classList.contains("flex-row"))) {
-                            let nel = createEl("x-x") as x;
+                            let nel = createEl("x-x");
                             nel.id = el.id;
                             el.id = uuid_id();
                             link(el.id).add();
                             this.remove();
                             el.append(nel);
-                            md = createEl("x-md") as markdown;
+                            md = createEl("x-md");
                             nel.append(md);
                             md.value = this.value;
                             md.text.setSelectionRange(this.text.selectionStart, this.text.selectionEnd);
@@ -5308,8 +5447,8 @@ class markdown extends HTMLElement {
                                 md.text.setRangeText(tt);
                                 md.reload();
                             } else {
-                                let x = createEl("x-x") as x;
-                                let md = createEl("x-md") as markdown;
+                                let x = createEl("x-x");
+                                let md = createEl("x-md");
                                 last_el.after(x);
                                 x.append(md);
                                 x.id = uuid_id();
@@ -5385,16 +5524,18 @@ class markdown extends HTMLElement {
                     x = false;
                 let w = (pn: Node) => {
                     for (let n of pn.childNodes) {
+                        let text = n.textContent;
+                        if (n?.firstChild?.nodeName == "MJX-CONTAINER") text = "";
                         if (!n.contains(node)) {
                             if (!x) {
-                                before += n.textContent;
+                                before += text;
                             } else {
-                                after += n.textContent;
+                                after += text;
                             }
                         } else {
                             if (n == node) {
-                                before += n.textContent.slice(0, of);
-                                after += n.textContent.slice(of);
+                                before += text.slice(0, of);
+                                after += text.slice(of);
                                 x = true;
                             } else {
                                 w(n);
@@ -5410,7 +5551,7 @@ class markdown extends HTMLElement {
             console.log(start_t, end_t);
             let p2p = (of: number) => {
                 let list = [];
-                let w = (l) => {
+                let w = (l: ReturnType<typeof md.parse>) => {
                     for (let i of l) {
                         if (i.children) {
                             w(i.children);
@@ -5419,10 +5560,14 @@ class markdown extends HTMLElement {
                                 if (i.type == "emoji") {
                                     list.push({ text: `:${i.markup}`, type: "mu" });
                                     // 删去一个冒号以匹配
+                                } else if (i.markup.includes("#")) {
+                                    list.push({ text: i.markup + " ", type: "mu" });
                                 } else {
                                     list.push({ text: i.markup, type: "mu" });
                                 }
                             } else if (i.type == "html_inline" || i.type == "html_block") {
+                                list.push({ text: i.content, type: "mu" });
+                            } else if (i.type == "mathjax_inline") {
                                 list.push({ text: i.content, type: "mu" });
                             } else if (i.content) {
                                 list.push({ text: i.content, type: "ct" });
@@ -5635,6 +5780,59 @@ class progress extends HTMLElement {
 
 window.customElements.define("x-pro", progress);
 
+class progress2 extends HTMLElement {
+    constructor() {
+        super();
+    }
+
+    jd: HTMLElement;
+    _value: number;
+
+    connectedCallback() {
+        this.jd = createEl("div");
+        this.append(this.jd);
+        let yle: PointerEvent;
+        this.onpointerdown = (e) => {
+            yle = e;
+            ylf(e);
+            e.preventDefault();
+        };
+        document.addEventListener("pointermove", (e) => {
+            if (yle) {
+                e.preventDefault();
+                ylf(e);
+            }
+        });
+        document.addEventListener("pointerup", (e) => {
+            if (yle) {
+                e.preventDefault();
+                yle = null;
+                ylf(e);
+            }
+        });
+
+        let ylf = (e: PointerEvent) => {
+            let r = this.getBoundingClientRect();
+            let pw = e.clientX - r.x;
+            let p = pw / r.width;
+            p = Math.max(Math.min(1, p), 0);
+
+            this.jd.style.width = p * 100 + "%";
+            this._value = p;
+            this.dispatchEvent(new InputEvent("input"));
+        };
+    }
+    get value() {
+        return this._value;
+    }
+    set value(v) {
+        this._value = v;
+        this.jd.style.width = v * 100 + "%";
+    }
+}
+
+window.customElements.define("x-progress", progress2);
+
 /** 文件预览元素 */
 class file extends HTMLElement {
     constructor() {
@@ -5674,12 +5872,12 @@ class file extends HTMLElement {
         if (this._value.r) {
             this.div.classList.remove("file");
             if (type[0] == "image") {
-                let img = createEl("x-img") as img;
+                let img = createEl("x-img");
                 this.div.append(img);
                 img.value = f.base64;
             }
             if (type[0] == "audio") {
-                let audio = createEl("x-audio") as audio;
+                let audio = createEl("x-audio");
                 this.div.append(audio);
                 audio.value = f.base64;
             }
@@ -5690,18 +5888,18 @@ class file extends HTMLElement {
                 video.src = f.base64;
             }
             if (type[1] == "pdf") {
-                let pdf = createEl("x-pdf") as pdf_viewer;
+                let pdf = createEl("x-pdf");
                 this.parentElement.append(pdf);
                 pdf.value = JSON.stringify({ id: this._value.id, page: 1 });
                 this.remove();
             }
             if (type[1] == "gltf-binary") {
-                let td = createEl("x-three") as three;
+                let td = createEl("x-three");
                 this.div.append(td);
                 td.value = this._value.id;
             }
             if (type[1] == "vnd.geogebra.file") {
-                let ggb = createEl("x-ggb") as ggb;
+                let ggb = createEl("x-ggb");
                 this.div.append(ggb);
                 ggb.value = this._value.id;
             }
@@ -6875,7 +7073,7 @@ class record extends HTMLElement {
                         let a = new FileReader();
                         a.onload = () => {
                             let id = put_assets("", a.result as string);
-                            let file = <file>createEl("x-file");
+                            let file = createEl("x-file");
                             this.parentElement.append(file);
                             file.value = JSON.stringify({ r: true, id });
                             this.remove();
@@ -6918,14 +7116,12 @@ class audio extends HTMLElement {
         let button = createEl("div");
         button.classList.add("audio_button");
         let playtime = createEl("div");
-        let jd = createEl("div");
+        let jd = createEl("x-progress");
         jd.classList.add("audio_jd");
-        let jd2 = createEl("div");
         let yl = createEl("div");
         yl.classList.add("audio_yl");
         let yl2 = createEl("div"); // 按钮
-        let yl3 = createEl("div"); // 滑槽
-        let yl4 = createEl("div"); // 滑块
+        let yl3 = createEl("x-progress"); // 滑槽
         let asr = createEl("div");
         this.append(this.audio);
         this.append(button, jd, playtime, yl, asr);
@@ -6953,42 +7149,16 @@ class audio extends HTMLElement {
         };
         this.audio.ontimeupdate = () => {
             playtime.innerText = show_t(this.audio.currentTime, this.audio.duration);
-            jd2.style.width = `${(this.audio.currentTime / this.audio.duration) * 100}%`;
+            jd.value = this.audio.currentTime / this.audio.duration;
         };
-        jd.append(jd2);
-        let jde: PointerEvent;
-        jd.onpointerdown = (e) => {
-            jde = e;
-            f(e);
-            e.preventDefault();
-        };
-        document.addEventListener("pointermove", (e) => {
-            if (jde) {
-                e.preventDefault();
-                f(e);
-            }
-        });
-        document.addEventListener("pointerup", (e) => {
-            if (jde) {
-                e.preventDefault();
-                jde = null;
-                f(e);
-            }
-        });
-
-        let f = (e: PointerEvent) => {
-            let r = jd.getBoundingClientRect();
-            let pw = e.clientX - r.x;
-            let p = pw / r.width;
-            p = Math.max(Math.min(1, p), 0);
-
-            this.audio.currentTime = this.audio.duration * p;
+        jd.oninput = () => {
+            this.audio.currentTime = this.audio.duration * jd.value;
         };
 
         this.audio.volume = 1;
         yl3.title = "100%";
         this.audio.onvolumechange = () => {
-            yl4.style.width = `${(this.audio.volume / 1) * 100}%`;
+            yl3.value = this.audio.volume;
             yl_icon();
         };
         let yl_icon = () => {
@@ -7017,38 +7187,13 @@ class audio extends HTMLElement {
             this.audio.volume = p;
         };
         yl.append(yl3, yl2);
-        yl3.append(yl4);
         yl2.innerHTML = icon(yl2_svg);
         yl2.onclick = () => {
             this.audio.muted = !this.audio.muted;
             yl_icon();
         };
-        let yle: PointerEvent;
-        yl3.onpointerdown = (e) => {
-            yle = e;
-            ylf(e);
-            e.preventDefault();
-        };
-        document.addEventListener("pointermove", (e) => {
-            if (yle) {
-                e.preventDefault();
-                ylf(e);
-            }
-        });
-        document.addEventListener("pointerup", (e) => {
-            if (yle) {
-                e.preventDefault();
-                yle = null;
-                ylf(e);
-            }
-        });
-
-        let ylf = (e: PointerEvent) => {
-            let r = yl3.getBoundingClientRect();
-            let pw = e.clientX - r.x;
-            let p = pw / r.width;
-            p = Math.max(Math.min(1, p), 0);
-
+        yl3.oninput = () => {
+            let p = yl3.value;
             this.audio.volume = p;
 
             yl3.title = `${Math.round(p * 100)}%`;
@@ -7094,7 +7239,7 @@ function audio_to_text(el: HTMLAudioElement, id: string) {
         .then((r) => r.json())
         .then(async (j) => {
             console.log(j);
-            let pel = createEl("x-x") as x;
+            let pel = createEl("x-x");
             pel.style.left = el_offset2(el.parentElement, O).x + "px";
             pel.style.top = el_offset2(el.parentElement, O).y + el_offset2(el.parentElement, O).h + "px";
             z.push(pel);
@@ -7105,9 +7250,9 @@ function audio_to_text(el: HTMLAudioElement, id: string) {
                 }
             }
             for (let i of j.segments) {
-                let x = createEl("x-x") as x;
+                let x = createEl("x-x");
                 z.push(x, pel);
-                let md = createEl("x-md") as markdown;
+                let md = createEl("x-md");
                 x.append(md);
                 let mdtext = `[${i.start}](#${id}:${i.start})${i.text}`;
                 md.value = JSON.stringify({ type: "p", text: mdtext });
@@ -7220,7 +7365,7 @@ async function to_text(img: HTMLImageElement | HTMLCanvasElement) {
     ocr.ocr(canvas.getContext("2d").getImageData(0, 0, w, h)).then((v) => {
         let tl = [];
         let p = el_offset2(img, O);
-        let pxel = <x>createEl("x-x");
+        let pxel = createEl("x-x");
         pxel.id = uuid_id();
         pxel.style.left = p.x + "px";
         pxel.style.top = p.y + "px";
@@ -7236,13 +7381,13 @@ async function to_text(img: HTMLImageElement | HTMLCanvasElement) {
             let y0 = i.box[0][1];
             let x1 = i.box[2][0];
             let y1 = i.box[2][1];
-            let xel = <x>createEl("x-x");
+            let xel = createEl("x-x");
             xel.style.left = x0 + "px";
             xel.style.top = y0 + "px";
             xel.style.width = x1 - x0 + "px";
             xel.style.height = y1 - y0 + "px";
             z.push(xel, pxel);
-            var md = createEl("x-md") as markdown;
+            var md = createEl("x-md");
             xel.append(md);
             let v = JSON.stringify({ type: "p", text: i.text });
             md.value = v;
@@ -7535,7 +7680,10 @@ class time_s extends HTMLElement {
     }
 
     get value() {
-        return (Number(this.h.value) * 60 * 60 + Number(this.m.value) * 60 + Number(this.s.value)) * 1000;
+        return (
+            ((Number(this.h.value) || 0) * 60 * 60 + (Number(this.m.value) || 0) * 60 + (Number(this.s.value) || 0)) *
+            1000
+        );
     }
 }
 
@@ -7560,12 +7708,12 @@ class time extends HTMLElement {
     start_b: HTMLElement;
     time_setting: HTMLElement;
     time_group: HTMLElement;
-    jd: HTMLElement;
+    jd: progress2;
 
     connectedCallback() {
         this.count_down = createEl("input");
         this.count_down.type = "checkbox";
-        this.process = createEl("time-b") as time_s;
+        this.process = createEl("time-b");
         this.end = createEl("input");
         this.end.type = "datetime-local";
         this.count_down.oninput = () => {
@@ -7601,7 +7749,7 @@ class time extends HTMLElement {
         this.time_t = createEl("div");
 
         let jdt = createEl("div");
-        this.jd = createEl("div");
+        this.jd = createEl("x-progress");
         jdt.append(this.time_t, this.jd);
         jdt.classList.add("time_jdt");
 
@@ -7609,7 +7757,7 @@ class time extends HTMLElement {
         this.time_group = createEl("div");
         this.time_group.append(this.process, this.end);
         this.time_setting.append(this.count_down, this.time_group);
-        this.append(this.time_setting, this.start_b, jdt);
+        this.append(this.start_b, this.time_setting, jdt);
     }
 
     is_no = false;
@@ -7629,7 +7777,7 @@ class time extends HTMLElement {
             if (this._value2.end) {
                 let t = this._value2.end - now;
                 this.time_t.innerText = time_text(Math.max(0, t)).hms();
-                this.jd.style.width = ((this._value2.end - now) / (this._value2.end - this._value2.run[0])) * 100 + "%";
+                this.jd.value = (this._value2.end - now) / (this._value2.end - this._value2.run[0]);
                 if (t <= 0) {
                     no("停止");
                     this._value2.run = [];
@@ -7639,7 +7787,7 @@ class time extends HTMLElement {
                 if (this._value2.run.length % 2 != 0) {
                     let t = this._value2.pro - this.add_times(this._value2.run, now);
                     this.time_t.innerText = time_text(Math.max(0, t)).hms();
-                    this.jd.style.width = (t / this._value2.pro) * 100 + "%";
+                    this.jd.value = t / this._value2.pro;
                     if (t <= 0) {
                         no("停止");
                         this._value2.run = [];
@@ -7649,7 +7797,7 @@ class time extends HTMLElement {
             }
         } else {
             if (this._value2.run.length % 2 != 0) {
-                this.jd.style.width = (this.add_times(this._value2.run, now) / this._value2.pro) * 100 + "%";
+                this.jd.value = this.add_times(this._value2.run, now) / this._value2.pro;
                 this.time_t.innerText = time_text(this.add_times(this._value2.run, now)).hms();
                 if (this.add_times(this._value2.run, now) > this._value2.pro) no("超时");
             }
