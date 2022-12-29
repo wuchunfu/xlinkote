@@ -150,7 +150,7 @@ var store: setting = JSON.parse(localStorage.getItem("config"));
 const default_setting = {
     webdav: { 网址: "", 用户名: "", 密码: "", 自动上传: "0", 加密密钥: "" },
     ink: {
-        网址: "https://pem.app/inputtools/request?ime=handwriting&app=mobilesearch&cs=1&oe=UTF-8",
+        网址: "https://www.google.com/inputtools/request?ime=handwriting&app=mobilesearch&cs=1&oe=UTF-8",
         语言: "zh_CN",
         延时: "0.6",
     },
@@ -1422,7 +1422,7 @@ document.onkeydown = (e) => {
             break;
         case "Escape":
             if (模式 == "浏览") {
-                if (画布.contains(target)) set_模式("设计");
+                if (!侧栏.contains(target)) set_模式("设计");
             }
             break;
         case "ArrowUp":
@@ -1736,6 +1736,11 @@ function version_tr(obj): 集type {
             obj.meta.version = "0.17.2";
         case "0.17.2":
         case "0.17.3":
+            delete obj.链接[""];
+            delete obj.链接["0"][""];
+            delete obj.链接["0"]["0"];
+            obj.meta.version = "0.17.4";
+        case "0.17.4":
             return obj;
         default:
             put_toast(`文件版本是 ${v}，与当前软件版本 ${packagejson.version} 不兼容，请升级软件`);
@@ -2018,17 +2023,30 @@ set_css("./md.css");
 /** 设置文件css样式 */
 function set_css(t: string) {
     let style: HTMLElement;
-    elFromId("css")?.remove();
+    const css = elFromId("css");
     if (t.includes("\n")) {
-        style = createEl("style");
-        style.innerHTML = t;
+        if (css && css.tagName == "STYLE") {
+            css.innerHTML = t;
+        } else {
+            style = createEl("style");
+            style.innerHTML = t;
+            _new();
+        }
     } else {
-        style = createEl("link");
-        (style as HTMLLinkElement).href = t;
-        (style as HTMLLinkElement).rel = "stylesheet";
+        if (css && css.tagName == "LINK") {
+            (css as HTMLLinkElement).href = t;
+        } else {
+            style = createEl("link");
+            (style as HTMLLinkElement).href = t;
+            (style as HTMLLinkElement).rel = "stylesheet";
+            _new();
+        }
     }
-    style.id = "css";
-    document.body.append(style);
+    function _new() {
+        css?.remove();
+        style.id = "css";
+        document.body.append(style);
+    }
 }
 
 function set_dependencies(ds: meta["dependencies"]) {
@@ -3763,7 +3781,9 @@ function link(key0: string) {
     // key1存在，作用于边，否则作用于点
     return {
         add: (key1?: string) => {
+            if (!key0) return;
             if (key1) {
+                if (key0 == key1) return;
                 link(key0).add();
                 link(key1).add();
                 link(key0).value(key1);
@@ -3829,7 +3849,8 @@ function link(key0: string) {
             if (is_small || is_smallest_el(get_link_el_by_id(key0))) {
                 if (集.链接[0][key0]) {
                     let l = link(key0).get();
-                    let n = 集.链接[0][key0].value;
+                    let n = 0;
+                    l["0"] = 集.链接[0][key0];
                     for (let i in l) {
                         n += l[i].value;
                     }
@@ -4187,7 +4208,7 @@ ink_el.onpointerup = () => {
             setTimeout(() => {
                 fetch(
                     store.ink.网址 ||
-                        `https://pem.app/inputtools/request?ime=handwriting&app=mobilesearch&cs=1&oe=UTF-8`,
+                        `https://www.google.com/inputtools/request?ime=handwriting&app=mobilesearch&cs=1&oe=UTF-8`,
                     {
                         method: "POST",
                         body: data,
@@ -4495,6 +4516,8 @@ md.renderer.rules.link_open = function (tokens, idx, options, env, self) {
     }
     return defaultRender(tokens, idx, options, env, self);
 };
+
+import "iconify-icon";
 
 var will_load_math = false;
 var mathjax_cache = {};
@@ -7407,6 +7430,7 @@ async function import_script(url: string, use_import?: boolean) {
     } else {
         script.src = url;
     }
+    console.log(url);
     document.body.append(script);
     return new Promise((re, rj) => {
         script.onload = () => {
