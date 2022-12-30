@@ -94,6 +94,8 @@ const zoom_pel = elFromId("缩放");
 const zoom_el = elFromId("zoom") as HTMLInputElement;
 const zoom_list = elFromId("zooms");
 
+const mini_map_el = elFromId("mini_map") as HTMLCanvasElement;
+
 const 集_el = elFromId("集");
 
 const 文件_el = elFromId("文件");
@@ -281,6 +283,10 @@ elFromId("重做").onclick = () => {
 
 elFromId("搜索操作").onclick = () => {
     show_g_search();
+};
+
+elFromId("资源tab").onclick = () => {
+    assets_reflash();
 };
 
 侧栏.onclick = (e) => {
@@ -561,11 +567,18 @@ var fxsd = 0;
 
 function set_O_p(x: number | null, y: number | null) {
     if (x) {
+        let dx = x - el_offset(O).x;
+        link_value_bar.style.left = el_offset(link_value_bar).x + dx + "px";
+        if (!search_pel.getAttribute("data-fid")) search_pel.style.left = el_offset(search_pel).x + dx + "px";
         O.style.left = x + "px";
     }
     if (y) {
+        let dy = y - el_offset(O).y;
+        link_value_bar.style.top = el_offset(link_value_bar).y + dy + "px";
+        if (!search_pel.getAttribute("data-fid")) search_pel.style.top = el_offset(search_pel).y + dy + "px";
         O.style.top = y + "px";
     }
+    render_map();
 }
 
 fxsd_el.onclick = () => {
@@ -736,13 +749,6 @@ var touch_move = (e: TouchEvent) => {
             let x = o_rect.x + dx,
                 y = o_rect.y + dy;
             set_O_p(x, y);
-
-            link_value_bar.style.left = o_vb_sb.x0 + dx + "px";
-            link_value_bar.style.top = o_vb_sb.y0 + dy + "px";
-            if (!search_pel.getAttribute("data-fid")) {
-                search_pel.style.left = o_vb_sb.x1 + dx + "px";
-                search_pel.style.top = o_vb_sb.y1 + dy + "px";
-            }
         }
     }
 };
@@ -768,8 +774,8 @@ var touch_zoom = (e: TouchEvent) => {
                 dzoom = z - zoom;
             let dx = p[0] - O.getBoundingClientRect().x,
                 dy = p[1] - O.getBoundingClientRect().y;
-            set_O_p(el_offset(O).x - dx * (dzoom / ozoom), el_offset(O).y - dy * (dzoom / ozoom));
             zoom_o(z);
+            set_O_p(el_offset(O).x - dx * (dzoom / ozoom), el_offset(O).y - dy * (dzoom / ozoom));
         }
     }
 };
@@ -885,8 +891,8 @@ zoom_el.onchange = () => {
     zoom += dzoom;
     let dx = window.innerWidth / 2 - O.getBoundingClientRect().x,
         dy = window.innerHeight / 2 - O.getBoundingClientRect().y;
-    set_O_p(el_offset(O).x - dx * (dzoom / ozoom), el_offset(O).y - dy * (dzoom / ozoom));
     zoom_o(zoom);
+    set_O_p(el_offset(O).x - dx * (dzoom / ozoom), el_offset(O).y - dy * (dzoom / ozoom));
     zoom_list.classList.add("zoom_list_hide");
 };
 
@@ -907,11 +913,48 @@ for (let i = 25; i <= 200; i += 25) {
             dzoom = nzoom - zoom;
         let dx = window.innerWidth / 2 - O.getBoundingClientRect().x,
             dy = window.innerHeight / 2 - O.getBoundingClientRect().y;
-        set_O_p(el_offset(O).x - dx * (dzoom / ozoom), el_offset(O).y - dy * (dzoom / ozoom));
         zoom_o(nzoom);
+        set_O_p(el_offset(O).x - dx * (dzoom / ozoom), el_offset(O).y - dy * (dzoom / ozoom));
     };
 }
 set_O_p(画布.offsetWidth / 2, 画布.offsetHeight / 2);
+
+mini_map_el.parentElement.classList.add("mini_map_hide");
+mini_map_el.parentElement.parentElement.onclick = (e) => {
+    if (e.target != mini_map_el.parentElement.parentElement) return;
+    mini_map_el.parentElement.classList.toggle("mini_map_hide");
+    render_map();
+};
+let mini_down = false;
+mini_map_el.onpointerdown = (e) => {
+    mini_down = true;
+    e.stopPropagation();
+    let els_rect = reflash_rect();
+    let out_rect = get_out_rect(els_rect);
+    let px = e.offsetX / mini_map_el.offsetWidth;
+    let py = e.offsetY / mini_map_el.offsetHeight;
+
+    let rx = px * (out_rect.right - out_rect.left) + out_rect.left;
+    let ry = py * (out_rect.bottom - out_rect.top) + out_rect.top;
+    set_O_p(-rx * zoom + 画布.offsetWidth / 2, -ry * zoom + 画布.offsetHeight / 2);
+};
+mini_map_el.onpointermove = (e) => {
+    if (mini_down) {
+        let els_rect = reflash_rect();
+        let out_rect = get_out_rect(els_rect);
+        let px = e.offsetX / mini_map_el.offsetWidth;
+        let py = e.offsetY / mini_map_el.offsetHeight;
+
+        let rx = px * (out_rect.right - out_rect.left) + out_rect.left;
+        let ry = py * (out_rect.bottom - out_rect.top) + out_rect.top;
+        set_O_p(-rx * zoom + 画布.offsetWidth / 2, -ry * zoom + 画布.offsetHeight / 2);
+    }
+};
+mini_map_el.onpointerup = (e) => {
+    e.stopPropagation();
+    mini_down = false;
+};
+ignore_el.push("#mini_map");
 
 /**元素相对位置（屏幕坐标） */
 function el_offset(el: Element, pel?: Element) {
@@ -934,6 +977,60 @@ function el_offset2(el: Element, pel?: Element) {
     };
 }
 
+/** 获取元素框 */
+function reflash_rect() {
+    let els_rect: { el: x; rect: { x: number; y: number; w: number; h: number } }[] = [];
+    O.querySelectorAll("x-x").forEach((xel: x) => {
+        if (集.values?.[xel.id]?.fixed) return;
+        els_rect.push({ el: xel, rect: el_offset2(xel, O) });
+    });
+    return els_rect;
+}
+
+/** 获取最大框 */
+function get_out_rect(rect: { el: x; rect: { x: number; y: number; w: number; h: number } }[]) {
+    let out_rect = { left: Infinity, right: -Infinity, top: Infinity, bottom: -Infinity };
+    for (let i of rect) {
+        const r = i.rect;
+        out_rect.left = Math.min(r.x, out_rect.left);
+        out_rect.right = Math.max(r.x + r.w, out_rect.right);
+        out_rect.top = Math.min(r.y, out_rect.top);
+        out_rect.bottom = Math.max(r.y + r.h, out_rect.bottom);
+    }
+    return out_rect;
+}
+
+/** 渲染小地图 */
+function render_map() {
+    if (mini_map_el.parentElement.classList.contains("mini_map_hide")) return;
+    let els_rect = reflash_rect();
+    let out_rect = get_out_rect(els_rect);
+    let z = mini_map_el.width / (out_rect.right - out_rect.left);
+    mini_map_el.height = (out_rect.bottom - out_rect.top) * z;
+    let ctx = mini_map_el.getContext("2d");
+    ctx.clearRect(0, 0, mini_map_el.offsetWidth, mini_map_el.height);
+    for (let i of els_rect) {
+        const r = i.rect;
+        let x = (r.x - out_rect.left) * z;
+        let y = (r.y - out_rect.top) * z;
+        let w = r.w * z;
+        let h = r.h * z;
+        ctx.fillStyle = "#0002";
+        ctx.fillRect(x, y, w, h);
+    }
+    let main_rect = el_offset2(画布, O);
+    ctx.strokeStyle = "#00f";
+    ctx.fillStyle = "#00f2";
+    ctx.lineWidth = 1;
+    ctx.fillRect((main_rect.x - out_rect.left) * z, (main_rect.y - out_rect.top) * z, main_rect.w * z, main_rect.h * z);
+    ctx.strokeRect(
+        (main_rect.x - out_rect.left) * z,
+        (main_rect.y - out_rect.top) * z,
+        main_rect.w * z,
+        main_rect.h * z
+    );
+}
+
 elFromId("画布").onwheel = (e) => {
     if (e.ctrlKey) {
         e.preventDefault();
@@ -943,8 +1040,8 @@ elFromId("画布").onwheel = (e) => {
         zoom = Math.abs(zoom);
         let dx = e.clientX - O.getBoundingClientRect().x,
             dy = e.clientY - O.getBoundingClientRect().y;
-        set_O_p(el_offset(O).x - dx * (dzoom / ozoom), el_offset(O).y - dy * (dzoom / ozoom));
         zoom_o(zoom);
+        set_O_p(el_offset(O).x - dx * (dzoom / ozoom), el_offset(O).y - dy * (dzoom / ozoom));
     } else {
         let el = <HTMLElement>e.target;
         if (el.tagName == "TEXTAREA") return;
@@ -964,13 +1061,6 @@ elFromId("画布").onwheel = (e) => {
                 if (fxsd == 0 || fxsd == 1) dy = -e.deltaY;
             }
             set_O_p(el_offset(O).x + dx, el_offset(O).y + dy);
-
-            link_value_bar.style.left = el_offset(link_value_bar).x + dx + "px";
-            link_value_bar.style.top = el_offset(link_value_bar).y + dy + "px";
-            if (!search_pel.getAttribute("data-fid")) {
-                search_pel.style.left = el_offset(search_pel).x + dx + "px";
-                search_pel.style.top = el_offset(search_pel).y + dy + "px";
-            }
         } else {
             let a = e.deltaY > 0 ? "next" : "back";
             ys_bn(a as "next" | "back");
@@ -1383,8 +1473,8 @@ document.onkeydown = (e) => {
                 zoom += dzoom;
                 let dx = now_mouse_e.clientX - O.getBoundingClientRect().x,
                     dy = now_mouse_e.clientY - O.getBoundingClientRect().y;
-                set_O_p(el_offset(O).x - dx * (dzoom / ozoom), el_offset(O).y - dy * (dzoom / ozoom));
                 zoom_o(1);
+                set_O_p(el_offset(O).x - dx * (dzoom / ozoom), el_offset(O).y - dy * (dzoom / ozoom));
                 data_changed();
             }
             break;
@@ -1741,6 +1831,7 @@ function version_tr(obj): 集type {
             delete obj.链接["0"]["0"];
             obj.meta.version = "0.17.4";
         case "0.17.4":
+        case "0.17.5":
             return obj;
         default:
             put_toast(`文件版本是 ${v}，与当前软件版本 ${packagejson.version} 不兼容，请升级软件`);
@@ -3916,8 +4007,27 @@ function copy_x(x: x, pel?: x) {
     return new_x;
 }
 
+/** 复制值 */
+function copy_value(id: string, new_id: string) {
+    let v = 集.values[id];
+    if (v) {
+        集.values[new_id] = JSON.parse(JSON.stringify(v));
+    }
+}
+
 /** 转化为堆叠布局 */
 function to_flex(els: x[], d: "x" | "y") {
+    if (els.length == 1) {
+        if (els[0].classList.contains("flex-row") && d == "y") {
+            els[0].classList.replace("flex-row", "flex-column");
+        }
+        if (els[0].classList.contains("flex-column") && d == "x") {
+            els[0].classList.replace("flex-column", "flex-row");
+        }
+        get_data();
+        z.reflash();
+        return;
+    }
     let xels = [] as x[];
     for (let el of els) {
         let rel = find_root_layout(el);
@@ -4641,7 +4751,7 @@ md.inline.ruler.after("escape", "mathjax_inline", function (state, silent) {
 
 md.renderer.rules["mathjax_block"] = (tokens, idx, options, env, self) => self.renderToken(tokens, idx, options);
 md.renderer.rules.mathjax_block = (tokens, idx, options, env, self) => {
-    return get_svg(`\\displaylines{${tokens[idx].content}}`);
+    return get_svg(`\\displaylines{${tokens[idx].content} }`);
 };
 
 function math_b(state, startLine, endLine, silent) {
@@ -4979,11 +5089,17 @@ class x extends HTMLElement {
             let x = e.clientX - O.getBoundingClientRect().x - copy.offsetLeft - e.offsetX,
                 y = e.clientY - O.getBoundingClientRect().y + copy.offsetHeight - e.offsetY;
             let xel = copy_x(this);
-            xel.id = uuid_id();
+            let nid = uuid_id();
+            copy_value(this.id, nid);
+            xel.id = nid;
             xel.style.left = el_offset2(this, O).x + "px";
             xel.style.top = el_offset2(this, O).y + "px";
             xel.style.position = "absolute";
-            xel.querySelectorAll("x-x").forEach((el) => (el.id = uuid_id()));
+            xel.querySelectorAll("x-x").forEach((el) => {
+                let nid = uuid_id();
+                copy_value(el.id, nid);
+                el.id = nid;
+            });
             free_o_rects = [{ el: xel, x: x / zoom, y: y / zoom }];
             free_old_point = e2p(e);
             free_o_a = -1;
@@ -5006,7 +5122,8 @@ class x extends HTMLElement {
             this.set_v(JSON.parse(this.getAttribute("value")));
         }
 
-        this.onpointerenter = () => {
+        this.onpointerover = (e) => {
+            e.stopPropagation();
             show_link_value_bar(this);
         };
     }
@@ -5314,6 +5431,7 @@ class markdown extends HTMLElement {
                     "######": "h6",
                     "[]": "todo",
                     $$: "math",
+                    "```": "code",
                 };
                 for (let m in m2) {
                     if (m == mark) {
@@ -5572,7 +5690,7 @@ class markdown extends HTMLElement {
             let start_t = get_text(r.startContainer, r.startOffset);
             let end_t = get_text(r.endContainer, r.endOffset);
             console.log(start_t, end_t);
-            let p2p = (of: number) => {
+            let p2p = (of: number, start: boolean) => {
                 let list = [];
                 let w = (l: ReturnType<typeof md.parse>) => {
                     for (let i of l) {
@@ -5605,20 +5723,26 @@ class markdown extends HTMLElement {
                 console.log(list);
                 let true_o = 0;
                 let tmp_o = 0;
-                for (let i of list) {
+                for (let n in list) {
+                    const i = list[n];
                     if (i.type == "ct") {
                         if (tmp_o <= of && of <= tmp_o + i.text.length) {
-                            return true_o + (of - tmp_o);
+                            let up = 0;
+                            let nextn = Number(n) + 1;
+                            if (list?.[nextn]?.type == "mu" && !start && tmp_o + i.text.length == of)
+                                up = list[nextn].text.length;
+                            return true_o + (of - tmp_o) + up;
                         }
                         tmp_o += i.text.length;
                     }
                     true_o += i.text.length;
                 }
+                return of;
             };
             let start_p = 0;
             let end_p = 0;
-            start_p = p2p(start_t.before.length);
-            end_p = p2p(end_t.before.length);
+            start_p = p2p(start_t.before.length, true);
+            end_p = p2p(end_t.before.length, false);
             if (start_p > end_p) {
                 [start_p, end_p] = [end_p, start_p];
             }
@@ -5678,7 +5802,7 @@ class markdown extends HTMLElement {
             this.index = md.parse(text, {});
             this.h.innerHTML = i + md.render(text);
         } else if (type == "math") {
-            this.h.innerHTML = get_svg(`\\displaylines{${text}}`);
+            this.h.innerHTML = get_svg(`\\displaylines{${text} }`);
         } else if (type == "iframe") {
             this.h.innerHTML = `<iframe src="${text}"></iframe>`;
         } else if (type == "code") {
@@ -5701,7 +5825,6 @@ class markdown extends HTMLElement {
             }
         } else {
             this.index = md.parse(text, {});
-            console.log(this.index);
             this.h.innerHTML = md.render(text);
         }
     }
