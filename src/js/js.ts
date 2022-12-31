@@ -80,6 +80,8 @@ const 画布 = elFromId("画布");
 const 画布s = elFromId("画布们");
 var O = elFromId("O");
 
+const select_con = elFromId("选择");
+
 const link_value_bar = createEl("x-link-value");
 画布.append(link_value_bar);
 
@@ -433,7 +435,7 @@ function set_模式(模式x: "浏览" | "设计" | "绘制") {
         v.classList.remove("模式突出");
     });
     nav.querySelector(`#${模式x}`).classList.add("模式突出");
-    画布s.className = 模式x;
+    画布.className = 模式x;
     switch (模式x) {
         case "浏览":
             if (<draw>focus_draw_el) {
@@ -488,9 +490,7 @@ set_模式("设计");
 /** 移除所有选择 */
 function blur_all() {
     selected_el = [];
-    for (let x of 画布.querySelectorAll(".x-x_selected")) {
-        x.classList.remove("x-x_selected");
-    }
+    render_select_rects();
 }
 
 // markdown
@@ -579,6 +579,7 @@ function set_O_p(x: number | null, y: number | null) {
         O.style.top = y + "px";
     }
     render_map();
+    render_select_rects();
 }
 
 fxsd_el.onclick = () => {
@@ -599,7 +600,7 @@ document.onmousedown = (e) => {
             o_ab_p = e2p(e);
             let select = createEl("div");
             select_id = select.id = `s${new Date().getTime()}`;
-            elFromId("选择").append(select);
+            elFromId("选择框").append(select);
             画布.style.userSelect = "none";
         }
     }
@@ -630,6 +631,7 @@ document.onmouseup = (e) => {
 
 /** 鼠标事件处理，滚动，选择，画框创建 */
 var mouse = (e: MouseEvent) => {
+    render_select_rects();
     if (o_e) {
         let now_point: p_point = e2p(e);
         if (e.buttons == 2) {
@@ -638,10 +640,8 @@ var mouse = (e: MouseEvent) => {
             set_O_p(x, y);
         } else if (e.button == 0) {
             if (select_id) {
-                画布.querySelectorAll(".x-x_selected").forEach((el) => {
-                    el.classList.remove("x-x_selected");
-                    selected_el = [];
-                });
+                selected_el = [];
+                render_select_rects();
                 let rect = p2rect(o_ab_p, now_point);
                 let select = <HTMLDivElement>elFromId(select_id);
                 select.id = select_id;
@@ -718,6 +718,7 @@ var o_touch_t = NaN;
         O.style.transitionTimingFunction = "cubic-bezier(.17, .89, .45, 1)";
         setTimeout(() => {
             O.style.transition = ``;
+            render_select_rects();
         }, t);
         set_O_p(x, y);
     }
@@ -744,6 +745,7 @@ var pointer_move = true;
 var touch_move = (e: TouchEvent) => {
     if (o_touch_e) {
         if (pointer_move) {
+            if (free_o_a == -1) return;
             let dx = fxsd == 0 || fxsd == 2 ? e.changedTouches[0].clientX - o_touch_e.changedTouches[0].clientX : 0,
                 dy = fxsd == 0 || fxsd == 1 ? e.changedTouches[0].clientY - o_touch_e.changedTouches[0].clientY : 0;
             let x = o_rect.x + dx,
@@ -757,6 +759,7 @@ var touch_move = (e: TouchEvent) => {
 var touch_zoom = (e: TouchEvent) => {
     if (o_touch_zoom_e) {
         if (pointer_move) {
+            if (free_o_a == -1) return;
             let r0 = Math.sqrt(
                 (o_touch_zoom_e.targetTouches[0].clientX - o_touch_zoom_e.targetTouches[1].clientX) ** 2 +
                     (o_touch_zoom_e.targetTouches[0].clientY - o_touch_zoom_e.targetTouches[1].clientY) ** 2
@@ -800,8 +803,8 @@ function select_x_x(rect: { x: number; y: number; w: number; h: number }) {
     for (const el of O.querySelectorAll(":scope > x-x")) {
         let r = el_offset2(el);
         if (rect.x <= r.x && r.x + r.w <= rect.x + rect.w && rect.y <= r.y && r.y + r.h <= rect.y + rect.h) {
-            el.classList.add("x-x_selected");
             selected_el.push(<x>el);
+            render_select_rects();
         }
     }
 }
@@ -852,6 +855,108 @@ function add_blank(op: p_point, p: p_point) {
         }
     }
 }
+
+function render_select_rects() {
+    let xels: x[] = [];
+    if (now_mouse_e) {
+        let els = document.elementsFromPoint(now_mouse_e.clientX, now_mouse_e.clientY);
+        for (let i of els) {
+            if (i.tagName == "X-X") {
+                xels.push(i as x);
+                let select_bar = add_r(i as x);
+                select_bar.classList.add("x-x_hover");
+            }
+        }
+    }
+    for (let i of selected_el) {
+        let select_bar = add_r(i);
+        select_bar.classList.add("x-x_selected");
+    }
+    document.querySelectorAll(".x-x_bar_show2").forEach((el) => {
+        el.classList.remove("x-x_bar_show2");
+    });
+    if (selected_el.length == 1) {
+        selected_el[0].querySelector(":scope > #x-x_bar").classList.add("x-x_bar_show2");
+    }
+    function add_r(i: x) {
+        let rect = i.getBoundingClientRect();
+        let select_bar = (select_con.querySelector(`[data-id="${i.id}"]`) as HTMLElement) || createEl("div");
+        select_bar.setAttribute("data-id", i.id);
+        select_bar.style.left = rect.x - select_con.getBoundingClientRect().left + "px";
+        select_bar.style.top = rect.y - select_con.getBoundingClientRect().top + "px";
+        select_bar.style.width = rect.width + "px";
+        select_bar.style.height = rect.height + "px";
+        if (select_con.querySelector(`[data-id="${i.id}"]`)) return select_bar;
+        select_con.append(select_bar);
+        var x_h = [
+            createEl("div"),
+            createEl("div"),
+            createEl("div"),
+            createEl("div"),
+            createEl("div"),
+            createEl("div"),
+            createEl("div"),
+            createEl("div"),
+        ];
+
+        for (const i in x_h) {
+            x_h[i].classList.add(`xxhandle${i}`);
+        }
+
+        select_bar.id = "x-x_handle";
+
+        select_bar.classList.add("xxhandle");
+        select_bar.append(...x_h);
+
+        select_bar.onpointerdown = (e) => {
+            let el = e.target as HTMLDivElement;
+            if (x_h.includes(el)) {
+                e.preventDefault();
+                e.stopPropagation();
+                free_o_a = x_h.indexOf(el);
+                free_old_point = e2p(e);
+                free_o_rects = [{ el: i, x: i.offsetLeft, y: i.offsetTop, w: i.offsetWidth, h: i.offsetHeight }];
+                if (selected_el.length <= 1) {
+                    z.focus(i);
+                }
+            }
+        };
+
+        return select_bar;
+    }
+    for (let i of select_con.children) {
+        let has = false;
+        for (let x of xels) {
+            if (x.id == i.getAttribute("data-id")) {
+                has = true;
+                break;
+            }
+        }
+        if (!has) {
+            i.classList.remove("x-x_hover");
+        }
+        for (let x of selected_el) {
+            if (x.id == i.getAttribute("data-id")) {
+                has = true;
+                break;
+            }
+        }
+        if (!has) {
+            i.remove();
+        }
+    }
+}
+document.addEventListener("dblclick", (e) => {
+    if (模式 == "设计") {
+        console.log(free_o_a, z.聚焦元素);
+        let el = z.聚焦元素;
+        let xl = [1, 3, 4, 5, 6, 7],
+            yl = [0, 2, 4, 5, 6, 7];
+        if (xl.includes(free_o_a)) el.style.width = "";
+        if (yl.includes(free_o_a)) el.style.height = "";
+        render_select_rects();
+    }
+});
 
 归位.onclick = () => {
     O.style.transition = "0.4s";
@@ -1005,8 +1110,22 @@ function render_map() {
     if (mini_map_el.parentElement.classList.contains("mini_map_hide")) return;
     let els_rect = reflash_rect();
     let out_rect = get_out_rect(els_rect);
-    let z = mini_map_el.width / (out_rect.right - out_rect.left);
-    mini_map_el.height = (out_rect.bottom - out_rect.top) * z;
+    let z = 1;
+    const min = 600,
+        minstyle = "300px";
+    if (out_rect.right - out_rect.left > out_rect.bottom - out_rect.top) {
+        mini_map_el.height = min;
+        mini_map_el.style.height = minstyle;
+        mini_map_el.style.width = "";
+        z = min / (out_rect.bottom - out_rect.top);
+        mini_map_el.width = (out_rect.right - out_rect.left) * z;
+    } else {
+        mini_map_el.width = min;
+        mini_map_el.style.width = minstyle;
+        mini_map_el.style.height = "";
+        z = min / (out_rect.right - out_rect.left);
+        mini_map_el.height = (out_rect.bottom - out_rect.top) * z;
+    }
     let ctx = mini_map_el.getContext("2d");
     ctx.clearRect(0, 0, mini_map_el.offsetWidth, mini_map_el.height);
     for (let i of els_rect) {
@@ -1095,7 +1214,7 @@ let middle_p = { x: 0, y: 0 };
 
 zoom_o(1);
 
-var now_mouse_e = null;
+var now_mouse_e: MouseEvent = null;
 document.addEventListener("mousemove", (e: MouseEvent) => {
     now_mouse_e = e;
 });
@@ -1120,6 +1239,9 @@ let free_move = false;
 let free_target_id = "";
 let free_drag = false;
 let free_drag_tip: HTMLElement;
+function mu_sel_key(e: MouseEvent) {
+    return e.shiftKey;
+}
 document.addEventListener("pointermove", (e: PointerEvent) => {
     if (模式 == "设计" && free_old_point) {
         e.preventDefault();
@@ -1174,7 +1296,7 @@ document.addEventListener("pointerup", (e: PointerEvent) => {
     free_mouse(e);
 
     if (free_drag) {
-        O.classList.remove("拖拽");
+        画布.classList.remove("拖拽");
         free_drag_tip.remove();
         let els = document.elementsFromPoint(e.clientX, e.clientY);
         for (let el of els) {
@@ -1255,7 +1377,7 @@ document.addEventListener("pointerup", (e: PointerEvent) => {
         data_changed();
     }
 
-    if (!free_move && free_old_point) {
+    if (!free_move && free_old_point && !mu_sel_key(e)) {
         document.querySelectorAll("x-x").forEach((el: x) => {
             if (el.contains(e.target as x)) {
                 z.focus(el);
@@ -1391,19 +1513,9 @@ var free_mouse = (e: MouseEvent) => {
                 load_xywh();
             }
         }
+        render_select_rects();
     }
 };
-
-document.addEventListener("dblclick", (e) => {
-    if (模式 == "设计") {
-        console.log(free_o_a);
-        let el = z.聚焦元素;
-        let xl = [1, 3, 4, 5, 6, 7],
-            yl = [0, 2, 4, 5, 6, 7];
-        if (xl.includes(free_o_a)) el.style.width = "";
-        if (yl.includes(free_o_a)) el.style.height = "";
-    }
-});
 
 function new_free_drag_tip() {
     free_drag_tip = createEl("div");
@@ -1832,6 +1944,7 @@ function version_tr(obj): 集type {
             obj.meta.version = "0.17.4";
         case "0.17.4":
         case "0.17.5":
+        case "0.18.0":
             return obj;
         default:
             put_toast(`文件版本是 ${v}，与当前软件版本 ${packagejson.version} 不兼容，请升级软件`);
@@ -2854,7 +2967,7 @@ elFromId("笔").onclick = (e) => {
 };
 
 window.onbeforeunload = () => {
-    if (!集.meta.file_name) return true;
+    if (!集.meta.file_name && !(画布s.childElementCount == 1 && O.innerHTML == "")) return true;
 };
 
 // 导出
@@ -2940,14 +3053,11 @@ class 图层 {
                         el.checked = c.checked;
                     });
                     selected_el = [];
-                    for (let x of O.querySelectorAll(".x-x_selected")) {
-                        x.classList.remove("x-x_selected");
-                    }
                     图层_el.querySelectorAll("input").forEach((el) => {
                         if (el.checked) {
                             let x = get_x_by_id(el.parentElement.getAttribute("data-id"));
                             selected_el.push(x);
-                            x.classList.add("x-x_selected");
+                            reflash_rect();
                         }
                     });
                 };
@@ -3032,11 +3142,8 @@ class 图层 {
         if (el.querySelector("x-draw") && 模式 == "绘制") focus_draw_el = el.querySelector("x-draw") as draw;
 
         selected_el = [];
-        for (let x of O.querySelectorAll(".x-x_selected")) {
-            x.classList.remove("x-x_selected");
-        }
-        el.classList.add("x-x_selected");
         selected_el.push(el);
+        reflash_rect();
         el_style.value = el.getAttribute("style").replaceAll("; ", ";\n");
         load_xywh();
         load_value();
@@ -3972,9 +4079,31 @@ function link(key0: string) {
                 }
             }
             function down(value: number, t0: number, t1: number) {
-                let h = (t1 - t0) / 1000 / 60 / 60;
-                let r = Math.max(value - h * (value / 50), 0.1);
-                return r;
+                const one_k = Math.E;
+                const xv_c = 0.9;
+                const xv_s = 8;
+                // 归一
+                function one(number: number) {
+                    return -one_k / (number + one_k) + 1;
+                }
+                // 反归一
+                function one2more(num: number) {
+                    return -one_k - one_k / (num - 1);
+                }
+                // 计算衰减值
+                function x2v(x: number) {
+                    return Math.exp((x * Math.log(xv_c)) / xv_s);
+                }
+                // 通过值反推原先输入的x
+                function v2x(v: number) {
+                    return Math.log(v) * (xv_s / Math.log(xv_c));
+                }
+                let old_x = v2x(one(value));
+                // 半天为一个单位
+                let t = (t1 - t0) / 1000 / 60 / 60 / 12;
+                let new_x = t + old_x;
+                let new_v = Math.max(x2v(new_x), 0.1);
+                return one2more(new_v);
             }
         },
     };
@@ -4561,8 +4690,14 @@ md.renderer.rules.fence = function (tokens, idx, options, env, self) {
 };
 function tikz_code(content: string) {
     if (!import_latex) {
-        import_script("../../lib/tikzjax.js?raw", true);
+        let script = createEl("script");
+        import("../../lib/tikzjax.js?raw").then((v) => {
+            const js = v.default;
+            script.innerText = js;
+            document.body.append(script);
+        });
         import_latex = true;
+        document.addEventListener("tikzjax-load-finished", tikz_svg);
     }
     let s = createEl("script");
     s.setAttribute("type", "text/tikz");
@@ -4611,6 +4746,24 @@ function tikz_code(content: string) {
     s.innerHTML = tidyTikzSource(content);
     return s.outerHTML;
 }
+
+import { optimize } from "svgo";
+/** 修复svg被遮挡 */
+function tikz_svg(e: Event) {
+    const svgEl = e.target as HTMLElement;
+    let svg = svgEl.outerHTML;
+    svg = optimize(svg, { plugins: ["preset-default", "removeViewBox"] }).data;
+    let id = uuid();
+    svg = svg.replace("svg", `svg id="${id}"`);
+    svgEl.outerHTML = svg;
+    let svg1 = elFromId(id);
+    let r = svg1.querySelector("g").getBBox();
+    svg1.setAttribute("viewBox", `${r.x} ${r.y} ${r.width} ${r.height}`);
+    svg1.setAttribute("width", String(r.width));
+    svg1.setAttribute("height", String(r.height));
+    svg1.removeAttribute("id");
+}
+
 md.renderer.rules.image = function (tokens, idx, options, env, self) {
     let value = tokens[idx].attrGet("src");
     let b = 集.assets?.[value]?.base64;
@@ -4950,28 +5103,6 @@ class x extends HTMLElement {
         let copy = createEl("div");
         copy.innerHTML = icon(copy_svg);
 
-        var x_h = [
-            createEl("div"),
-            createEl("div"),
-            createEl("div"),
-            createEl("div"),
-            createEl("div"),
-            createEl("div"),
-            createEl("div"),
-            createEl("div"),
-        ];
-
-        for (const i in x_h) {
-            x_h[i].classList.add(`xxhandle${i}`);
-        }
-
-        var h = createEl("div");
-        h.id = "x-x_handle";
-
-        h.classList.add("xxhandle");
-        h.append(...x_h);
-        this.append(h);
-
         bar.append(m);
         bar.append(copy);
         bar.append(f);
@@ -5002,7 +5133,7 @@ class x extends HTMLElement {
                 e.preventDefault();
                 e.stopPropagation();
                 free_drag = true;
-                O.classList.add("拖拽");
+                画布.classList.add("拖拽");
                 new_free_drag_tip();
                 if (this.parentElement != O) {
                     let x = e.clientX - O.getBoundingClientRect().x,
@@ -5034,25 +5165,20 @@ class x extends HTMLElement {
             }
             if (模式 != "设计") return;
             e.preventDefault();
-            if (x_h.includes(el)) {
-                e.stopPropagation();
-                free_o_a = x_h.indexOf(el);
-                free_old_point = e2p(e);
-                free_o_rects = [
-                    { el: this, x: this.offsetLeft, y: this.offsetTop, w: this.offsetWidth, h: this.offsetHeight },
-                ];
-            } else {
-                free_old_point = e2p(e);
-                free_o_a = -1;
+            free_old_point = e2p(e);
+            free_o_a = -1;
 
+            if (mu_sel_key(e)) {
+                selected_el.push(this);
+            } else {
                 if (selected_el.length <= 1) {
                     z.focus(this);
                 }
+            }
 
-                free_o_rects = [];
-                for (const el of selected_el) {
-                    free_o_rects.push({ el, x: el.offsetLeft, y: el.offsetTop });
-                }
+            free_o_rects = [];
+            for (const el of selected_el) {
+                free_o_rects.push({ el, x: el.offsetLeft, y: el.offsetTop });
             }
             free_target_id = this.id;
         };
@@ -5084,7 +5210,7 @@ class x extends HTMLElement {
             e.preventDefault();
             e.stopPropagation();
             free_drag = true;
-            O.classList.add("拖拽");
+            画布.classList.add("拖拽");
             new_free_drag_tip();
             let x = e.clientX - O.getBoundingClientRect().x - copy.offsetLeft - e.offsetX,
                 y = e.clientY - O.getBoundingClientRect().y + copy.offsetHeight - e.offsetY;
@@ -5099,6 +5225,7 @@ class x extends HTMLElement {
                 let nid = uuid_id();
                 copy_value(el.id, nid);
                 el.id = nid;
+                link(nid).add();
             });
             free_o_rects = [{ el: xel, x: x / zoom, y: y / zoom }];
             free_old_point = e2p(e);
@@ -5748,7 +5875,9 @@ class markdown extends HTMLElement {
             }
             console.log(start_p, end_p);
             this.text.setSelectionRange(start_p, end_p);
-            this.edit = true;
+            setTimeout(() => {
+                this.edit = true;
+            }, 10);
             s.contentEditable = "false";
         };
     }
@@ -7545,14 +7674,9 @@ async function to_text(img: HTMLImageElement | HTMLCanvasElement) {
 var ocr_init = false;
 var ocr;
 
-async function import_script(url: string, use_import?: boolean) {
+async function import_script(url: string) {
     let script = createEl("script");
-    if (use_import) {
-        const js = (await import("../../lib/tikzjax.js?raw")).default;
-        script.innerText = js;
-    } else {
-        script.src = url;
-    }
+    script.src = url;
     console.log(url);
     document.body.append(script);
     return new Promise((re, rj) => {
