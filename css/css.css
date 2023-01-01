@@ -83,6 +83,24 @@
     scrollbar-width: none;
 }
 
+.checkbox {
+    appearance: none;
+    width: 1em;
+    height: 1em;
+    margin-inline-end: 0.4em;
+    border: 2px #888 solid;
+    cursor: pointer;
+    border-radius: 0.25em;
+}
+.checkbox:checked {
+    background-color: #0860f2;
+    border: 2px #0860f2 solid;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='rgb(255, 255, 255)' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 8 9 19 4 14'%3E%3C/polyline%3E%3C/svg%3E");
+    background-position: center;
+    background-size: 0.75em auto;
+    background-repeat: no-repeat;
+}
+
 html {
     height: 100%;
 }
@@ -419,7 +437,7 @@ body #main > #nav #ink_r {
 }
 
 .more {
-    @apply flex justify-end overflow-hidden opacity-0;
+    @apply inline-flex justify-end overflow-hidden opacity-0 w-min align-bottom;
 }
 .侧栏 > #items > #文件 > div:hover .more {
     @apply opacity-100;
@@ -441,21 +459,6 @@ body #main > #nav #ink_r {
     width: auto !important;
 }
 
-.侧栏 > #items > #集 > * {
-    height: var(--item-height);
-}
-.侧栏 > #items > #集 > div {
-    width: calc(100% - 8px);
-    box-sizing: border-box;
-    display: flex;
-}
-
-.侧栏 > #items > #集 > div > div:nth-child(1) {
-    flex-grow: 1;
-}
-.侧栏 > #items > #集 > div:hover .more {
-    opacity: 1;
-}
 .侧栏 > #items > #层容器 {
     display: flex;
     flex-direction: column;
@@ -480,7 +483,7 @@ body #main > #nav #ink_r {
 }
 .层容器 > #层 ul {
     list-style: none;
-    padding-inline-start: 16px;
+    padding-inline-start: 24px;
     position: relative;
 }
 .层容器 > #层 ul::before {
@@ -488,20 +491,32 @@ body #main > #nav #ink_r {
     width: 1px;
     height: 100%;
     position: absolute;
-    left: -8px;
+    left: -12px;
     background-color: var(--color6);
 }
 .层容器 > #层 > ul::before {
     display: none;
 }
+.层容器 > #层 > ul > li > span {
+    @apply flex;
+}
+.层容器 > #层 > ul > li > span > span {
+    @apply flex-grow;
+}
+.层容器 > #层 > ul > li > span:hover > .more {
+    opacity: 1;
+}
 .层容器 > #层 li {
     position: relative;
 }
 .层容器 > #层 li > img {
-    width: 16px;
-    height: 16px;
-    left: -16px;
-    position: absolute;
+    @apply absolute w-4 h-4 -left-5 top-1;
+}
+.层容器 > #层 li > span {
+    @apply inline-block h-6;
+}
+.层容器 > #层 li > input[type="checkbox"] {
+    @apply checkbox;
 }
 .层ul_hide > ul {
     display: none;
@@ -1423,8 +1438,14 @@ x-calendar {
 .calendar_bar > :last-child {
     @apply w-6 h-6 relative;
 }
-.calendar > div {
-    @apply text-center align-middle opacity-60 w-6 h-6 rounded;
+.calendar > * {
+    @apply text-center align-middle opacity-60 w-6 h-6 rounded relative;
+}
+.calendar_schedule {
+    @apply w-full flex justify-center absolute bottom-0;
+}
+.calendar_schedule > div {
+    @apply w-1 h-1 rounded-full bg-current;
 }
 .calendar_week {
     opacity: 1 !important;
@@ -1455,22 +1476,7 @@ x-time > :nth-child(2) {
     @apply flex items-center flex-grow overflow-hidden;
 }
 x-time input[type="checkbox"] {
-    appearance: none;
-    width: 1em;
-    height: 1em;
-    margin-inline-end: 0.4em;
-    border: 2px #888 solid;
-    cursor: pointer;
-    border-radius: 0.25em;
-}
-
-x-time input[type="checkbox"]:checked {
-    background-color: #0860f2;
-    border: 2px #0860f2 solid;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='rgb(255, 255, 255)' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 8 9 19 4 14'%3E%3C/polyline%3E%3C/svg%3E");
-    background-position: center;
-    background-size: 0.75em auto;
-    background-repeat: no-repeat;
+    @apply checkbox;
 }
 
 x-time > :nth-child(2) > div {

@@ -98,8 +98,6 @@ const zoom_list = elFromId("zooms");
 
 const mini_map_el = elFromId("mini_map") as HTMLCanvasElement;
 
-const 集_el = elFromId("集");
-
 const 文件_el = elFromId("文件");
 
 const assets_el = elFromId("资源");
@@ -1350,7 +1348,7 @@ document.addEventListener("pointerup", (e: PointerEvent) => {
         for (let i of selected_el) {
             let had = false;
             for (let x of global_x) {
-                if (x.id == i.id) {
+                if (x.data.id == i.id) {
                     had = true;
                     break;
                 }
@@ -1538,7 +1536,10 @@ function create_x_x(x: number, y: number) {
 /** 中转站刷新 */
 function tmp_s_reflash() {
     临时中转站.innerHTML = "";
-    let l = [...集.中转站, ...global_x];
+    let l = [...集.中转站];
+    for (let i of global_x) {
+        l.push(i.data);
+    }
     for (let x of l) {
         let t = createEl("div");
         临时中转站.append(t);
@@ -1553,7 +1554,29 @@ function tmp_s_reflash() {
     }
 }
 
-var global_x = [] as data;
+var global_x: { pid: string; data: data[0] }[] = [];
+
+/** 移除全局中转 */
+function remove_global(id: string) {
+    let l: typeof global_x = [];
+    for (let i of global_x) {
+        if (i.data.id == id) {
+            let customerObjectStore = db.transaction(db_store_name, "readwrite").objectStore(db_store_name);
+            let r = customerObjectStore.get(i.pid);
+            r.onsuccess = () => {
+                let obj = r.result as 集type;
+                for (let i of obj.中转站) {
+                    if (i.id == id) {
+                        i.global = false;
+                    }
+                }
+                customerObjectStore.put(obj);
+            };
+        } else {
+            l.push(i);
+        }
+    }
+}
 
 // 快捷键
 document.onkeydown = (e) => {
@@ -1945,6 +1968,7 @@ function version_tr(obj): 集type {
         case "0.17.4":
         case "0.17.5":
         case "0.18.0":
+        case "0.19.0":
             return obj;
         default:
             put_toast(`文件版本是 ${v}，与当前软件版本 ${packagejson.version} 不兼容，请升级软件`);
@@ -1964,66 +1988,13 @@ async function set_data(l: 集type) {
         if (集[i]) 集[i] = l[i];
     }
     画布s.innerHTML = "";
-    集_el.innerHTML = "";
 
     await set_dependencies(集.meta.dependencies || []);
 
     let ps = {};
     for (const p of 集.数据) {
-        let div = createEl("div");
-        集_el.append(div);
-        let t = createEl("div");
-        t.innerText = p.name;
         ps[p.id] = render_data(p);
-        div.setAttribute("data-id", p.id);
-        t.onclick = () => {
-            集_el.querySelectorAll(".selected_item").forEach((el) => {
-                el.classList.remove("selected_item");
-            });
-            div.classList.add("selected_item");
-            当前画布 = p;
-            集.meta.focus_page = p.id;
-            O = ps[p.id];
-            for (let el of 画布s.children) {
-                (el as HTMLElement).style.display = "none";
-            }
-            O.style.display = "block";
-            z.focus(O.children[O.children.length - 1] as x);
-            z.reflash(true);
-            zoom_o(Number(O.style.transform.match(/scale\((.*)\)/)[1] || p.p.zoom));
-        };
-        let more = createEl("div");
-        more.classList.add("more");
-        let rename = createEl("div");
-        rename.innerHTML = icon(edit_svg);
-        rename.onclick = () => {
-            let n = prompt("重命名画布", p.name);
-            if (n) {
-                elFromId(p.id).setAttribute("data-name", n);
-                data_changed();
-                t.innerText = n;
-            }
-        };
-        let rm = createEl("div");
-        rm.innerHTML = icon(remove_svg);
-        rm.onclick = () => {
-            if (集_el.children.length == 1) return;
-            let x = confirm(`确定删除画布 ${p.name}`);
-            if (!x) return;
-            if (div.classList.contains("selected_item")) {
-                let id = 集_el.children[0].getAttribute("data-id");
-                集_el.children[0].classList.add("selected_item");
-                集.meta.focus_page = id;
-                select_p(id);
-            }
-            div.remove();
-            elFromId(p.id).remove();
-            data_changed();
-        };
-        more.append(rm, rename);
-        div.append(t, more);
         if (集.meta.focus_page == p.id) {
-            div.classList.add("selected_item");
             当前画布 = p;
             集.meta.focus_page = p.id;
             O = ps[p.id];
@@ -2127,15 +2098,6 @@ function set_diff_data(diffl: diff_i[], undo_data: 集type) {
                     let last = d.path[d.path.length - 1];
                     if (last == "focus_page") {
                         let id = d["rhs"];
-                        集_el.querySelectorAll(".selected_item").forEach((el) => {
-                            el.classList.remove("selected_item");
-                        });
-                        集_el.querySelector(`*[data-id="${id}"]`).classList.add("selected_item");
-                        for (let p of 集.数据) {
-                            if (p.id == id) {
-                                当前画布 = p;
-                            }
-                        }
                         集.meta.focus_page = id;
                         for (let el of 画布s.children) {
                             if (el.id == id) {
@@ -2416,7 +2378,7 @@ function db_get() {
         for (let f of r.result) {
             if ((f as 集type)?.中转站)
                 for (let x of (f as 集type).中转站) {
-                    if (x.global) global_x.push(x);
+                    if (x.global) global_x.push({ pid: (f as 集type).meta.UUID, data: x });
                 }
 
             if (`#${f.meta.UUID}` == location.hash) {
@@ -3012,18 +2974,21 @@ class 图层 {
          */
         let w = (data: data, pel: HTMLElement) => {
             let ul = createEl("ul");
+            let ulf = document.createDocumentFragment();
             for (let n in data) {
                 const i = data[n];
 
                 if (i.id && get_x_by_id(i.id)) get_x_by_id(i.id).style.zIndex = String(Number(n) + 1);
-                if (i.value) {
+                if (i.type != "X-X") {
                     const type = {
-                        "X-MD": "md",
-                        "X-DRAW": "墨迹",
-                        "X-FILE": "文件",
+                        "x-md": "md",
+                        "x-draw": "墨迹",
+                        "x-file": "文件",
                         "x-record": "录音机",
+                        "x-calendar": "日历",
+                        "x-time": "计时器",
                     };
-                    pel.querySelector("span").innerText += ` ${type[i.type]}`;
+                    pel.querySelector("span").innerText += ` ${type[i.type.toLowerCase()]}`;
                     return;
                 } else {
                     if (!pel.querySelector("img")) {
@@ -3069,6 +3034,17 @@ class 图层 {
                         }
                     });
                 };
+                li.onpointerenter = (e) => {
+                    move_to_x_link(get_x_by_id(i.id));
+                };
+                li.onpointerdown = () => {
+                    jump_to_x_link(get_x_by_id(i.id));
+                };
+                li.onpointermove = (e) => {
+                    window.requestAnimationFrame(() => {
+                        set_viewer_posi(e.clientX, e.clientY);
+                    });
+                };
                 if (this.聚焦元素.id == i.id && selected_el.length == 1) {
                     this.focus(get_x_by_id(i.id));
                     c.checked = true;
@@ -3085,19 +3061,70 @@ class 图层 {
                 if (i?.子元素?.length > 0) {
                     w(i.子元素, li);
                 }
-                if (ul.firstElementChild) {
-                    ul.firstElementChild.before(li);
+                if (ulf.firstElementChild) {
+                    ulf.firstElementChild.before(li);
                 } else {
-                    ul.append(li);
+                    ulf.append(li);
                 }
             }
+            ul.append(ulf);
             if (pel.children.length > 0) {
                 pel.querySelector("span").after(ul);
             } else {
                 pel.append(ul);
             }
         };
-        w(当前画布.data, 图层_el);
+        let root_ul = createEl("ul");
+        图层_el.append(root_ul);
+        root_ul.onpointerleave = () => {
+            view_el.classList.add("viewer_hide");
+        };
+        for (let i of 集.数据) {
+            let li = createEl("li");
+            let s = createEl("span");
+            let text = createEl("span");
+            text.innerText = `${i.name}`;
+            s.append(text);
+            li.setAttribute("data-id", i.id);
+            li.append(s);
+            w(i.data, li);
+            if (i.id != 当前画布.id) {
+                li.classList.add("层ul_hide");
+                li.querySelector("img").src = ul_hide_svg;
+            }
+            let more = createEl("div");
+            more.classList.add("more");
+            let idel = createEl("span");
+            idel.innerText = i.id;
+            let rename = createEl("div");
+            rename.innerHTML = icon(edit_svg);
+            rename.onclick = () => {
+                let n = prompt("重命名画布", i.name);
+                if (n) {
+                    elFromId(i.id).setAttribute("data-name", n);
+                    get_data();
+                    z.reflash();
+                }
+            };
+            let rm = createEl("div");
+            rm.innerHTML = icon(remove_svg);
+            rm.onclick = () => {
+                if (画布s.children.length == 1) return;
+                let x = confirm(`确定删除画布 ${i.name}`);
+                if (!x) return;
+                elFromId(i.id).remove();
+                if (i.id == 当前画布.id) {
+                    let id = 画布s.children[0].id;
+                    select_p(id);
+                }
+                li.remove();
+                get_data();
+                z.reflash();
+            };
+            more.append(idel, rm, rename);
+            s.append(more);
+            root_ul.append(li);
+        }
         document.documentElement.style.setProperty("--zest-index", String(当前画布.data.length - 1));
 
         if (!nosave) data_changed();
@@ -3948,6 +3975,7 @@ function jump_to_x_link(el: x | xlink, nrc?: boolean) {
 /** 添加到面包屑栏 */
 function add_bci(el: x | xlink) {
     if (el.id == now_data_id) return;
+    if (breadcrumbs_el.offsetHeight == 0) breadcrumbs_el.style.height = "16px";
     let li = createEl("div");
     let main = createEl("div");
     let children = createEl("div");
@@ -5184,24 +5212,20 @@ class x extends HTMLElement {
         };
 
         f.onclick = () => {
-            for (let x of 集.中转站) {
-                if (x.id == this.id) {
-                    x.global = !x.global;
-                    if (x.global) {
-                        global_x.push(x);
-                        f.classList.add("buttom_a");
-                    } else {
-                        global_x = global_x.filter((i) => i != x);
-                        f.classList.remove("buttom_a");
-                    }
-                    console.log(集.中转站);
-                }
+            f.classList.toggle("buttom_a");
+            if (f.classList.contains("buttom_a")) {
+                global_x.push({
+                    pid: 集.meta.UUID,
+                    data: { id: this.id, 子元素: this.value, class: this.className, type: "X-X", style: "" },
+                });
+            } else {
+                remove_global(this.id);
             }
         };
 
         for (let x of global_x)
-            if (x.id == this.id)
-                if (x.global) {
+            if (x.data.id == this.id)
+                if (x.data.global) {
                     f.classList.add("buttom_a");
                     break;
                 }
@@ -5582,37 +5606,47 @@ class markdown extends HTMLElement {
                 }
             }
             if (e.key == "ArrowUp") {
-                if (
-                    this._value.type != "text" &&
-                    this._value.type != "code" &&
-                    is_flex(this.parentElement.parentElement) == "flex" &&
-                    this.parentElement.previousElementSibling &&
-                    this.parentElement.previousElementSibling.querySelector("x-md")
-                ) {
-                    e.preventDefault();
-                    let md = this.parentElement.previousElementSibling.querySelector("x-md") as markdown;
-                    md.text.setSelectionRange(this.text.selectionStart, this.text.selectionStart);
-                    md.edit = true;
+                if (this._value.type != "text" && this._value.type != "code") {
+                    if (
+                        is_flex(this.parentElement.parentElement) == "flex" &&
+                        this.parentElement.previousElementSibling &&
+                        this.parentElement.previousElementSibling.querySelector("x-md")
+                    ) {
+                        e.preventDefault();
+                        let md = this.parentElement.previousElementSibling.querySelector("x-md") as markdown;
+                        md.text.setSelectionRange(this.text.selectionStart, this.text.selectionStart);
+                        md.edit = true;
+                    } else {
+                        z.focus(this.parentElement as x);
+                        set_模式("设计");
+                    }
                 } else {
-                    z.focus(this.parentElement as x);
-                    set_模式("设计");
+                    if (this.text.selectionStart == 0) {
+                        z.focus(this.parentElement as x);
+                        set_模式("设计");
+                    }
                 }
             }
             if (e.key == "ArrowDown") {
-                if (
-                    this._value.type != "text" &&
-                    this._value.type != "code" &&
-                    is_flex(this.parentElement.parentElement) == "flex" &&
-                    this.parentElement.nextElementSibling &&
-                    this.parentElement.nextElementSibling.querySelector("x-md")
-                ) {
-                    e.preventDefault();
-                    let md = this.parentElement.nextElementSibling.querySelector("x-md") as markdown;
-                    md.text.setSelectionRange(this.text.selectionStart, this.text.selectionStart);
-                    md.edit = true;
+                if (this._value.type != "text" && this._value.type != "code") {
+                    if (
+                        is_flex(this.parentElement.parentElement) == "flex" &&
+                        this.parentElement.nextElementSibling &&
+                        this.parentElement.nextElementSibling.querySelector("x-md")
+                    ) {
+                        e.preventDefault();
+                        let md = this.parentElement.nextElementSibling.querySelector("x-md") as markdown;
+                        md.text.setSelectionRange(this.text.selectionStart, this.text.selectionStart);
+                        md.edit = true;
+                    } else {
+                        z.focus(this.parentElement as x);
+                        set_模式("设计");
+                    }
                 } else {
-                    z.focus(this.parentElement as x);
-                    set_模式("设计");
+                    if (this.text.selectionEnd == this.text.value.length) {
+                        z.focus(this.parentElement as x);
+                        set_模式("设计");
+                    }
                 }
             }
             if (e.key == "ArrowLeft") {
@@ -7169,8 +7203,8 @@ class xlink extends HTMLElement {
     }
 
     connectedCallback() {
-        var id = this.getAttribute("id");
-        if (!集.链接[id]) {
+        const id = this.getAttribute("id");
+        if (!集.链接[id] && !this.getAttribute("naid")) {
             link(id).add();
         }
         this.onpointerenter = () => {
@@ -7297,7 +7331,12 @@ class link_value extends HTMLElement {
 
     set elid(id: string) {
         this._id = id;
-        this.v.innerText = String(link(id).get_v().toFixed(2));
+        let v = link(id).get_v();
+        if (v) {
+            this.v.innerText = String(link(id).get_v().toFixed(2));
+        } else {
+            this.v.innerText = "/";
+        }
     }
     get elid() {
         return this._id;
@@ -7788,9 +7827,7 @@ class calendar extends HTMLElement {
         let c = createEl("div");
         c.classList.add("calendar");
 
-        render(year, month, day);
-
-        function render(year: number, month: number, day: number) {
+        let render = (year: number, month: number, day: number) => {
             text.innerText = `${year} / ${month + 1} / ${day}`;
             let date_list: Date[] = [];
             let now_date = new Date(year, month, 1);
@@ -7818,23 +7855,37 @@ class calendar extends HTMLElement {
                 pel.append(div);
             }
             for (let i of date_list) {
-                let div = createEl("div");
+                let div = createEl("x-link");
+                div.id = `${this.parentElement.id}:${i.toLocaleDateString()}`;
+                div.setAttribute("naid", "true");
                 div.innerText = `${i.getDate()}`;
+                let schedule = createEl("div");
+                schedule.classList.add("calendar_schedule");
+                let links = link(div.id).get() || {};
+                for (let i in links) {
+                    if (i != "0") {
+                        let x = createEl("div");
+                        schedule.append(x);
+                    }
+                }
+                div.append(schedule);
                 if (i.getMonth() == month) {
                     div.classList.add("calendar_month");
                 }
-                if (i.getDate() == day && i.getMonth() == month) {
+                if (
+                    i.getDate() == today.getDate() &&
+                    i.getMonth() == today.getMonth() &&
+                    i.getFullYear() == today.getFullYear()
+                ) {
                     div.classList.add("calendar_today");
-
-                    div.onclick = () => {
-                        render(today.getFullYear(), today.getMonth(), today.getDate());
-                    };
                 }
                 pel.append(div);
             }
             c.innerHTML = "";
             c.append(pel);
-        }
+        };
+
+        render(year, month, day);
 
         this.append(bar, c);
     }
