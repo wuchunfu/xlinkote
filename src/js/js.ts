@@ -3,13 +3,13 @@ import "../../css/css.css";
 import x_y_svg from "../../assets/icons/x_y.svg";
 import y_svg from "../../assets/icons/y.svg";
 import x_svg from "../../assets/icons/x.svg";
+import cloud_up_svg from "../../assets/icons/cloud_up.svg";
 import cloud_down from "../../assets/icons/cloud_down.svg";
 import cloud from "../../assets/icons/cloud.svg";
 import ding_svg from "../../assets/icons/ding.svg";
 import close_svg from "../../assets/icons/close.svg";
 import file_svg from "../../assets/icons/file.svg";
 import handle_svg from "../../assets/icons/handle.svg";
-import ul_hide_svg from "../../assets/icons/ul_hide.svg";
 import ul_show_svg from "../../assets/icons/ul_show.svg";
 import ul_hide2_svg from "../../assets/icons/ul_hide2.svg";
 import add_svg from "../../assets/icons/add.svg";
@@ -29,6 +29,7 @@ import asr_svg from "../../assets/icons/asr.svg";
 import right_svg from "../../assets/icons/right.svg";
 import left_svg from "../../assets/icons/left.svg";
 import copy_svg from "../../assets/icons/copy.svg";
+import save_svg from "../../assets/icons/save.svg";
 
 interface x_tag_map {
     "x-x": x;
@@ -146,6 +147,70 @@ function icon(src: string) {
     return `<img src="${src}" class="icon">`;
 }
 
+function xprompt(msg: string, d?: string) {
+    let bg = createEl("div");
+    let div = createEl("div");
+    let text = createEl("span");
+    let input = createEl("input");
+    input.value = d;
+    text.innerText = msg;
+    let ok = createEl("div");
+    let cancel = createEl("div");
+    ok.innerText = "确定";
+    cancel.innerText = "取消";
+    div.append(text, input, cancel, ok);
+    bg.append(div);
+    bg.classList.add("dialog", "prompt");
+    document.body.append(bg);
+    input.focus();
+    input.select();
+    return new Promise((re: (value: string | null) => void) => {
+        ok.onclick = () => {
+            re(input.value);
+            bg.remove();
+        };
+        cancel.onclick = () => {
+            re(null);
+            bg.remove();
+        };
+        input.onkeydown = (e) => {
+            if (e.key == "Enter") {
+                re(input.value);
+                bg.remove();
+            }
+            if (e.key == "Escape") {
+                re(null);
+                bg.remove();
+            }
+        };
+    });
+}
+
+function xconfirm(msg: string) {
+    let bg = createEl("div");
+    let div = createEl("div");
+    let text = createEl("span");
+    text.innerText = msg;
+    let ok = createEl("div");
+    let cancel = createEl("div");
+    ok.innerText = "确定";
+    cancel.innerText = "取消";
+    div.append(text, cancel, ok);
+    bg.append(div);
+    bg.classList.add("dialog", "confirm");
+    document.body.append(bg);
+    return new Promise((re: (value: boolean) => void) => {
+        ok.onclick = () => {
+            re(true);
+            bg.remove();
+        };
+        cancel.onclick = () => {
+            re(false);
+            bg.remove();
+        };
+    });
+}
+
 // 获取设置
 type setting = typeof default_setting;
 var store: setting = JSON.parse(localStorage.getItem("config"));
@@ -221,7 +286,18 @@ elFromId("从云加载").onclick = async () => {
         set_data(o);
     }
 };
-elFromId("上传到云").onclick = put_xln_value;
+
+const save_b = elFromId("保存");
+save_b.onclick = save_file;
+function set_save_icon() {
+    if (db_can_save) {
+        save_b.innerHTML = icon(cloud_up_svg);
+        save_b.title = "上传到云";
+    } else {
+        save_b.innerHTML = icon(save_svg);
+        save_b.title = "点击保存";
+    }
+}
 
 elFromId("加载数据库").onclick = () => {
     elFromId("db_load").click();
@@ -1652,30 +1728,36 @@ document.onkeydown = (e) => {
             break;
         case "ArrowUp":
             ys_bn("back");
-            if (!is_input_el(target)) {
+            if (!is_input_el(target) && document.fullscreenElement != 画布s) {
                 let el = get_nearest_x(z.聚焦元素, "up");
-                jump_to_x_link(el);
+                jump_to_x_link(el, true);
             }
             break;
         case "ArrowDown":
             ys_bn("next");
-            if (!is_input_el(target)) {
+            if (!is_input_el(target) && document.fullscreenElement != 画布s) {
                 let el = get_nearest_x(z.聚焦元素, "down");
-                jump_to_x_link(el);
+                jump_to_x_link(el, true);
             }
             break;
         case "ArrowLeft":
             ys_bn("back");
-            if (!is_input_el(target)) {
+            if (!is_input_el(target) && document.fullscreenElement != 画布s) {
                 let el = get_nearest_x(z.聚焦元素, "left");
-                jump_to_x_link(el);
+                jump_to_x_link(el, true);
             }
             break;
         case "ArrowRight":
             ys_bn("next");
-            if (!is_input_el(target)) {
+            if (!is_input_el(target) && document.fullscreenElement != 画布s) {
                 let el = get_nearest_x(z.聚焦元素, "right");
-                jump_to_x_link(el);
+                jump_to_x_link(el, true);
+            }
+            break;
+        case "s":
+            if (e.ctrlKey) {
+                e.preventDefault();
+                save_file();
             }
             break;
     }
@@ -1969,6 +2051,25 @@ function version_tr(obj): 集type {
         case "0.17.5":
         case "0.18.0":
         case "0.19.0":
+        case "0.19.1":
+        case "0.19.2":
+        case "0.19.3":
+        case "0.19.4":
+            const one_k = Math.E;
+            for (let i in obj.链接) {
+                for (let j in obj.链接[i]) {
+                    // 归一
+                    if (i == "0") {
+                        obj.链接[i][j].value = Math.min(obj.链接[i][j].value, 1);
+                    } else {
+                        obj.链接[i][j].value = -one_k / (obj.链接[i][j].value + one_k) + 1;
+                    }
+                }
+            }
+            obj.meta.version = "0.20.0";
+        case "0.20.0":
+        case "0.20.1":
+        case "0.20.2":
             return obj;
         default:
             put_toast(`文件版本是 ${v}，与当前软件版本 ${packagejson.version} 不兼容，请升级软件`);
@@ -2074,12 +2175,17 @@ function select_p(id: string) {
         if (el.id == id) {
             O = el as HTMLElement;
             O.style.display = "block";
+            set_zoom(O.style.transform);
         } else {
             (el as HTMLElement).style.display = "none";
         }
     }
     z.focus(O.children[O.children.length - 1] as x);
     z.reflash(true);
+}
+
+function set_zoom(zooms: string) {
+    zoom_o(Number(zooms.match(/scale\((.*)\)/)[1]) || zoom);
 }
 
 type diff_i = diff.Diff<any, any>;
@@ -2339,22 +2445,6 @@ function load_file_side_bar() {
     load_dav.onclick = () => {
         get_all_xln();
     };
-    let new_d = createEl("div");
-    new_d.title = "点击重命名以保存";
-    let new_t = createEl("div");
-    new_t.innerText = `新建集${uuid_id()}`;
-    let dav = createEl("div");
-    new_d.append(dav, new_t);
-    new_d.classList.add("selected_item");
-    new_d.onclick = () => {
-        let fn = prompt("文件名", new_t.innerText);
-        if (fn) {
-            集.meta.file_name = new_t.innerText = fn;
-            db_can_save = true;
-            data_changed();
-        }
-    };
-    文件_el.append(new_d);
 }
 
 /** 获取文件并渲染 */
@@ -2384,9 +2474,9 @@ function db_get() {
             if (`#${f.meta.UUID}` == location.hash) {
                 ihash = true;
                 set_data(f);
-                文件_el.children[1].remove();
                 文件_el.querySelector(`[data-uuid="${f.meta.UUID}"]`).classList.add("selected_item");
                 db_can_save = true;
+                set_save_icon();
             }
         }
 
@@ -2434,8 +2524,8 @@ function reload_file_list() {
         more.classList.add("more");
         let rename = createEl("div");
         rename.innerHTML = icon(edit_svg);
-        rename.onclick = () => {
-            let n = prompt("重命名文件", f.file_name);
+        rename.onclick = async () => {
+            let n = await xprompt("重命名文件", f.file_name);
             if (n) {
                 let customerObjectStore = db.transaction(db_store_name, "readwrite").objectStore(db_store_name);
                 let r = customerObjectStore.get(f.UUID);
@@ -2452,13 +2542,14 @@ function reload_file_list() {
         };
         let rm = createEl("div");
         rm.innerHTML = icon(remove_svg);
-        rm.onclick = () => {
-            let x = confirm(`确定删除画布 ${f.file_name}`);
+        rm.onclick = async () => {
+            let x = await xconfirm(`确定删除文件 ${f.file_name}`);
             if (!x) return;
             let customerObjectStore = db.transaction(db_store_name, "readwrite").objectStore(db_store_name);
             let r = customerObjectStore.delete(f.UUID);
             r.onsuccess = () => {
                 d.remove();
+                if (f.UUID == 集.meta.UUID) window.close();
             };
         };
         more.append(rm, rename);
@@ -2613,6 +2704,30 @@ var save_timeout = NaN,
  * - 本地文件不保存，除非设定保存；
  */
 var db_can_save = false;
+
+/**
+ * 保存文件，can save时上传到云
+ */
+async function save_file() {
+    if (db_can_save) {
+        data_changed();
+        put_xln_value();
+    } else {
+        if (!集.meta.file_name) {
+            let fn = await xprompt("文件名", `新建集${uuid_id()}`);
+            if (fn) {
+                集.meta.file_name = fn;
+            }
+        }
+        db_can_save = true;
+        data_changed();
+        file_list.push(集.meta);
+        load_file_side_bar();
+        reload_file_list();
+        文件_el.querySelector(`[data-uuid="${集.meta.UUID}"]`).classList.add("selected_item");
+    }
+    set_save_icon();
+}
 
 /** 文件状态改变触发 */
 function data_changed() {
@@ -2997,13 +3112,10 @@ class 图层 {
                         pel.firstChild?.before(x);
                         x.onclick = () => {
                             pel.classList.toggle("层ul_hide");
-                            if (pel.classList.contains("层ul_hide")) {
-                                x.src = ul_hide_svg;
-                            } else {
-                                x.src = ul_show_svg;
-                            }
                         };
                     }
+                    if (i.id && get_x_by_id(i.id) && is_flex(get_x_by_id(i.id)) == "flex")
+                        get_x_by_id(i.id).style.setProperty("--z", String(i.子元素.length));
                 }
                 let li = createEl("li");
                 let c = createEl("input");
@@ -3037,12 +3149,12 @@ class 图层 {
                 li.onpointerenter = (e) => {
                     move_to_x_link(get_x_by_id(i.id));
                 };
-                li.onpointerdown = () => {
+                s.onpointerdown = (e) => {
                     jump_to_x_link(get_x_by_id(i.id));
                 };
                 li.onpointermove = (e) => {
                     window.requestAnimationFrame(() => {
-                        set_viewer_posi(e.clientX, e.clientY);
+                        set_viewer_posi(li.offsetWidth + li.getBoundingClientRect().left + 8, e.clientY);
                     });
                 };
                 if (this.聚焦元素.id == i.id && selected_el.length == 1) {
@@ -3086,11 +3198,29 @@ class 图层 {
             text.innerText = `${i.name}`;
             s.append(text);
             li.setAttribute("data-id", i.id);
-            li.append(s);
+            let ul_img = createEl("img");
+            ul_img.src = ul_show_svg;
+            ul_img.onclick = () => {
+                li.classList.toggle("层ul_hide");
+            };
+            s.onclick = () => {
+                for (let el of 画布s.children) {
+                    let this_li = root_ul.querySelector(`li[data-id="${el.id}"]`);
+                    if (el.id == i.id) {
+                        O = el as HTMLElement;
+                        O.style.display = "block";
+                        set_zoom(O.style.transform);
+                        this_li.classList.remove("层ul_hide");
+                    } else {
+                        (el as HTMLElement).style.display = "none";
+                        this_li.classList.add("层ul_hide");
+                    }
+                }
+            };
+            li.append(ul_img, s);
             w(i.data, li);
             if (i.id != 当前画布.id) {
                 li.classList.add("层ul_hide");
-                li.querySelector("img").src = ul_hide_svg;
             }
             let more = createEl("div");
             more.classList.add("more");
@@ -3098,8 +3228,8 @@ class 图层 {
             idel.innerText = i.id;
             let rename = createEl("div");
             rename.innerHTML = icon(edit_svg);
-            rename.onclick = () => {
-                let n = prompt("重命名画布", i.name);
+            rename.onclick = async () => {
+                let n = await xprompt("重命名画布", i.name);
                 if (n) {
                     elFromId(i.id).setAttribute("data-name", n);
                     get_data();
@@ -3108,9 +3238,9 @@ class 图层 {
             };
             let rm = createEl("div");
             rm.innerHTML = icon(remove_svg);
-            rm.onclick = () => {
+            rm.onclick = async () => {
                 if (画布s.children.length == 1) return;
-                let x = confirm(`确定删除画布 ${i.name}`);
+                let x = await xconfirm(`确定删除画布 ${i.name}`);
                 if (!x) return;
                 elFromId(i.id).remove();
                 if (i.id == 当前画布.id) {
@@ -3125,7 +3255,7 @@ class 图层 {
             s.append(more);
             root_ul.append(li);
         }
-        document.documentElement.style.setProperty("--zest-index", String(当前画布.data.length - 1));
+        document.documentElement.style.setProperty("--zest-index", String(当前画布.data.length));
 
         if (!nosave) data_changed();
 
@@ -3371,7 +3501,7 @@ async function get_xln_value(path: string) {
 async function put_xln_value() {
     let path = 集.meta.url;
     if (!path) {
-        let n = window.prompt("上传的文件名", get_file_name());
+        let n = await xprompt("上传的文件名", get_file_name());
         if (!n) return;
         set_title(n);
         path = `/${n}.xln`;
@@ -3578,14 +3708,14 @@ function search(s: string, type: "str" | "regex") {
 }
 
 /** 计算 时间 值 搜索匹配度 距离 */
-function search_score(id: string, search_s: number) {
+function search_score(id: string, search_s: number, time_n?: number, value_n?: number, search_n?: number) {
     const now_t = new Date().getTime();
     const vt = 集.链接[0][id];
     let t = (now_t - vt.time) / 1000 / 60 / 60 / 24 / 7;
     t = 1 / (t + 1);
     let v = vt.value;
     let s = search_s;
-    return Math.sqrt(t ** 2 + (1 * v) ** 2 + (2 * s) ** 2);
+    return Math.sqrt(((time_n || 1) * t) ** 2 + ((value_n || 1) * v) ** 2 + ((search_n || 2) * s) ** 2);
 }
 
 let select_index = 0;
@@ -3743,7 +3873,7 @@ function show_search_l(l: search_result, exid?: string) {
             search_r.append(div);
         }
         let value = createEl("div");
-        value.innerText = `${link(div.getAttribute("data-id")).get_v()}`;
+        value.append(link_value_text(link(div.getAttribute("data-id")).get_v()));
         div.append(value);
     }
     [...search_r.children].forEach((div, i) => {
@@ -3930,8 +4060,15 @@ function move_to_x_link(el: x | xlink) {
         xel.style.top = x.y - out_rect.top + "px";
         xel.className = x.el.className;
         view_el.append(xel);
+        xel.id = x.el.id;
         xel.value = x.el.value;
     }
+    view_el.querySelectorAll("x-x").forEach((xcel: x) => {
+        if (xcel.id == el.id) {
+            xcel.classList.add("viewer_target");
+            return;
+        }
+    });
 }
 
 var now_data_id = "0";
@@ -3954,9 +4091,10 @@ function jump_to_x_link(el: x | xlink, nrc?: boolean) {
                         ey = -y - (el.offsetHeight * zoom) / 2;
                     let t = Math.sqrt((ex - O.offsetLeft) ** 2 + (ey - O.offsetTop) ** 2) / 1.6;
                     O.style.transitionDuration = `${t / 1000}s`;
-                    setTimeout(() => {
+                    O.ontransitioncancel = O.ontransitionend = () => {
                         O.style.transitionDuration = "";
-                    }, t);
+                        render_select_rects();
+                    };
                     zoom_o(Number(O.style.transform.match(/scale\((.*)\)/)[1] || p.p.zoom));
                     set_O_p(ex, ey);
                     if (el.tagName == "X-X") {
@@ -4034,7 +4172,12 @@ function link(key0: string) {
                 delete 集.链接[key0];
             }
         },
-        get: () => {
+        /**
+         * 获取链接
+         * @param chain 关联链接
+         * @returns 指向链接
+         */
+        get: (chain?: number) => {
             let l = { ...集.链接[key0] };
             for (let i in 集.链接[0]) {
                 for (let x in 集.链接[i]) {
@@ -4043,7 +4186,23 @@ function link(key0: string) {
                     }
                 }
             }
-            return l;
+            if (!chain) {
+                return l;
+            } else {
+                let xl: typeof l = {};
+                let walk = (list: typeof l, chain_n: number) => {
+                    for (let i in list) {
+                        let ln = chain_n - list[i].value;
+                        if (ln > 0) {
+                            walk(link(i).get(), ln);
+                        } else {
+                            xl[i] = list[i];
+                        }
+                    }
+                };
+                walk(l, chain);
+                return xl;
+            }
         },
         value: (key1?: string, dv?: number, force?: boolean) => {
             let dt = 5 * 60 * 1000; // 5分钟内增值无效
@@ -4054,14 +4213,14 @@ function link(key0: string) {
                         let nt = new Date().getTime();
                         if (nt - 集.链接[key0][key1].time < dt) return;
                     }
-                    集.链接[key0][key1].value = Math.max(0, 集.链接[key0][key1].value + (dv || 1));
+                    集.链接[key0][key1].value = Math.min(1, Math.max(0, 集.链接[key0][key1].value + (dv || 0.1)));
                     集.链接[key0][key1].time = t;
                 } else if (集.链接[key1][key0]?.value !== undefined) {
                     if (!force) {
                         let nt = new Date().getTime();
                         if (nt - 集.链接[key1][key0].time < dt) return;
                     }
-                    集.链接[key1][key0].value = Math.max(0, 集.链接[key1][key0].value + (dv || 1));
+                    集.链接[key1][key0].value = Math.min(1, Math.max(0, 集.链接[key1][key0].value + (dv || 0.1)));
                     集.链接[key1][key0].time = t;
                 } else {
                     // 只存储在边的一个方向上，以时间换空间
@@ -4099,7 +4258,6 @@ function link(key0: string) {
         },
         衰减: () => {
             for (let i in 集.链接) {
-                if (i == "0") continue;
                 for (let j in 集.链接[i]) {
                     let target = 集.链接[i][j];
                     集.链接[i][j].value = down(target.value, target.time, t);
@@ -4107,17 +4265,8 @@ function link(key0: string) {
                 }
             }
             function down(value: number, t0: number, t1: number) {
-                const one_k = Math.E;
                 const xv_c = 0.9;
                 const xv_s = 8;
-                // 归一
-                function one(number: number) {
-                    return -one_k / (number + one_k) + 1;
-                }
-                // 反归一
-                function one2more(num: number) {
-                    return -one_k - one_k / (num - 1);
-                }
                 // 计算衰减值
                 function x2v(x: number) {
                     return Math.exp((x * Math.log(xv_c)) / xv_s);
@@ -4126,15 +4275,32 @@ function link(key0: string) {
                 function v2x(v: number) {
                     return Math.log(v) * (xv_s / Math.log(xv_c));
                 }
-                let old_x = v2x(one(value));
+                let old_x = v2x(value);
                 // 半天为一个单位
                 let t = (t1 - t0) / 1000 / 60 / 60 / 12;
                 let new_x = t + old_x;
-                let new_v = Math.max(x2v(new_x), 0.1);
-                return one2more(new_v);
+                let new_v = Math.max(x2v(new_x), 1 / 10 ** link_value_precision / 2); // 下限为精度四舍五入后保留1，如2->0.005
+                return new_v;
             }
         },
     };
+}
+
+let link_value_precision = 2;
+
+/**
+ * 返回裁切精度的数值元素，悬浮提示具体
+ * @param num 链接值
+ * @returns span元素
+ */
+function link_value_text(num: number) {
+    let nt = String(num);
+    let span = createEl("span");
+    span.title = nt;
+    let t = "." + num.toFixed(link_value_precision).split(".")[1];
+    if (t == ".00") t = "1";
+    span.innerText = t;
+    return span;
 }
 
 /** 获取父根元素 */
@@ -7235,14 +7401,16 @@ class link_value extends HTMLElement {
         add_el.src = add_svg;
         down_el.src = minus_svg;
         add_el.onclick = () => {
-            link("0").value(this._id, 1, true);
-            this.v.innerText = String(集.链接[0][this._id].value);
+            link("0").value(this._id, 0.1, true);
+            this.v.innerHTML = "";
+            this.v.append(link_value_text(集.链接[0][this._id].value));
             now_data_id = "0";
             add_bci(get_link_el_by_id(this._id));
         };
         down_el.onclick = () => {
-            link("0").value(this._id, -1, true);
-            this.v.innerText = String(集.链接[0][this._id].value);
+            link("0").value(this._id, -0.1, true);
+            this.v.innerHTML = "";
+            this.v.append(link_value_text(集.链接[0][this._id].value));
             now_data_id = "0";
             add_bci(get_link_el_by_id(this._id));
         };
@@ -7250,7 +7418,9 @@ class link_value extends HTMLElement {
         const vl = createEl("div");
         this.append(vl);
         let v_text = (i: string) => {
-            return `#${i} ${link(this._id).get()[i].value.toFixed(2)}`;
+            let span = link_value_text(link(this._id).get()[i].value);
+            span.innerText = `#${i} ` + span.innerText;
+            return span;
         };
         this.v.onclick = () => {
             // 展示链接
@@ -7260,7 +7430,7 @@ class link_value extends HTMLElement {
                 let el = createEl("div");
                 vl.append(el);
                 let n = createEl("div");
-                n.innerText = v_text(i);
+                n.append(v_text(i));
                 el.onpointerover = (e) => {
                     set_viewer_posi(e.clientX, e.clientY);
                     move_to_x_link(get_x_by_id(i));
@@ -7281,11 +7451,13 @@ class link_value extends HTMLElement {
                 down_el.innerHTML = icon(minus_svg);
                 add_el.onclick = () => {
                     link(this._id).value(i, 0.1, true);
-                    n.innerText = v_text(i);
+                    n.innerHTML = "";
+                    n.append(v_text(i));
                 };
                 down_el.onclick = () => {
                     link(this._id).value(i, -0.1, true);
-                    n.innerText = v_text(i);
+                    n.innerHTML = "";
+                    n.append(v_text(i));
                 };
                 el.append(n, add_el, rm, down_el);
             }
@@ -7320,7 +7492,7 @@ class link_value extends HTMLElement {
             search_el.selectionEnd = search_el.value.length;
 
             let x = el_offset(this, document.body).x,
-                y = el_offset(this, document.body).y + this.getBoundingClientRect().height;
+                y = el_offset(this, document.body).y - search_pel.getBoundingClientRect().height - 4;
 
             search_pel.style.left = x + "px";
             search_pel.style.top = y + "px";
@@ -7333,7 +7505,8 @@ class link_value extends HTMLElement {
         this._id = id;
         let v = link(id).get_v();
         if (v) {
-            this.v.innerText = String(link(id).get_v().toFixed(2));
+            this.v.innerHTML = "";
+            this.v.append(link_value_text(link(id).get_v()));
         } else {
             this.v.innerText = "/";
         }
@@ -7713,15 +7886,28 @@ async function to_text(img: HTMLImageElement | HTMLCanvasElement) {
 var ocr_init = false;
 var ocr;
 
+var imported_index: { [key: string]: { loaded: boolean; el: HTMLScriptElement } } = {};
+
 async function import_script(url: string) {
+    if (imported_index[url])
+        return new Promise((re, rj) => {
+            if (imported_index[url].loaded) {
+                re(true);
+            } else
+                imported_index[url].el.addEventListener("load", () => {
+                    re(true);
+                });
+        });
     let script = createEl("script");
     script.src = url;
     console.log(url);
     document.body.append(script);
+    imported_index[url] = { loaded: false, el: script };
     return new Promise((re, rj) => {
-        script.onload = () => {
+        script.addEventListener("load", () => {
+            imported_index[url].loaded = true;
             re(true);
-        };
+        });
     });
 }
 
@@ -7742,9 +7928,9 @@ async function ocr_start() {
 
 // geogebra
 
-let ggb_script = createEl("script");
-ggb_script.src = "https://www.geogebra.org/apps/deployggb.js";
-document.body.append(ggb_script);
+// let ggb_script = createEl("script");
+// ggb_script.src = "https://www.geogebra.org/apps/deployggb.js";
+// document.body.append(ggb_script);
 
 class ggb extends HTMLElement {
     constructor() {
@@ -7754,24 +7940,59 @@ class ggb extends HTMLElement {
     _value;
     applet;
     p;
+    div: HTMLElement;
 
     connectedCallback() {
+        let xel = this.parentElement.parentElement.parentElement;
         this.p = {
-            id: `ggb${this._value}`,
-            width: 500,
-            height: 500,
+            id: this.getid(),
+            width: parseFloat(xel.style.width) || 500,
+            height: parseFloat(xel.style.height) || 500,
+            scale: 1,
             showResetIcon: true,
             borderColor: "white",
             language: "cn",
             ggbBase64: "",
+            // showToolBar: true,
         };
-        this.applet = new window["GGBApplet"](this.p, "5.0");
+        import_script("https://www.geogebra.org/apps/deployggb.js").then(() => {
+            this.applet = new window["GGBApplet"](this.p, "5.0");
+        });
+        let bar = createEl("div");
+        bar.classList.add("ggb_bar");
+        let save = createEl("div");
+        save.innerHTML = icon(save_svg);
+        bar.append(save);
+        this.append(bar);
+        bar.onclick = () => {
+            window[this.p.id]["getBase64"]((v) => {
+                console.log(v);
+                let obase = 集.assets[this._value].base64;
+                集.assets[this._value].base64 = obase.match(/(data:.*?;base64,)/)[1] + v;
+                let sha = CryptoJS.SHA256(集.assets[this._value].base64).toString();
+                集.assets[this._value].sha = sha;
+                data_changed();
+            });
+        };
+        this.div = createEl("div");
+        this.append(this.div);
+        let r = new ResizeObserver((e) => {
+            if (this.applet) {
+                this.applet.getAppletObject().setSize(e[0].contentRect.width, e[0].contentRect.height);
+            }
+        });
+        r.observe(this);
+    }
+    getid() {
+        return `ggb${this._value}${临时中转站.contains(this) ? "zzz" : ""}${assets_el.contains(this) ? "zy" : ""}`;
     }
     async set_m() {
         const url = 集.assets[this._value];
-        this.p.id = `ggb${this._value}`;
+        this.p.id = this.getid();
         this.p.ggbBase64 = url.base64;
-        this.applet.inject(this);
+        import_script("https://www.geogebra.org/apps/deployggb.js").then(() => {
+            this.applet.inject(this.div);
+        });
     }
 
     get value() {
