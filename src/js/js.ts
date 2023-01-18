@@ -30,6 +30,8 @@ import right_svg from "../../assets/icons/right.svg";
 import left_svg from "../../assets/icons/left.svg";
 import copy_svg from "../../assets/icons/copy.svg";
 import save_svg from "../../assets/icons/save.svg";
+import lock_svg from "../../assets/icons/lock.svg";
+import unlock_svg from "../../assets/icons/unlock.svg";
 
 interface x_tag_map {
     "x-x": x;
@@ -52,6 +54,7 @@ interface x_tag_map {
     "x-calendar": calendar;
     "time-b": time_s;
     "x-time": time;
+    "x-link-arrow": link_arrow;
 }
 function createEl<K extends keyof HTMLElementTagNameMap>(tagName: K): HTMLElementTagNameMap[K];
 function createEl<K extends keyof HTMLElementDeprecatedTagNameMap>(tagName: K): HTMLElementDeprecatedTagNameMap[K];
@@ -637,7 +640,13 @@ var o_vb_sb = { x0: 0, y0: 0, x1: 0, y1: 0 };
 var move: boolean = false;
 var select_id = "";
 var fxsd_el = elFromId("方向锁定");
-var fxsd = 0;
+/**
+ * - 0为全向移动
+ * - 1为y
+ * - 2为x
+ * - 3为锁定
+ */
+var fxsd: 0 | 1 | 2 | 3 = 0;
 
 function set_O_p(x: number | null, y: number | null) {
     if (x) {
@@ -657,9 +666,9 @@ function set_O_p(x: number | null, y: number | null) {
 }
 
 fxsd_el.onclick = () => {
-    let o = { 0: 1, 1: 2, 2: 0 };
-    fxsd = o[fxsd];
-    let os = { 0: x_y_svg, 1: y_svg, 2: x_svg };
+    let o = { 0: 1, 1: 2, 2: 3, 3: 0 };
+    fxsd = o[fxsd] as 0 | 1 | 2 | 3;
+    let os = { 0: x_y_svg, 1: y_svg, 2: x_svg, 3: lock_svg };
     fxsd_el.querySelector("img").src = os[fxsd];
 };
 
@@ -831,6 +840,7 @@ var touch_move = (e: TouchEvent) => {
 
 /** 双指缩放 */
 var touch_zoom = (e: TouchEvent) => {
+    if (zoom_lock) return;
     if (o_touch_zoom_e) {
         if (pointer_move) {
             if (free_o_a == -1) return;
@@ -994,6 +1004,7 @@ function render_select_rects() {
                     z.focus(i);
                 }
             }
+            clearTimeout(free_db_time);
         };
 
         return select_bar;
@@ -1030,6 +1041,7 @@ document.addEventListener("dblclick", (e) => {
         if (yl.includes(free_o_a)) el.style.height = "";
         render_select_rects();
     }
+    clearTimeout(free_db_time);
 });
 
 归位.onclick = () => {
@@ -1042,6 +1054,7 @@ document.addEventListener("dblclick", (e) => {
 };
 
 var zoom = 1;
+var zoom_lock = false;
 
 /** 缩放 */
 function zoom_o(z: number) {
@@ -1082,6 +1095,17 @@ zoom_pel.onclick = () => {
     zoom_list.classList.toggle("zoom_list_hide");
 };
 
+let zoom_lock_b = createEl("div");
+zoom_lock_b.innerHTML = icon(unlock_svg);
+zoom_lock_b.onpointerdown = () => {
+    zoom_lock = !zoom_lock;
+    if (zoom_lock) {
+        zoom_lock_b.innerHTML = icon(lock_svg);
+    } else {
+        zoom_lock_b.innerHTML = icon(unlock_svg);
+    }
+};
+zoom_list.append(zoom_lock_b);
 for (let i = 25; i <= 200; i += 25) {
     let op = createEl("div");
     op.innerText = `${i}%`;
@@ -1227,6 +1251,8 @@ function render_map() {
 elFromId("画布").onwheel = (e) => {
     if (e.ctrlKey) {
         e.preventDefault();
+
+        if (zoom_lock) return;
         let ozoom = zoom,
             dzoom = -e.deltaY / (800 / zoom);
         zoom += dzoom;
@@ -1313,6 +1339,9 @@ let free_move = false;
 let free_target_id = "";
 let free_drag = false;
 let free_drag_tip: HTMLElement;
+let free_link: string;
+let free_db_dtime = 300;
+let free_db_time;
 function mu_sel_key(e: MouseEvent) {
     return e.shiftKey;
 }
@@ -1358,6 +1387,11 @@ document.addEventListener("pointermove", (e: PointerEvent) => {
                 }
             }
             free_drag_tip.style.opacity = "0";
+        }
+    }
+    if (模式 == "设计") {
+        if (free_link) {
+            render_link_arrow(free_link, e);
         }
     }
 });
@@ -1461,6 +1495,45 @@ document.addEventListener("pointerup", (e: PointerEvent) => {
         data_changed();
     }
     if (free_drag || free_old_point) z.reflash();
+    if (
+        !free_drag &&
+        !free_move &&
+        free_old_point &&
+        free_o_a != -1 &&
+        !free_o_rects[0].el.querySelector("x-link-arrow")
+    ) {
+        if (!free_link) {
+            let elid = free_o_rects[0].el.id;
+            free_db_time = setTimeout(() => {
+                let id = uuid_id();
+                free_link = id;
+                let x = createEl("x-x");
+                x.id = id;
+                z.push(x);
+                init_value(id, "link_arrow");
+                集.values[id]["link_arrow"]["start"] = { id: elid, a: free_o_a };
+                let arrow = createEl("x-link-arrow");
+                x.append(arrow);
+                x.style.stroke = "var(--color6)";
+                x.style.strokeWidth = "1";
+                x.classList.add("link_arrow_p");
+                selected_el = selected_el.filter((el) => el != x);
+            }, free_db_dtime);
+        } else {
+            集.values[free_link]["link_arrow"]["end"] = { id: free_o_rects[0].el.id, a: free_o_a };
+            render_link_arrow(free_link, e);
+            (elFromId(free_link).querySelector("x-link-arrow") as link_arrow).ob();
+            link(集.values[free_link]["link_arrow"]["start"].id).add(free_o_rects[0].el.id);
+            free_link = "";
+        }
+    }
+    if (free_link) {
+        let el = e.target as HTMLElement;
+        if (!(typeof el?.className == "string" && el.className.includes("xxhandle"))) {
+            z.remove(elFromId(free_link) as x);
+        }
+        free_link = "";
+    }
     free_old_point = null;
     free_move = false;
     free_o_rects = [];
@@ -1597,6 +1670,43 @@ function new_free_drag_tip() {
     document.body.append(free_drag_tip);
 }
 
+function render_link_arrow(id: string, e: PointerEvent) {
+    let xel = elFromId(id);
+    if (!xel) {
+        free_link = "";
+        return;
+    }
+    let svg = xel.querySelector("x-link-arrow") as link_arrow;
+    svg.render(e);
+}
+
+function get_link_arrow_p(id: string, a: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7): p_point {
+    let xel = elFromId(id);
+    let x = 0,
+        y = 0,
+        rect = el_offset2(xel, O);
+    if (a == 7 || a == 3 || a == 6) x = rect.x;
+    if (a == 0 || a == 2) x = rect.x + rect.w / 2;
+    if (a == 4 || a == 1 || a == 5) x = rect.x + rect.w;
+    if (a == 7 || a == 0 || a == 4) y = rect.y;
+    if (a == 3 || a == 1) y = rect.y + rect.h / 2;
+    if (a == 6 || a == 2 || a == 5) y = rect.y + rect.h;
+    return { x, y };
+}
+function get_link_arrow_a(p: p_point, a: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7): p_point {
+    let dx = 0,
+        dy = 0;
+    const x = 60,
+        y = 60;
+    if (a == 7 || a == 3 || a == 6) dx = -x;
+    if (a == 0 || a == 2) dx = 0;
+    if (a == 4 || a == 1 || a == 5) dx = x;
+    if (a == 7 || a == 0 || a == 4) dy = -y;
+    if (a == 3 || a == 1) dy = 0;
+    if (a == 6 || a == 2 || a == 5) dy = y;
+    return { x: p.x + dx, y: p.y + dy };
+}
+
 /** 通过画布坐标创建主元素 */
 function create_x_x(x: number, y: number) {
     let xel = createEl("x-x");
@@ -1724,6 +1834,10 @@ document.onkeydown = (e) => {
         case "Escape":
             if (模式 == "浏览") {
                 if (!侧栏.contains(target)) set_模式("设计");
+            }
+            if (free_link) {
+                z.remove(elFromId(free_link) as x);
+                free_link = "";
             }
             break;
         case "ArrowUp":
@@ -2070,6 +2184,8 @@ function version_tr(obj): 集type {
         case "0.20.0":
         case "0.20.1":
         case "0.20.2":
+        case "0.20.3":
+        case "0.21.0":
             return obj;
         default:
             put_toast(`文件版本是 ${v}，与当前软件版本 ${packagejson.version} 不兼容，请升级软件`);
@@ -3282,6 +3398,7 @@ class 图层 {
     remove(el: x) {
         link(el.id).rm();
         el.remove();
+        delete 集.values[el.id];
         get_data();
         this.reflash();
     }
@@ -3889,6 +4006,8 @@ function show_g_search() {
     search_pel.style.width = "";
     search_el.focus();
     search_pel.setAttribute("data-fid", "0");
+    let l = search(search_el.value, "str");
+    show_search_l(l);
 }
 
 let now_focus_id = "0";
@@ -3993,7 +4112,7 @@ function is_smallest_el(el: x | xlink) {
 function show_link_value_bar(el: x | xlink) {
     if (模式 != "浏览") return;
     link_value_bar.style.left = el_offset(el, 画布).x + "px";
-    link_value_bar.style.top = el_offset(el, 画布).y - link_value_bar.querySelector("div").offsetHeight + "px";
+    link_value_bar.style.top = el_offset(el, 画布).y - link_value_bar.offsetHeight + 4 + "px";
     link_value_bar.elid = el.id;
     if (!search_pel.getAttribute("data-fid") && el.id != now_focus_id) {
         search_el.blur();
@@ -4297,8 +4416,14 @@ function link_value_text(num: number) {
     let nt = String(num);
     let span = createEl("span");
     span.title = nt;
-    let t = "." + num.toFixed(link_value_precision).split(".")[1];
-    if (t == ".00") t = "1";
+    let l = num.toFixed(link_value_precision).split(".");
+    let t = "";
+    if (l[0] == "0") {
+        t = "." + l[1];
+    } else {
+        t = l.join(".");
+    }
+    if (l[1] == "00") t = l[0];
     span.innerText = t;
     return span;
 }
@@ -4566,6 +4691,11 @@ function get_nearest_x(x: x, a: "left" | "right" | "up" | "down") {
         }
     }
     return x;
+}
+
+function init_value(id: string, type: string) {
+    if (!集.values[id]) 集.values[id] = {};
+    if (!集.values[id][type]) 集.values[id][type] = {};
 }
 
 window["xln"] = {};
@@ -5015,10 +5145,11 @@ function get_svg(c: string) {
         (function () {
             if (will_load_math) return;
             let s = createEl("script");
-            s.src = "https://unpkg.com/mathjax@3.2.2/es5/tex-svg-full.js";
-            s.async = true;
             will_load_math = true;
-            document.body.append(s);
+            import("../../lib/mathjax@3.2.2-tex-svg-full.js?raw").then((v) => {
+                s.innerText = v.default;
+                document.body.append(s);
+            });
         })();
     }
     return html;
@@ -7462,29 +7593,29 @@ class link_value extends HTMLElement {
                 el.append(n, add_el, rm, down_el);
             }
 
+            this.style.top = el_offset(this).y - vl.offsetHeight + "px";
+
             // 搜索
             let v = "";
-            if (vl.innerHTML == "") {
-                let el = get_x_by_id(this._id);
-                if (el.tagName == "X-X") {
-                    let w = (v: data) => {
-                        for (let i of v) {
-                            if (i.type == "X-MD") {
-                                return JSON.parse(i.value).text;
-                            } else {
-                                if (i.子元素) return w(i.子元素);
-                                else return "";
-                            }
+            let el = get_x_by_id(this._id);
+            if (el.tagName == "X-X") {
+                let w = (v: data) => {
+                    for (let i of v) {
+                        if (i.type == "X-MD") {
+                            return JSON.parse(i.value).text;
+                        } else {
+                            if (i.子元素) return w(i.子元素);
+                            else return "";
                         }
-                    };
-                    v = w(get_x_by_id(this._id).value);
-                } else {
-                    v = el.innerText;
-                }
-                let l = search(v, "str");
-                console.log(l);
-                show_search_l(l, this._id);
+                    }
+                };
+                v = w(get_x_by_id(this._id).value);
+            } else {
+                v = el.innerText;
             }
+            let l = search(v, "str");
+            console.log(l);
+            show_search_l(l, this._id);
 
             search_el.value = v;
             search_el.focus();
@@ -7492,7 +7623,7 @@ class link_value extends HTMLElement {
             search_el.selectionEnd = search_el.value.length;
 
             let x = el_offset(this, document.body).x,
-                y = el_offset(this, document.body).y - search_pel.getBoundingClientRect().height - 4;
+                y = el_offset(this, document.body).y - search_pel.getBoundingClientRect().height;
 
             search_pel.style.left = x + "px";
             search_pel.style.top = y + "px";
@@ -8395,3 +8526,77 @@ setInterval(() => {
         el.render();
     });
 });
+
+class link_arrow extends HTMLElement {
+    constructor() {
+        super();
+    }
+    svg: SVGSVGElement;
+    r: MutationObserver;
+    connectedCallback() {
+        this.svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+        this.append(this.svg);
+        setTimeout(() => {
+            this.render(now_mouse_e as PointerEvent);
+        }, 1000);
+        this.r = new MutationObserver((e) => {
+            if (!集.values[this.parentElement.id]) {
+                this.r.disconnect();
+                return;
+            }
+            this.render(null);
+        });
+        this.ob();
+    }
+
+    render(e: PointerEvent) {
+        let xel = this.parentElement as x;
+        let id = xel.id;
+        let value = 集.values[id]["link_arrow"];
+        let start_p = get_link_arrow_p(value.start.id, value.start.a);
+        let end_p = value.end ? get_link_arrow_p(value.end.id, value.end.a) : e2p(e);
+        let p = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        let t = `translate(${-el_offset2(xel).x},${-el_offset2(xel).y})`;
+        p.setAttribute("transform", t);
+        let start_a = value.start.a;
+        let end_a;
+        if (typeof value?.end?.a == "number") end_a = value.end.a;
+        else end_a = start_a < 4 ? (start_a + 2) % 4 : ((start_a - 4 + 2) % 4) + 4;
+        if (e) {
+            let el = e.target as HTMLElement;
+            if (
+                el.parentElement.getAttribute("data-id") != xel.id &&
+                typeof el?.className == "string" &&
+                el.className.includes("xxhandle")
+            )
+                end_a = Number(el.className.replace("xxhandle", "")) || end_a;
+        }
+        let start_ctrl = get_link_arrow_a(start_p, start_a),
+            end_ctrl = get_link_arrow_a(end_p, end_a);
+        let at = `M ${start_p.x} ${start_p.y} C ${start_ctrl.x} ${start_ctrl.y}, ${end_ctrl.x} ${end_ctrl.y}, ${end_p.x} ${end_p.y}`;
+        p.setAttribute("d", at);
+        this.svg.innerHTML = "";
+        this.svg.append(p);
+        let r = el_offset2(p, O);
+        xel.style.left = r.x + "px";
+        xel.style.top = r.y + "px";
+        xel.style.width = r.w + "px";
+        xel.style.height = r.h + "px";
+        let t2 = `translate(${-r.x},${-r.y})`;
+        p.setAttribute("transform", t2);
+    }
+
+    ob() {
+        let value = 集.values[this.parentElement.id]["link_arrow"];
+        if (value.end) {
+            this.r.observe(elFromId(value.start.id), { attributes: true, attributeFilter: ["style"] });
+            this.r.observe(elFromId(value.end.id), { attributes: true, attributeFilter: ["style"] });
+        }
+    }
+
+    get value() {
+        return "";
+    }
+}
+
+window.customElements.define("x-link-arrow", link_arrow);
