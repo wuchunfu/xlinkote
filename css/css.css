@@ -541,11 +541,42 @@ body #main > #nav #ink_r {
 }
 
 .侧栏 > #items > #层容器 > div:nth-child(2) {
-    top: var(--icon-p-b-size);
     background-color: var(--bg1);
 }
 #xywh > input {
     width: 25%;
+}
+#el_style > :not(:last-child) {
+    @apply font-mono;
+}
+#el_style > :not(:last-child) > input {
+    min-width: 1em;
+    @apply inline-block align-bottom outline-none;
+}
+#el_style > :not(:last-child) > :nth-child(2) {
+    color: var(--main-color);
+}
+#el_style > :last-child {
+    @apply relative h-4;
+}
+#el_style > :last-child > .icon {
+    @apply w-4 h-4;
+}
+#style_com_list {
+    @apply absolute bar max-h-36 max-w-full overflow-auto px-1 rounded-sm;
+    box-shadow: var(--shadow1);
+}
+#style_com_list > div {
+    @apply whitespace-nowrap;
+}
+#style_com_list > div > span > span {
+    @apply font-medium;
+}
+.style_color {
+    @apply inline-block w-4 h-4 rounded;
+}
+.style_com_list_hide {
+    @apply opacity-0 pointer-events-none;
 }
 .层容器 > #层 {
     @apply overflow-auto;
@@ -969,7 +1000,7 @@ body > #main > #画布 > x-link-value > div:nth-child(2) > div > div > .icon {
 }
 
 .breadcrumbs {
-    @apply absolute overflow-hidden flex bg-white dark:bg-black transition-all;
+    @apply absolute overflow-auto flex bg-white dark:bg-black transition-all gap-2;
     top: var(--icon-p-b-size);
     left: var(--icon-p-b-size);
     width: calc(100vw - var(--icon-p-b-size));
@@ -977,14 +1008,7 @@ body > #main > #画布 > x-link-value > div:nth-child(2) > div > div > .icon {
 }
 
 .bci {
-    @apply flex items-end gap-2 flex-grow text-xs;
-}
-
-#bc_sw {
-    @apply relative w-4 h-4 cursor-pointer;
-}
-#bc_sw > .icon {
-    @apply w-4 h-4;
+    @apply text-xs;
 }
 
 body > #搜索 {
@@ -1117,7 +1141,11 @@ x-sinppet {
     overflow: auto;
 }
 x-sinppet > div {
-    @apply flex flex-wrap;
+    @apply flex flex-wrap gap-1;
+    filter: var(--icon-color);
+}
+x-sinppet > div > img:hover {
+    background-color: var(--bg-color1);
 }
 
 .add_tag {
@@ -1217,12 +1245,6 @@ x-link-arrow > svg > path {
 x-md {
     position: relative;
     display: block;
-}
-#t_md {
-    width: 16px;
-    height: 16px;
-    border-radius: 4px;
-    box-shadow: var(--shadow1);
 }
 x-md > textarea {
     position: absolute;
@@ -1474,6 +1496,38 @@ x-progress > div {
     @apply h-full;
 }
 
+x-graph {
+    @apply relative block w-full h-full;
+}
+x-graph > #t_md {
+    @apply absolute left-0 top-0 z-10 flex gap-1 opacity-0;
+    transform: scale(calc(1 / var(--zoom)));
+    transform-origin: left top;
+    transition: opacity var(--transition);
+}
+x-graph:hover > #t_md {
+    @apply opacity-100;
+}
+x-graph > #t_md > div {
+    @apply bar;
+    width: 16px;
+    height: 16px;
+    border-radius: 4px;
+    box-shadow: var(--shadow1);
+}
+x-graph > div:not(#t_md) {
+    @apply w-full h-full;
+}
+
+x-graph > textarea {
+    @apply absolute top-full bar resize;
+    border-radius: 4px;
+    box-shadow: var(--shadow1);
+}
+.hide_jxg_text {
+    display: none;
+}
+
 x-ggb {
     @apply block relative;
 }
@@ -1503,21 +1557,19 @@ x-ggb > :not(.ggb_bar) {
 
 x-audio {
     @apply flex items-center gap-1;
-    height: 2em !important;
-    width: fit-content !important;
     background-color: var(--bg-color2);
     backdrop-filter: var(--blur);
     border-radius: 4px;
 }
 .audio_button {
-    @apply relative w-8 h-8 flex-shrink-0;
+    @apply relative w-6 h-6 flex-shrink-0;
 }
 .audio_button > .icon {
-    @apply w-8 h-8;
+    @apply w-6 h-6;
 }
 
 .audio_jd {
-    @apply w-64 h-1 flex-shrink-0 rounded-full overflow-hidden;
+    @apply h-1 flex-shrink-0 rounded-full overflow-hidden flex-grow;
     transition: var(--transition);
     background-color: var(--bg-color3);
 }
@@ -1534,10 +1586,10 @@ x-audio {
     width: 48px !important;
 }
 .audio_yl > :nth-child(2) {
-    @apply relative w-8 h-8 flex-shrink-0;
+    @apply relative w-6 h-6 flex-shrink-0;
 }
 .audio_yl > :nth-child(2) > .icon {
-    @apply w-8 h-8;
+    @apply w-6 h-6;
 }
 .audio_yl > :nth-child(1) {
     width: 0;
@@ -1552,7 +1604,7 @@ x-audio {
     background-color: var(--color6);
 }
 .asr {
-    @apply relative w-8 h-8;
+    @apply relative w-6 h-6;
 }
 
 x-calendar {
@@ -1684,11 +1736,8 @@ x-link {
     #导航 > div > .icon {
         @apply w-6 h-6 !important;
     }
-    x-sinppet > div {
-        zoom: 1.5;
-    }
-    x-sinppet > div > span {
-        margin: 0 4px;
+    x-sinppet > div > img {
+        padding: 8px;
     }
 }
 
@@ -1778,6 +1827,15 @@ x-link {
         top: 0;
         left: 0;
         width: 100vw;
+    }
+    body > #搜索 {
+        position: absolute;
+        top: 16px;
+        left: 16px;
+        width: calc(100vw - 16px * 2);
+    }
+    body > #搜索 > #搜索结果 {
+        max-height: 40vh;
     }
 }
 

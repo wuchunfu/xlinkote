@@ -10,6 +10,7 @@
     <link rel="manifest" href="./manifest.json">
     <link rel="icon" href="./logo/logo.svg" type="image/x-icon">
     <link rel="apple-touch-icon" href="./logo/logo.svg">
+    <link rel="stylesheet" href="css/css.css">
 </head>
 
 <body>
@@ -115,14 +116,15 @@
                     <div id="转为一行" title="转为一行"><img src="./assets/icons/to_one_line.svg" class="icon"></div>
                     <div id="拆分为多行" title="拆分为多行"><img src="./assets/icons/to_more_line.svg" class="icon"></div>
                 </div>
-                <div class="z-10">
+                <div class="z-10 relative">
                     <div class="w-full flex" id="xywh">
                         <input type="number" name="xywh_x" id="xywh_x">
                         <input type="number" name="xywh_y" id="xywh_y">
                         <input type="number" name="xywh_w" id="xywh_w">
                         <input type="number" name="xywh_h" id="xywh_h">
                     </div>
-                    <textarea name="style" id="el_style" class="w-full"></textarea>
+                    <div id="el_style" class="w-full"></div>
+                    <div id="style_com_list"></div>
                 </div>
                 <div id="层"></div>
             </div>
@@ -158,6 +160,7 @@
                     <div id="x-record" title="新建录音机"><img src="./assets/icons/record.svg" class="icon"></div>
                     <div id="x-calendar" title="新建日历"><img src="./assets/icons/calendar.svg" class="icon"></div>
                     <div id="x-time" title="新建计时器"><img src="./assets/icons/time.svg" class="icon"></div>
+                    <div id="x-graph" title="新建几何容器"><img src="./assets/icons/graph.svg" class="icon"></div>
                 </div>
                 <div id="临时"></div>
             </div>
@@ -245,13 +248,7 @@
             </div>
         </div>
     </div>
-    <div id="breadcrumbs" class="breadcrumbs">
-        <div class="bci" data-id="0">
-            <div></div>
-            <div></div>
-        </div>
-        <div id="bc_sw"><img src="./assets/icons/ul_hide2.svg" class="icon"></div>
-    </div>
+    <div id="breadcrumbs" class="breadcrumbs hide_scrool_bar"></div>
     <div id="搜索">
         <input type="search" id="search" autocomplete="off" spellcheck="false">
         <div id="搜索结果"></div>
