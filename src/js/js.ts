@@ -30,6 +30,7 @@ import copy_svg from "../../assets/icons/copy.svg";
 import save_svg from "../../assets/icons/save.svg";
 import lock_svg from "../../assets/icons/lock.svg";
 import unlock_svg from "../../assets/icons/unlock.svg";
+import arrow_markers_svg from "../../assets/icons/arrow_markers.svg";
 
 interface x_tag_map {
     "x-x": x;
@@ -131,11 +132,6 @@ var search_el = elFromId("search") as HTMLInputElement;
 var search_r = elFromId("搜索结果");
 var search_pel = elFromId("搜索");
 
-var cmd_el = elFromId("命令框") as HTMLInputElement;
-var cmd_r = elFromId("命令输出");
-var cmd_pel = cmd_el.parentElement;
-cmd_pel.classList.add("cmd_hide");
-
 const view_el = elFromId("viewer");
 
 const ink_el = elFromId("ink") as HTMLCanvasElement;
@@ -226,7 +222,7 @@ function clip(value: number, min: number, max: number) {
 
 // 获取设置
 type setting = typeof default_setting;
-var store: setting = JSON.parse(localStorage.getItem("config"));
+var store: setting = JSON5.parse(localStorage.getItem("config"));
 const default_setting = {
     webdav: { 网址: "", 用户名: "", 密码: "", 自动上传: "0", 加密密钥: "" },
     ink: {
@@ -280,7 +276,7 @@ if ("serviceWorker" in navigator) {
 }
 
 import pack from "../../package.json?raw";
-const packagejson = JSON.parse(pack);
+const packagejson = JSON5.parse(pack);
 
 // 工具栏
 
@@ -1083,7 +1079,7 @@ function zoom_o(z: number) {
     });
 
     document.querySelectorAll("x-graph").forEach((el: graph) => {
-        el.run(el.text.value);
+        el.reflasth();
     });
 }
 
@@ -1535,7 +1531,8 @@ document.addEventListener("pointerup", (e: PointerEvent) => {
                 z.push(x);
                 let arrow = createEl("x-link-arrow");
                 x.append(arrow);
-                arrow._value.start = { id: elid, a: free_o_a };
+                arrow._value.start.id = elid;
+                arrow._value.start.a = free_o_a;
                 x.style.stroke = "var(--color6)";
                 x.style.strokeWidth = "1";
                 x.classList.add("link_arrow_p");
@@ -1543,7 +1540,8 @@ document.addEventListener("pointerup", (e: PointerEvent) => {
             }, free_db_dtime);
         } else {
             let arrow = elFromId(free_link).querySelector("x-link-arrow") as link_arrow;
-            arrow._value.end = { id: free_o_rects[0].el.id, a: free_o_a };
+            arrow._value.end.id = free_o_rects[0].el.id;
+            arrow._value.end.a = free_o_a;
             render_link_arrow(free_link, e);
             arrow.ob();
             link(arrow._value.start.id).add(free_o_rects[0].el.id);
@@ -1811,12 +1809,6 @@ document.onkeydown = (e) => {
                 归位.click();
             }
             break;
-        case "/":
-            if (e.ctrlKey) {
-                e.preventDefault();
-                elFromId("toggle_md").click();
-            }
-            break;
         case "0":
             if (e.ctrlKey) {
                 let ozoom = zoom,
@@ -1917,7 +1909,7 @@ type 集type = {
         slide?: ys_type;
     };
     数据: 画布type[];
-    链接: { [key: string]: { [key: string]: { value?: number; time?: number } } };
+    链接: { [key: string]: { [key: string]: { value?: number; time?: number; s: number } } };
     assets: { [key: string]: { url: string; base64: string; sha: string } };
     中转站: data;
     values: { [key: string]: { [key: string]: any } };
@@ -2039,14 +2031,36 @@ function rename_el() {
 }
 
 /**
+ * 判断版本>=
+ * @param v 版本
+ * @param v2 版本
+ * @returns if v>=v2
+ */
+function version_is_big(v: string, v2: string) {
+    let vl = v.split(".").map((n) => Number(n));
+    let vl2 = v2.split(".").map((n) => Number(n));
+    return Boolean(vl[0] >= vl2[0] && vl[1] >= vl2[1] && vl[2] >= vl2[2]);
+}
+
+/**
+ * 判断版本是否处于区间
+ * @param v 版本
+ * @param min 最小
+ * @param max 最大
+ */
+function version_in(v: string, min: string, max: string) {
+    return Boolean(version_is_big(v, min) && version_is_big(max, v));
+}
+
+/**
  * 转换旧版本集到新版本
  * @param obj 输入集
  * @returns 输出集
  */
 function version_tr(obj): 集type {
     let v = obj.meta.version || "";
-    switch (v) {
-        case "":
+    switch (true) {
+        case v == "":
             if (!obj.链接) obj["链接"] = { 0: {} };
             if (!obj.链接["0"]) obj.链接[0] = {};
             if (!obj.assets) obj["asstes"] = {};
@@ -2060,7 +2074,7 @@ function version_tr(obj): 集type {
                 obj.链接[i] = o;
             }
             obj.meta["version"] = "0.4.2";
-        case "0.4.2":
+        case version_in(v, "0.4.2", "0.4.2"):
             for (let i of obj.数据) {
                 for (let j of i.data) {
                     let type = "";
@@ -2085,13 +2099,7 @@ function version_tr(obj): 集type {
                 }
             }
             obj.meta.version = "0.5.0";
-        case "0.5.0":
-        case "0.6.0":
-        case "0.6.1":
-        case "0.6.2":
-        case "0.6.3":
-        case "0.6.4":
-        case "0.6.5":
+        case version_in(v, "0.5.0", "0.6.5"):
             for (let i of obj.数据) {
                 i["id"] = uuid_id();
                 if (obj.meta.focus_page == i.name) {
@@ -2099,34 +2107,10 @@ function version_tr(obj): 集type {
                 }
             }
             obj.meta.version = "0.6.6";
-        case "0.6.6":
-        case "0.6.7":
-        case "0.6.8":
-        case "0.7.0":
-        case "0.7.1":
-        case "0.8.0":
-        case "0.8.1":
-        case "0.8.2":
-        case "0.8.3":
-        case "0.8.4":
-        case "0.8.5":
-        case "0.8.6":
-        case "0.8.7":
-        case "0.8.8":
-        case "0.9.0":
-        case "0.9.1":
-        case "0.9.2":
-        case "0.9.3":
-        case "0.9.4":
-        case "0.9.5":
-        case "0.10.0":
-        case "0.10.1":
-        case "0.10.2":
-        case "0.10.3":
+        case version_in(v, "0.6.6", "0.10.3"):
             obj["extra"] = { style: "" };
             obj.meta.version = "0.10.4";
-        case "0.10.4":
-        case "0.10.5":
+        case version_in(v, "0.10.4", "0.10.5"):
             for (let i of obj.数据) {
                 w(i.data);
             }
@@ -2143,36 +2127,14 @@ function version_tr(obj): 集type {
                 }
             }
             obj.meta.version = "0.11.0";
-        case "0.11.0":
-        case "0.11.1":
+        case version_in(v, "0.11.0", "0.11.1"):
             obj["values"] = {};
             obj.meta.version = "0.11.2";
-        case "0.11.2":
-        case "0.11.3":
-        case "0.11.4":
-        case "0.11.5":
-        case "0.12.0":
-        case "0.12.1":
-        case "0.12.2":
-        case "0.12.3":
-        case "0.12.4":
-        case "0.12.5":
-        case "0.12.6":
-        case "0.13.0":
+        case version_in(v, "0.11.2", "0.13.0"):
             obj.meta["create_time"] = new Date().getTime();
             obj.meta["change_time"] = new Date().getTime();
-            obj.meta.version = "0.13.0";
-        case "0.13.1":
-        case "0.14.0":
-        case "0.14.1":
-        case "0.14.2":
-        case "0.14.3":
-        case "0.15.0":
-        case "0.16.0":
-        case "0.16.1":
-        case "0.16.2":
-        case "0.17.0":
-        case "0.17.1":
+            obj.meta.version = "0.13.1";
+        case version_in(v, "0.13.1", "0.17.1"):
             {
                 for (let i of obj.数据) {
                     w(i.data);
@@ -2185,20 +2147,12 @@ function version_tr(obj): 集type {
                 }
             }
             obj.meta.version = "0.17.2";
-        case "0.17.2":
-        case "0.17.3":
+        case version_in(v, "0.17.2", "0.17.3"):
             delete obj.链接[""];
             delete obj.链接["0"][""];
             delete obj.链接["0"]["0"];
             obj.meta.version = "0.17.4";
-        case "0.17.4":
-        case "0.17.5":
-        case "0.18.0":
-        case "0.19.0":
-        case "0.19.1":
-        case "0.19.2":
-        case "0.19.3":
-        case "0.19.4":
+        case version_in(v, "0.17.4", "0.19.4"):
             const one_k = Math.E;
             for (let i in obj.链接) {
                 for (let j in obj.链接[i]) {
@@ -2211,19 +2165,14 @@ function version_tr(obj): 集type {
                 }
             }
             obj.meta.version = "0.20.0";
-        case "0.20.0":
-        case "0.20.1":
-        case "0.20.2":
-        case "0.20.3":
-        case "0.21.0":
-        case "0.21.1":
-        case "0.21.2":
-        case "0.21.3":
-        case "0.21.4":
-        case "0.21.5":
-        case "0.21.6":
-        case "0.21.7":
-        case "0.21.8":
+        case version_in(v, "0.20.0", "0.21.8"):
+            for (let i in obj.链接) {
+                for (let j in obj.链接[i]) {
+                    obj.链接[i][j]["s"] = default_down_s;
+                }
+            }
+            obj.meta.version = "0.22.0";
+        case version_in(v, "0.22.0", "0.22.0"):
             return obj;
         default:
             put_toast(`文件版本是 ${v}，与当前软件版本 ${packagejson.version} 不兼容，请升级软件`);
@@ -2498,7 +2447,7 @@ function xln_out(obj: 集type) {
 }
 
 function xln_in(t: string) {
-    let obj = JSON.parse(t);
+    let obj = JSON5.parse(t);
     return obj;
 }
 
@@ -2739,7 +2688,7 @@ function db_download() {
 
 /** 上传数据库 */
 function db_load(t: string) {
-    let o = JSON.parse(t);
+    let o = JSON5.parse(t);
     let customerObjectStore = db.transaction(db_store_name, "readwrite").objectStore(db_store_name);
     for (let obj of o) {
         let r = customerObjectStore.put(obj);
@@ -2797,7 +2746,7 @@ function get_undo_s(i: number): { s: selection_type[]; data: 集type } {
 }
 
 function clone(obj: object) {
-    return JSON.parse(JSON.stringify(obj));
+    return JSON5.parse(JSON.stringify(obj));
 }
 
 function push_undo() {
@@ -2976,7 +2925,7 @@ function add_file(type: string, text: string, data: string, x: number, y: number
 /** 摘录 */
 document.addEventListener("message", (msg: any) => {
     alert(msg.data);
-    const data = JSON.parse(msg.data);
+    const data = JSON5.parse(msg.data);
     if (data.m == "add") {
         if (集.meta.file_name != "摘录") {
             // 是否存在摘录文件
@@ -3562,7 +3511,7 @@ function load_xywh() {
 }
 
 import css_properties_file from "../../lib/css/CSSProperties.json?raw";
-const css_properties = JSON.parse(css_properties_file) as {
+const css_properties = JSON5.parse(css_properties_file) as {
     pv: { [key: string]: { values: string[]; type?: string } };
     color: string[];
 };
@@ -3820,7 +3769,7 @@ async function get_xln_value(path: string) {
     })) as string;
     let o: any;
     try {
-        o = JSON.parse(<string>str);
+        o = JSON5.parse(<string>str);
     } catch (e) {
         if (store.webdav.加密密钥) {
             let b = (await client.getFileContents(path, {
@@ -3835,7 +3784,7 @@ async function get_xln_value(path: string) {
             const firstEntry = (await zipReader.getEntries())[0];
             str = await firstEntry.getData(zipWriter, { password: store.webdav.加密密钥 });
             await zipReader.close();
-            o = JSON.parse(<string>str);
+            o = JSON5.parse(<string>str);
         }
     }
     now_dav_data = str;
@@ -3951,7 +3900,7 @@ function arter_save_setting() {
 }
 
 function show_setting() {
-    let setting = JSON.parse(localStorage.getItem("config"));
+    let setting = JSON5.parse(localStorage.getItem("config"));
     for (let f in setting) {
         let fel = document.querySelector(`form[name="${f}"]`);
         for (let k in setting[f]) {
@@ -3983,20 +3932,23 @@ type search_result = {
     type?: "str" | "regex";
     score: number;
 }[];
-function search(input: string, type: "str" | "regex") {
+function search(input: string[], type: "str" | "regex") {
     let x = search_cmd(input);
     let s = x.str;
     let result = [] as search_result;
+    let sr: search_result = [];
+    let chainr: search_result = [];
+    let other: search_result = [];
+    let has_id = {};
     画布s.querySelectorAll("x-md, x-pdf").forEach((el: HTMLElement) => {
         let text = "";
         if (el.tagName == "X-MD") {
-            text = JSON.parse((el as markdown).value).text;
+            text = JSON5.parse((el as markdown).value).text;
         } else if (el.tagName == "X-PDF") {
             text = (el as pdf_viewer).text.innerText;
         } else {
             text = el.innerText;
         }
-        let is_search = false;
         switch (type) {
             case "str":
                 const fuse = new Fuse(text.split("\n"), {
@@ -4007,8 +3959,7 @@ function search(input: string, type: "str" | "regex") {
                 });
                 let fr = fuse.search(s);
                 for (let i of fr) {
-                    is_search = true;
-                    result.push({
+                    sr.push({
                         id: el.parentElement.id,
                         l: i.matches,
                         n: i.refIndex,
@@ -4030,8 +3981,7 @@ function search(input: string, type: "str" | "regex") {
                     l.push({ value: i, indices: s_i(i, text).map((v) => [v, v + i.length]) });
                 }
                 if (l.length != 0) {
-                    is_search = true;
-                    result.push({
+                    sr.push({
                         id: el.parentElement.id,
                         l,
                         score: search_score(el.parentElement.id, 1, x.t, x.v, x.s, x.opsit),
@@ -4039,13 +3989,20 @@ function search(input: string, type: "str" | "regex") {
                 }
                 break;
         }
-        if (!is_search) {
-            result.push({
-                id: el.parentElement.id,
+        // 链式搜索
+        let c = link(el.parentElement.id).get(1);
+        for (let i in c) {
+            chainr.push({
+                id: i,
                 score: search_score(el.parentElement.id, 0, x.t, x.v, x.s, x.opsit),
-                text: text,
             });
         }
+
+        other.push({
+            id: el.parentElement.id,
+            score: search_score(el.parentElement.id, 0, x.t, x.v, x.s, x.opsit),
+            text: text,
+        });
     });
 
     function s_i(t: string, st: string) {
@@ -4059,17 +4016,32 @@ function search(input: string, type: "str" | "regex") {
         }
         return l;
     }
+    for (let i of sr) {
+        has_id[i.id] = true;
+        result.push(i);
+    }
+    for (let i of chainr) {
+        if (!has_id[i.id]) {
+            result.push(i);
+            has_id[i.id] = true;
+        }
+    }
+    for (let i of other) {
+        if (!has_id[i.id]) {
+            result.push(i);
+            has_id[i.id] = true;
+        }
+    }
     return result;
 }
 
-function search_cmd(str: string) {
+function search_cmd(str: string[]) {
     let op = false,
         s = 2,
         v = 1,
         t = 1;
-    let l = str.split("  ");
-    if (l[1]) {
-        let ll = l[1].trim().split(/\s+/);
+    if (str[1]) {
+        let ll = str.slice(1);
         if (ll[0] == "-") {
             op = true;
             ll.splice(0, 1);
@@ -4084,7 +4056,7 @@ function search_cmd(str: string) {
             t = Number(ll[2]);
         }
     }
-    return { str: l[0], s, v, t, opsit: op };
+    return { str: str[0] || "", s, v, t, opsit: op };
 }
 
 /** 计算 时间 值 搜索匹配度 距离 */
@@ -4107,18 +4079,23 @@ function search_score(
 
 let select_index = 0;
 search_el.oninput = search_el.click = () => {
-    let l = search(search_el.value, "str");
-    console.log(l);
-    show_search_l(l);
-    if (l.length == 0) {
-        view_el.classList.add("viewer_hide");
-        return;
+    let arg = cmd(search_el.value);
+    if (arg.name == "s") {
+        let l = search(arg.args, "str");
+        show_search_l(l);
+        if (l.length == 0) {
+            view_el.classList.add("viewer_hide");
+            return;
+        }
+        select_index = clip(select_index, 0, l.length - 1); // 搜索记录上次定位
+        let el = select_search(select_index);
+        move_to_x_link(get_link_el_by_id(el.getAttribute("data-id")));
+        let r = el.getBoundingClientRect();
+        set_viewer_posi(r.x + r.width, r.y);
     }
-    select_index = Math.min(select_index, l.length - 1); // 搜索记录上次定位
-    let el = select_search(select_index);
-    move_to_x_link(get_link_el_by_id(el.getAttribute("data-id")));
-    let r = el.getBoundingClientRect();
-    set_viewer_posi(r.x + r.width, r.y);
+    if (arg.name == "type") {
+        show_md_type_l(arg.args);
+    }
 };
 search_el.onblur = () => {
     search_pel.classList.remove("搜索展示");
@@ -4135,7 +4112,7 @@ search_el.onkeyup = (e) => {
             view_el.classList.add("viewer_hide");
             break;
         case "ArrowUp":
-            if (select_index == 0) {
+            if (select_index == -1) {
                 select_index = search_r.childElementCount - 1;
             } else {
                 select_index--;
@@ -4143,23 +4120,28 @@ search_el.onkeyup = (e) => {
             break;
         case "ArrowDown":
             if (select_index == search_r.childElementCount - 1) {
-                select_index = 0;
+                select_index = -1;
             } else {
                 select_index++;
             }
             break;
         case "Enter":
+            if (select_index != -1) e.preventDefault();
             let id = (<HTMLElement>search_r.querySelector(".search_item_select")).getAttribute("data-id");
             click_search_item(id);
-            search_el.blur();
             break;
     }
     if (e.key == "ArrowUp" || e.key == "ArrowDown") {
         e.preventDefault();
         let el = select_search(select_index);
-        move_to_x_link(get_link_el_by_id(el.getAttribute("data-id")));
-        let r = el.getBoundingClientRect();
-        set_viewer_posi(r.x + r.width, r.y);
+        let arg = cmd(search_el.value);
+        if (el) {
+            if (arg.name == "s") {
+                move_to_x_link(get_link_el_by_id(el.getAttribute("data-id")));
+                let r = el.getBoundingClientRect();
+                set_viewer_posi(r.x + r.width, r.y);
+            }
+        }
     }
 };
 
@@ -4168,6 +4150,7 @@ function select_search(i: number) {
         el.classList.remove("search_item_select");
     });
     let el = <HTMLElement>search_r.children[i];
+    if (!el) return;
     el.classList.add("search_item_select");
     let ri = search_r.children[i].getBoundingClientRect();
     let r = search_r.getBoundingClientRect();
@@ -4181,17 +4164,30 @@ function select_search(i: number) {
 }
 
 function click_search_item(iid: string) {
-    let el = elFromId(iid);
-    if (search_pel.getAttribute("data-fid") == "0") jump_to_x_link(el as x & xlink);
-    else view_el.classList.add("viewer_hide");
-    show_search_l([]);
-    let id = search_pel.getAttribute("data-fid") || link_value_bar.elid;
-    console.log(id);
-    link(id).add(iid);
+    let arg = cmd(search_el.value);
+    if (arg.name == "s") {
+        let el = elFromId(iid);
+        if (search_pel.getAttribute("data-fid") == "0") jump_to_x_link(el as x & xlink);
+        else view_el.classList.add("viewer_hide");
+        show_search_l([]);
+        let id = search_pel.getAttribute("data-fid") || link_value_bar.elid;
+        console.log(id);
+        link(id).add(iid);
+        search_el.blur();
+        link_value_bar.elid = link_value_bar.elid;
+    }
+    if (arg.name == "type") {
+        search_el.value = `type ${iid}`;
+        run_cmd();
+    }
 }
 
 search_r.onpointerleave = () => {
     view_el.classList.add("viewer_hide");
+};
+
+search_el.onchange = () => {
+    run_cmd();
 };
 
 /** 展示搜索结果 */
@@ -4205,7 +4201,7 @@ function show_search_l(l: search_result, exid?: string) {
     let ids = {};
     for (let i of l) {
         if (!ids[i.id]) {
-            let div = createEl("div");
+            let div = create_r_item();
             div.setAttribute("data-id", i.id);
             els.push(div);
             ids[i.id] = els.length - 1;
@@ -4237,15 +4233,10 @@ function show_search_l(l: search_result, exid?: string) {
     }
 
     function add_div_event(div: HTMLElement, id: string) {
-        div.onpointerdown = (e) => {
-            click_search_item(id);
-        };
-        div.onmouseenter = (e) => {
+        div.addEventListener("mouseenter", () => {
             let el = elFromId(id);
             move_to_x_link(el as x & xlink);
-            select_index = Number(div.getAttribute("data-i"));
-            select_search(select_index);
-        };
+        });
         div.onmousemove = (e) => {
             window.requestAnimationFrame(() => {
                 set_viewer_posi(e.clientX, e.clientY);
@@ -4253,6 +4244,7 @@ function show_search_l(l: search_result, exid?: string) {
         };
     }
 
+    link("0").衰减();
     for (let div of els) {
         if (search_r.firstChild) {
             search_r.firstChild.before(div);
@@ -4263,6 +4255,25 @@ function show_search_l(l: search_result, exid?: string) {
         value.append(link_value_text(link(div.getAttribute("data-id")).get_v()));
         div.append(value);
     }
+    r_i_r();
+}
+
+/** 创建项 */
+function create_r_item() {
+    let div = createEl("div");
+    div.onpointerdown = (e) => {
+        const id = div.getAttribute("data-id");
+        click_search_item(id);
+    };
+    div.onmouseenter = (e) => {
+        select_index = Number(div.getAttribute("data-i"));
+        select_search(select_index);
+    };
+    return div;
+}
+
+/** 为项添加序列信息 */
+function r_i_r() {
     [...search_r.children].forEach((div, i) => {
         div.setAttribute("data-i", String(i));
     });
@@ -4276,67 +4287,58 @@ function show_g_search() {
     search_pel.style.width = "";
     search_el.focus();
     search_pel.setAttribute("data-fid", "0");
-    let l = search(search_el.value, "str");
+    let arg = cmd(search_el.value);
+    if (arg.name != "s") {
+        arg.args = [""];
+        search_el.value = "s ''";
+        search_el.setSelectionRange(3, 3);
+    }
+    let l = search(arg.args, "str");
     show_search_l(l);
 }
 
 let now_focus_id = "0";
 
-cmd_el.oninput = () => {
-    const el = get_x_by_id(cmd_el.getAttribute("data-id"));
-    const md = el.querySelector("x-md") as markdown;
-    if (cmd_el.value == "/") {
-        md.text.setRangeText("/");
-        md.text.selectionStart = md.text.selectionEnd = md.text.selectionStart + 1;
-        md.text.dispatchEvent(new Event("input"));
-        data_changed();
-        md.edit = true;
-        cmd_el.value = "";
-        cmd_pel.classList.add("cmd_hide");
-    } else {
-        cmd_r.innerHTML = "";
-        let arg = cmd_el.value;
-        let args = arg.split(/\s+/);
-        const fuse = new Fuse(md_type_l, {
-            includeMatches: true,
-            findAllMatches: true,
-            useExtendedSearch: true,
-        });
-        let fr = fuse.search(args[0]);
-        for (let i of fr) {
-            for (let j of i.matches) {
-                let indices = [...j.indices].sort((a, b) => a[0] - b[0]);
-                let line = createEl("div");
-                let p = createEl("span");
-                for (let i = 0; i < indices.length; i++) {
-                    const k = indices[i];
-                    let h = createEl("span");
-                    h.innerText = j.value.slice(k[0], k[1] + 1);
-                    if (Number(i) == indices.length - 1) {
-                        p.append(j.value.slice(indices[i - 1]?.[1] + 1 || 0, k[0]), h, j.value.slice(k[1] + 1));
-                    } else {
-                        p.append(j.value.slice(indices[i - 1]?.[1] + 1 || 0, k[0]), h);
-                    }
+function cmd(str: string) {
+    let l = str.split(/\s+(?=(?:[^\'"]*[\'"][^\'"]*[\'"])*[^\'"]*$)/);
+    return { name: l[0], args: l.slice(1).map((t) => t.replace(/^['"]/, "").replace(/['"]$/g, "")) };
+}
+
+function show_md_type_l(arg: string[]) {
+    const fuse = new Fuse(md_type_l, {
+        includeMatches: true,
+        findAllMatches: true,
+        useExtendedSearch: true,
+    });
+    let fr = fuse.search(arg[0]);
+    search_r.innerHTML = "";
+    for (let i of fr) {
+        for (let j of i.matches) {
+            let indices = [...j.indices].sort((a, b) => a[0] - b[0]);
+            let line = create_r_item();
+            let p = createEl("span");
+            for (let i = 0; i < indices.length; i++) {
+                const k = indices[i];
+                let h = createEl("span");
+                h.innerText = j.value.slice(k[0], k[1] + 1);
+                if (Number(i) == indices.length - 1) {
+                    p.append(j.value.slice(indices[i - 1]?.[1] + 1 || 0, k[0]), h, j.value.slice(k[1] + 1));
+                } else {
+                    p.append(j.value.slice(indices[i - 1]?.[1] + 1 || 0, k[0]), h);
                 }
-                line.append(p);
-                cmd_r.append(line);
-                line.onpointerdown = () => {
-                    cmd_el.value = j.value;
-                    run_cmd();
-                };
             }
+            line.append(p);
+            line.setAttribute("data-id", j.value);
+            search_r.append(line);
+            line.onpointerdown = () => {
+                search_el.value = "type " + j.value;
+                run_cmd();
+            };
         }
     }
-};
-
-cmd_el.onchange = () => {
-    run_cmd();
-};
-cmd_el.onblur = () => {
-    cmd_el.value = "";
-    cmd_pel.classList.add("cmd_hide");
-    cmd_r.innerHTML = "";
-};
+    select_index = -1;
+    r_i_r();
+}
 
 const md_type_l: md_type[] = [
     "h1",
@@ -4354,17 +4356,19 @@ const md_type_l: md_type[] = [
     "iframe",
 ];
 function run_cmd() {
-    const el = get_x_by_id(cmd_el.getAttribute("data-id"));
-    const md = el.querySelector("x-md") as markdown;
-    let arg = cmd_el.value;
-    let args = arg.split(/\s+/);
-    if (md_type_l.includes(args[0] as md_type)) {
-        md.type = args[0] as md_type;
-        data_changed();
-        cmd_pel.classList.add("cmd_hide");
-        md.edit = true;
+    let arg = cmd(search_el.value);
+    if (arg.name == "type") {
+        const el = get_x_by_id(search_el.getAttribute("data-fid"));
+        const md = el.querySelector("x-md") as markdown;
+        let mtype = arg.args[0];
+        if (md_type_l.includes(mtype as md_type)) {
+            md.type = mtype as md_type;
+            data_changed();
+            search_pel.classList.remove("搜索展示");
+            md.edit = true;
+        }
+        search_el.value = "";
     }
-    cmd_el.value = "";
 }
 
 /** 判断是否是最小元素 */
@@ -4549,6 +4553,8 @@ breadcrumbs_el.onwheel = (e) => {
     breadcrumbs_el.scrollLeft += i * Math.sqrt(e.deltaX ** 2 + e.deltaY ** 2 + e.deltaZ ** 2);
 };
 
+const default_down_s = 4;
+
 /** 链接处理 */
 function link(key0: string) {
     let t = new Date().getTime();
@@ -4562,14 +4568,14 @@ function link(key0: string) {
                 link(key1).add();
                 if (集.链接[key0][key1]?.value === undefined || 集.链接[key1][key0]?.value === undefined) {
                     // 只存储在边的一个方向上，以时间换空间
-                    集.链接[key0][key1] = { value: 1, time: t };
+                    集.链接[key0][key1] = { value: 1, time: t, s: default_down_s };
                 }
             } else {
                 if (!集.链接[key0]) {
                     集.链接[key0] = {};
                 }
                 if (!集.链接[0][key0]) {
-                    集.链接[0][key0] = { value: 1, time: t };
+                    集.链接[0][key0] = { value: 1, time: t, s: default_down_s };
                 }
             }
         },
@@ -4604,13 +4610,22 @@ function link(key0: string) {
             } else {
                 let xl: typeof l = {};
                 let walk = (list: typeof l, chain_n: number) => {
+                    let next = null;
+                    let maxn = 0;
                     for (let i in list) {
-                        let ln = chain_n - list[i].value;
-                        if (ln > 0) {
-                            walk(link(i).get(), ln);
-                        } else {
-                            xl[i] = list[i];
+                        if (i == "0") continue;
+                        if (xl[i]) continue;
+                        if (list[i].value > maxn) {
+                            next = i;
+                            maxn = list[i].value;
                         }
+                    }
+                    if (!next) return;
+                    let ln = chain_n - list[next].value;
+                    if (ln > 0) {
+                        walk(link(next).get(), ln);
+                    } else {
+                        xl[next] = list[next];
                     }
                 };
                 walk(l, chain);
@@ -4633,8 +4648,7 @@ function link(key0: string) {
         },
         /** 获取值 */
         get_v: (is_small?: boolean) => {
-            link("0").衰减();
-            if (is_small || is_smallest_el(get_link_el_by_id(key0))) {
+            if (is_small || !get_link_el_by_id(key0) || is_smallest_el(get_link_el_by_id(key0))) {
                 if (集.链接[0][key0]) {
                     let l = link(key0).get();
                     let n = 0;
@@ -4663,13 +4677,12 @@ function link(key0: string) {
             for (let i in 集.链接) {
                 for (let j in 集.链接[i]) {
                     let target = 集.链接[i][j];
-                    集.链接[i][j].value = down(target.value, target.time, t);
+                    集.链接[i][j].value = down(target.value, target.time, t, target.s || default_down_s);
                     集.链接[i][j].time = t;
                 }
             }
-            function down(value: number, t0: number, t1: number) {
+            function down(value: number, t0: number, t1: number, xv_s: number) {
                 const xv_c = 0.9;
-                const xv_s = 8;
                 // 计算衰减值
                 function x2v(x: number) {
                     return Math.exp((x * Math.log(xv_c)) / xv_s);
@@ -4759,7 +4772,7 @@ function copy_x(x: x, pel?: x) {
 function copy_value(id: string, new_id: string) {
     let v = 集.values[id];
     if (v) {
-        集.values[new_id] = JSON.parse(JSON.stringify(v));
+        集.values[new_id] = JSON5.parse(JSON.stringify(v));
     }
 }
 
@@ -5217,7 +5230,6 @@ function load_value() {
             }
             try {
                 let v = JSON5.parse(t.value);
-                el.innerHTML = "";
                 el.value = v;
             } catch (error) {}
         };
@@ -5857,7 +5869,7 @@ class x extends HTMLElement {
         };
 
         if (this.getAttribute("value")) {
-            this.set_v(JSON.parse(this.getAttribute("value")));
+            this.set_v(JSON5.parse(this.getAttribute("value")));
         }
 
         this.onpointerover = (e) => {
@@ -5901,6 +5913,11 @@ class x extends HTMLElement {
     }
 
     set_v(data: data) {
+        for (let x of this.children) {
+            if (x.tagName != "DIV") {
+                x.remove();
+            }
+        }
         for (let d of data) {
             if (d.type == "X-X") {
                 let el = createEl(d.type) as x;
@@ -5967,7 +5984,7 @@ class markdown extends HTMLElement {
 
         if (this.getAttribute("value")) {
             let v = this.getAttribute("value");
-            this._value = JSON.parse(v);
+            this._value = JSON5.parse(v);
             let t = this._value.text;
             this.text.value = t;
             this.render();
@@ -6140,17 +6157,18 @@ class markdown extends HTMLElement {
                     z.reflash();
                 }
             }
-            if (e.key == "/") {
+            if (e.key == "/" && e.ctrlKey) {
                 e.preventDefault();
                 let s = this.getBoundingClientRect();
                 console.log(document.getSelection().getRangeAt(0), s);
 
-                cmd_pel.style.left = s.left + "px";
-                cmd_pel.style.top = s.top + "px";
-                cmd_pel.classList.remove("cmd_hide");
-                cmd_el.setAttribute("data-id", this.parentElement.id);
+                search_pel.style.left = s.left + "px";
+                search_pel.style.top = s.top + "px";
+                search_pel.classList.add("搜索展示");
+                search_el.setAttribute("data-fid", this.parentElement.id);
+                search_el.value = "type ";
                 setTimeout(() => {
-                    cmd_el.focus();
+                    search_el.focus();
                 }, 10);
             }
             if (e.key == " ") {
@@ -6516,7 +6534,7 @@ class markdown extends HTMLElement {
     }
 
     set value(v) {
-        this._value = JSON.parse(v);
+        this._value = JSON5.parse(v);
         this.type = this._value.type;
         let t = this._value.text;
         this.text.value = t;
@@ -6596,13 +6614,14 @@ window.customElements.define("x-md", markdown);
 
 // 几何图形
 import JXG from "jsxgraph";
+JXG.Options.text.useMathJax = true;
 class graph extends HTMLElement {
     constructor() {
         super();
     }
 
     text: HTMLTextAreaElement;
-    gid: string;
+    s: HTMLElement;
     resize_ob: ResizeObserver;
 
     connectedCallback() {
@@ -6610,18 +6629,16 @@ class graph extends HTMLElement {
         b.id = "t_md";
         const edit = createEl("div");
         const editor = createEl("div");
-        const s = document.createElement("div");
-        s.id = this.gid = `g${new Date().getTime()}`;
+        this.s = document.createElement("div");
+        this.s.id = `g${uuid_id()}`;
         this.text = document.createElement("textarea");
         const text_class = "hide_jxg_text";
         this.text.classList.add(text_class);
-        this.text.value =
-            this.getAttribute("value") ||
-            `let brd=JXG.JSXGraph.initBoard(gid,{axis:true,showCopyRight:false,boundingbox:[-4,4,4,-4]});`;
+        this.text.value = this.getAttribute("value") || "";
         this.innerHTML = "";
         this.append(b);
         b.append(edit, editor);
-        this.append(s);
+        this.append(this.s);
         this.append(this.text);
 
         let x = this.parentElement as x;
@@ -6650,7 +6667,7 @@ class graph extends HTMLElement {
             this.run(this.text.value);
         };
         this.resize_ob = new ResizeObserver(() => {
-            this.reflasth();
+            this.run(this.text.value);
         });
         this.resize_ob.observe(this.parentElement);
     }
@@ -6660,12 +6677,15 @@ class graph extends HTMLElement {
     }
 
     reflasth() {
-        this.run(this.text.value);
+        if (JXG && this.s.id) JXG.getBoardByContainerId(this.s.id)?.updateCSSTransforms();
     }
 
     run(code: string) {
-        eval(`{let gid = '${this.gid}';${code}}`);
-        const svg = elFromId(this.gid).querySelector("svg");
+        if (this.s.innerHTML) JXG.JSXGraph.freeBoard(JXG.getBoardByContainerId(this.s.id));
+        this.s.id = `g${uuid_id()}`;
+        eval(`{let gid = '${this.s.id}';${code}}`);
+        const svg = this.s.querySelector("svg");
+        if (!svg) return;
         const ob = new MutationObserver(() => {
             svg.setAttribute("width", String(el_offset2(this).w));
             svg.setAttribute("height", String(el_offset2(this).h));
@@ -6685,6 +6705,8 @@ class graph extends HTMLElement {
 }
 
 window.customElements.define("x-graph", graph);
+
+ignore_el.push("x-graph");
 
 import mathSymbols from "../../lib/tex/x.js";
 class symbols extends HTMLElement {
@@ -6834,7 +6856,7 @@ class file extends HTMLElement {
         this.div = createEl("div");
         this.append(this.div);
         if (this.getAttribute("value")) {
-            this._value = JSON.parse(this.getAttribute("value"));
+            this._value = JSON5.parse(this.getAttribute("value"));
             this.set_m();
         }
     }
@@ -6901,7 +6923,7 @@ class file extends HTMLElement {
         return JSON.stringify(this._value);
     }
     set value(s) {
-        this._value = JSON.parse(s);
+        this._value = JSON5.parse(s);
         this.set_m();
     }
 }
@@ -6977,7 +6999,7 @@ class pdf_viewer extends HTMLElement {
         this.text = createEl("div");
         this.append(this.text);
         if (this.getAttribute("value")) {
-            this._value = JSON.parse(this.getAttribute("value"));
+            this._value = JSON5.parse(this.getAttribute("value"));
             this.set_m();
         }
 
@@ -7084,7 +7106,7 @@ class pdf_viewer extends HTMLElement {
         return JSON.stringify(this._value);
     }
     set value(s) {
-        this._value = JSON.parse(s);
+        this._value = JSON5.parse(s);
         this.set_m();
     }
 }
@@ -7528,7 +7550,7 @@ class draw extends HTMLElement {
     }
 
     set_v(v: string) {
-        let x = JSON.parse(v);
+        let x = JSON5.parse(v);
         this.width = x.w;
         this.height = x.h;
         this.main_svg.setAttribute("width", String(this.width));
@@ -7980,7 +8002,7 @@ class link_value extends HTMLElement {
                 let w = (v: data) => {
                     for (let i of v) {
                         if (i.type == "X-MD") {
-                            return JSON.parse(i.value).text;
+                            return JSON5.parse(i.value).text;
                         } else {
                             if (i.子元素) return w(i.子元素);
                             else return "";
@@ -7991,14 +8013,13 @@ class link_value extends HTMLElement {
             } else {
                 v = el.innerText;
             }
-            let l = search(v, "str");
-            console.log(l);
+            let l = search([v], "str");
             show_search_l(l, this._id);
 
-            search_el.value = v;
+            search_el.value = `s '${v}'`;
             search_el.focus();
-            search_el.selectionStart = 0;
-            search_el.selectionEnd = search_el.value.length;
+            search_el.selectionStart = 3;
+            search_el.selectionEnd = search_el.value.length - 1;
 
             let x = el_offset(this, document.body).x,
                 y = el_offset(this, document.body).y - search_pel.getBoundingClientRect().height;
@@ -8012,6 +8033,7 @@ class link_value extends HTMLElement {
 
     set elid(id: string) {
         this._id = id;
+        link("0").衰减();
         let v = link(id).get_v();
         if (v) {
             this.v.innerHTML = "";
@@ -8453,9 +8475,9 @@ class ggb extends HTMLElement {
             ggbBase64: "",
             // showToolBar: true,
         };
-        import_script("https://www.geogebra.org/apps/deployggb.js").then(() => {
-            this.applet = new window["GGBApplet"](this.p, "5.0");
-        });
+        // import_script("https://www.geogebra.org/apps/deployggb.js").then(() => {
+        //     this.applet = new window["GGBApplet"](this.p, "5.0");
+        // });
         let bar = createEl("div");
         bar.classList.add("ggb_bar");
         let save = createEl("div");
@@ -8864,7 +8886,7 @@ class time extends HTMLElement {
     }
 
     async set_m() {
-        this._value2 = JSON.parse(this._value);
+        this._value2 = JSON5.parse(this._value);
         this.count_down.checked = this._value2.countdown;
         if (this._value2.pro) this.process.value = this._value2.pro;
         if (this._value2.end) {
@@ -8901,9 +8923,9 @@ class link_arrow extends HTMLElement {
     svg: SVGSVGElement;
     r: MutationObserver;
     r2: ResizeObserver;
-    _value: { start: { id: string; a: any }; end: { id: string; a: any } } = {
+    _value: { start: { id: string; a: any; marker?: string }; end: { id: string; a: any; marker?: string } } = {
         start: { id: "", a: 0 },
-        end: null,
+        end: { id: "", a: null, marker: "point" },
     };
     connectedCallback() {
         this.svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
@@ -8924,7 +8946,7 @@ class link_arrow extends HTMLElement {
     render(e: PointerEvent) {
         let xel = this.parentElement as x;
         let start_p = get_link_arrow_p(this._value.start.id, this._value.start.a);
-        let end_p = this._value.end ? get_link_arrow_p(this._value.end.id, this._value.end.a) : e2p(e);
+        let end_p = this._value.end.id ? get_link_arrow_p(this._value.end.id, this._value.end.a) : e2p(e);
         let p = document.createElementNS("http://www.w3.org/2000/svg", "path");
         let t = `translate(${-el_offset2(xel).x},${-el_offset2(xel).y})`;
         p.setAttribute("transform", t);
@@ -8946,6 +8968,12 @@ class link_arrow extends HTMLElement {
             end_ctrl = get_link_arrow_a(end_p, end_a);
         let at = `M ${start_p.x} ${start_p.y} C ${start_ctrl.x} ${start_ctrl.y}, ${end_ctrl.x} ${end_ctrl.y}, ${end_p.x} ${end_p.y}`;
         p.setAttribute("d", at);
+        if (this._value.start?.marker) {
+            p.setAttribute("marker-start", `url(${arrow_markers_svg}#flowchart-${this._value.start?.marker}Start)`);
+        }
+        if (this._value?.end?.marker) {
+            p.setAttribute("marker-end", `url(${arrow_markers_svg}#flowchart-${this._value?.end?.marker}End)`);
+        }
         this.svg.innerHTML = "";
         this.svg.append(p);
         let r = el_offset2(p, O);
@@ -8958,7 +8986,7 @@ class link_arrow extends HTMLElement {
     }
 
     ob() {
-        if (this._value.end) {
+        if (this._value.end.id) {
             this.r.observe(elFromId(this._value.start.id), { attributes: true, attributeFilter: ["style"] });
             this.r.observe(elFromId(this._value.end.id), { attributes: true, attributeFilter: ["style"] });
             this.r2.observe(elFromId(this._value.start.id));
@@ -8971,7 +8999,7 @@ class link_arrow extends HTMLElement {
     }
 
     set value(s) {
-        this._value = JSON.parse(s);
+        this._value = JSON5.parse(s);
         this.ob();
     }
 }
