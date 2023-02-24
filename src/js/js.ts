@@ -470,6 +470,10 @@ elFromId("拆分为多行").onclick = () => {
     to_more_line(selected_el);
 };
 
+elFromId("层handle").onclick = () => {
+    style_list.parentElement.classList.toggle("层hide");
+};
+
 function put_toast(t: string, time?: number) {
     if (!time) time = 1;
     toast.innerText = t;
@@ -794,6 +798,7 @@ var o_touch_t = NaN;
         setTimeout(() => {
             O.style.transition = ``;
             render_select_rects();
+            data_changed();
         }, t);
         set_O_p(x, y);
     }
@@ -808,6 +813,7 @@ var o_touch_t = NaN;
         select_id = "";
     } else if (e.targetTouches.length == 2) {
         touch_zoom(e);
+        data_changed();
     }
 
     o_touch_e = e;
@@ -2172,7 +2178,7 @@ function version_tr(obj): 集type {
                 }
             }
             obj.meta.version = "0.22.0";
-        case version_in(v, "0.22.0", "0.22.0"):
+        case version_in(v, "0.22.0", "0.23.0"):
             return obj;
         default:
             put_toast(`文件版本是 ${v}，与当前软件版本 ${packagejson.version} 不兼容，请升级软件`);
@@ -2191,6 +2197,9 @@ async function set_data(l: 集type) {
     for (let i in l) {
         if (集[i]) 集[i] = l[i];
     }
+
+    document.title = get_title();
+
     画布s.innerHTML = "";
 
     await set_dependencies(集.meta.dependencies || []);
@@ -2208,7 +2217,6 @@ async function set_data(l: 集type) {
         }
     }
     location.hash = `#${集.meta.UUID}`;
-    document.title = get_title();
 
     set_css(l.extra.style || "./md.css");
     if (l.extra?.slide) ys_init(l.extra.slide);
@@ -2911,6 +2919,9 @@ function add_file(type: string, text: string, data: string, x: number, y: number
         if (type == "text/html") {
             let turndownService = new TurndownService({ headingStyle: "atx" });
             md.value = JSON.stringify({ type: "text", text: turndownService.turndown(text) });
+        } else if (type == "text/xln") {
+            let data = JSON5.parse(text) as data;
+            xel.value = data;
         } else {
             md.value = JSON.stringify({ type: "p", text });
         }
@@ -3212,9 +3223,6 @@ class 图层 {
         li.onpointerenter = (e) => {
             move_to_x_link(get_x_by_id(i.id));
         };
-        s.onpointerdown = (e) => {
-            jump_to_x_link(get_x_by_id(i.id));
-        };
         li.onpointermove = (e) => {
             window.requestAnimationFrame(() => {
                 set_viewer_posi(li.offsetWidth + li.getBoundingClientRect().left + 8, e.clientY);
@@ -3234,8 +3242,9 @@ class 图层 {
                     "x-calendar": "日历",
                     "x-time": "计时器",
                     "x-link-arrow": "箭头链接",
+                    "x-graph": "几何",
                 };
-                s.innerText += ` ${type[i.子元素[0].type.toLowerCase()]}`;
+                s.innerText += ` ${type[i.子元素[0].type.toLowerCase()] || i.子元素[0].type}`;
             } else {
                 let x = createEl("img");
                 x.src = ul_show_svg;
@@ -3761,31 +3770,54 @@ var now_dav_data = "";
 /** 获取云文件数据 */
 async function get_xln_value(path: string) {
     show_upload_pro();
-    let str = (await client.getFileContents(path, {
-        format: "text",
-        onDownloadProgress: (e) => {
-            show_upload_pro(e.loaded, e.total);
-        },
-    })) as string;
-    let o: any;
+    let str = "";
+    let o: 集type;
     try {
-        o = JSON5.parse(<string>str);
-    } catch (e) {
-        if (store.webdav.加密密钥) {
-            let b = (await client.getFileContents(path, {
-                onDownloadProgress: (e) => {
-                    show_upload_pro(e.loaded, e.total);
-                },
-            })) as ArrayBuffer;
-            let blob = new Blob([b]);
-            const zipFileReader = new zip.BlobReader(blob);
-            const zipWriter = new zip.TextWriter();
-            const zipReader = new zip.ZipReader(zipFileReader);
-            const firstEntry = (await zipReader.getEntries())[0];
-            str = await firstEntry.getData(zipWriter, { password: store.webdav.加密密钥 });
-            await zipReader.close();
-            o = JSON5.parse(<string>str);
+        let b = (await client.getFileContents(path, {
+            onDownloadProgress: (e) => {
+                show_upload_pro(e.loaded, e.total);
+            },
+        })) as ArrayBuffer;
+        let blob = new Blob([b]);
+        let fs = new zip.fs.FS();
+        await fs.importBlob(blob);
+        let assets: { [key: string]: Blob } = {};
+        for (let i of fs.children) {
+            if (i.name == "assets") {
+                for (let a of i.children) {
+                    const zipWriter = new zip.BlobWriter();
+                    assets[a.name] = await a.data.getData(zipWriter, { password: store.webdav.加密密钥 });
+                }
+            } else if (i.name.includes(".xln")) {
+                const zipWriter = new zip.TextWriter();
+                str = await i.data.getData(zipWriter, { password: store.webdav.加密密钥 });
+                o = JSON5.parse(<string>str);
+            }
         }
+
+        if (o.assets && Object.keys(assets).length)
+            for (let i in o.assets) {
+                const fileReader = new FileReader();
+                let x = () => {
+                    return new Promise((rj) => {
+                        fileReader.onload = (e) => {
+                            let t = o.assets[i].base64.replace(/base64,.*/, "");
+                            o.assets[i].base64 = t + (e.target.result as string).match(/base64,.*/)[0];
+                            rj(0);
+                        };
+                        fileReader.readAsDataURL(assets[i]);
+                    });
+                };
+                await x();
+            }
+    } catch (e) {
+        let str = (await client.getFileContents(path, {
+            format: "text",
+            onDownloadProgress: (e) => {
+                show_upload_pro(e.loaded, e.total);
+            },
+        })) as string;
+        o = JSON5.parse(<string>str);
     }
     now_dav_data = str;
     return o as 集type;
@@ -3802,25 +3834,19 @@ async function put_xln_value() {
         集.meta.url = path;
         data_changed();
     }
-    let t = JSON.stringify(get_data());
-    if (store.webdav.加密密钥) {
-        let b = await 压缩(t);
-        let reader = new FileReader();
-        reader.onload = async function () {
-            console.log(this.result);
-            show_upload_pro();
-            let v = await client.putFileContents(path, this.result, {
-                onUploadProgress: (e) => {
-                    show_upload_pro(e.loaded, e.total);
-                },
-            });
-            show_upload_v(v);
-        };
-        reader.readAsArrayBuffer(b);
-    } else {
-        let v = await client.putFileContents(path, t);
+    let b = await 压缩(get_data());
+    let reader = new FileReader();
+    reader.onload = async function () {
+        console.log(this.result);
+        show_upload_pro();
+        let v = await client.putFileContents(path, this.result, {
+            onUploadProgress: (e) => {
+                show_upload_pro(e.loaded, e.total);
+            },
+        });
         show_upload_v(v);
-    }
+    };
+    reader.readAsArrayBuffer(b);
 }
 function show_upload_v(v: boolean) {
     if (v) {
@@ -3856,14 +3882,19 @@ function auto_put_xln() {
 
 import * as zip from "@zip.js/zip.js";
 
-async function 压缩(t: string) {
-    const zipFileWriter = new zip.BlobWriter("application/zip");
-    const textReader = new zip.TextReader(t);
-    const zipWriter = new zip.ZipWriter(zipFileWriter, { password: store.webdav.加密密钥 });
-    await zipWriter.add(get_file_name() + ".xln", textReader);
-    await zipWriter.close();
-    const zipFileBlob = await zipFileWriter.getData();
-    return zipFileBlob;
+async function 压缩(data: 集type) {
+    let fs = new zip.fs.FS();
+    let assets_dir = fs.addDirectory("assets");
+    data = clone(data);
+    for (let i in data.assets) {
+        assets_dir.addData64URI(i, data.assets[i].base64);
+        let b64 = data.assets[i].base64;
+        b64 = b64.replace(/base64,.*/, "");
+        data.assets[i].base64 = b64;
+    }
+    let t = JSON.stringify(data, null, 2);
+    fs.addText("text.xln", t);
+    return fs.exportBlob({ password: store.webdav.加密密钥 });
 }
 
 function open_in_win(uuid: string) {
@@ -3938,10 +3969,12 @@ function search(input: string[], type: "str" | "regex") {
     let result = [] as search_result;
     let sr: search_result = [];
     let chainr: search_result = [];
+    let flex: search_result = [];
     let other: search_result = [];
     let has_id = {};
     画布s.querySelectorAll("x-md, x-pdf").forEach((el: HTMLElement) => {
         let text = "";
+        let searched = false;
         if (el.tagName == "X-MD") {
             text = JSON5.parse((el as markdown).value).text;
         } else if (el.tagName == "X-PDF") {
@@ -3966,6 +3999,7 @@ function search(input: string[], type: "str" | "regex") {
                         type: "str",
                         score: search_score(el.parentElement.id, 1 - i.score, x.t, x.v, x.s, x.opsit),
                     });
+                    searched = true;
                 }
                 break;
             case "regex":
@@ -3986,23 +4020,42 @@ function search(input: string[], type: "str" | "regex") {
                         l,
                         score: search_score(el.parentElement.id, 1, x.t, x.v, x.s, x.opsit),
                     });
+                    searched = true;
                 }
                 break;
         }
         // 链式搜索
-        let c = link(el.parentElement.id).get(1);
-        for (let i in c) {
-            chainr.push({
-                id: i,
-                score: search_score(el.parentElement.id, 0, x.t, x.v, x.s, x.opsit),
+        if (searched) {
+            let c = link(el.parentElement.id).get(1);
+            for (let i in c) {
+                chainr.push({
+                    id: i,
+                    score: search_score(i, 0, x.t, x.v, x.s, x.opsit),
+                    text: elFromId(i).innerText,
+                });
+            }
+        }
+
+        if (searched && is_flex(el.parentElement.parentElement) == "flex") {
+            el.parentElement.parentElement.querySelectorAll("x-x").forEach((xel: x) => {
+                if (is_smallest_el(xel)) {
+                    if (xel.id != el.parentElement.id) {
+                        flex.push({
+                            id: xel.id,
+                            score: search_score(xel.id, 0, x.t, x.v, x.s, x.opsit),
+                            text: xel.innerText,
+                        });
+                    }
+                }
             });
         }
 
-        other.push({
-            id: el.parentElement.id,
-            score: search_score(el.parentElement.id, 0, x.t, x.v, x.s, x.opsit),
-            text: text,
-        });
+        if (!s)
+            other.push({
+                id: el.parentElement.id,
+                score: search_score(el.parentElement.id, 0, x.t, x.v, x.s, x.opsit),
+                text: text,
+            });
     });
 
     function s_i(t: string, st: string) {
@@ -4016,11 +4069,19 @@ function search(input: string[], type: "str" | "regex") {
         }
         return l;
     }
+    console.log(sr, flex);
+
     for (let i of sr) {
         has_id[i.id] = true;
         result.push(i);
     }
     for (let i of chainr) {
+        if (!has_id[i.id]) {
+            result.push(i);
+            has_id[i.id] = true;
+        }
+    }
+    for (let i of flex) {
         if (!has_id[i.id]) {
             result.push(i);
             has_id[i.id] = true;
@@ -4074,7 +4135,7 @@ function search_score(
     t = 1 / (t + 1);
     let v = vt.value;
     let s = search_s;
-    return (op ? -1 : 1) * Math.sqrt(((time_n || 1) * t) ** 2 + ((value_n || 1) * v) ** 2 + ((search_n || 2) * s) ** 2);
+    return (op ? -1 : 1) * Math.sqrt(((time_n ?? 1) * t) ** 2 + ((value_n ?? 1) * v) ** 2 + ((search_n ?? 2) * s) ** 2);
 }
 
 let select_index = 0;
@@ -4223,6 +4284,8 @@ function show_search_l(l: search_result, exid?: string) {
                     }
                 }
             }
+        } else if (i.text) {
+            p.append(i.text);
         } else {
             p.append(`#${i.id}`);
         }
@@ -5313,6 +5376,7 @@ md.renderer.rules.fence = function (tokens, idx, options, env, self) {
     return f(tokens, idx, options, env, self);
 };
 function tikz_code(content: string) {
+    if (!content) return "";
     if (!import_latex) {
         let script = createEl("script");
         import("../../lib/tikzjax.js?raw").then((v) => {
@@ -5390,10 +5454,22 @@ function tikz_svg(e: Event) {
     svg = svg.replace("svg", `svg id="${id}"`);
     svgEl.outerHTML = svg;
     let svg1 = elFromId(id);
-    let r = svg1.querySelector("g").getBBox();
-    svg1.setAttribute("viewBox", `${r.x} ${r.y} ${r.width} ${r.height}`);
-    svg1.setAttribute("width", String(r.width));
-    svg1.setAttribute("height", String(r.height));
+    let rx = Infinity,
+        ry = Infinity,
+        rw = 0,
+        rh = 0;
+    svg1.querySelectorAll(":scope > *").forEach((el: SVGGElement) => {
+        let r = el.getBBox();
+        if (r.x < rx) rx = r.x;
+        if (r.y < ry) ry = r.y;
+        if (r.x + r.width > rw) rw = r.x + r.width;
+        if (r.y + r.height > rh) rh = r.y + r.height;
+    });
+    rw = rw - rx;
+    rh = rh - ry;
+    svg1.setAttribute("viewBox", `${rx} ${ry} ${rw} ${rh}`);
+    svg1.setAttribute("width", String(rw));
+    svg1.setAttribute("height", String(rh));
     svg1.removeAttribute("id");
 }
 
@@ -6121,8 +6197,9 @@ class markdown extends HTMLElement {
                         text.selectionStart = s + i[0].length;
                         text.selectionEnd = s + i[0].length + t.length;
                         if (e.key == "[" && text.value.charAt(text.selectionStart - 2) == "[") {
-                            text.setRangeText(`${t}#${uuid_id()}`);
-                            if (t) text.selectionEnd -= 8;
+                            let id = uuid_id();
+                            text.setRangeText(`${t}#${id}`);
+                            if (t) text.selectionEnd -= id.length + 1;
                         }
                         text.dispatchEvent(new Event("input"));
                     }
@@ -6467,7 +6544,7 @@ class markdown extends HTMLElement {
                                 if (i.type == "emoji") {
                                     list.push({ text: `:${i.markup}`, type: "mu" });
                                     // 删去一个冒号以匹配
-                                } else if (i.markup.includes("#")) {
+                                } else if (i.markup.match(/^#+$/)) {
                                     list.push({ text: i.markup + " ", type: "mu" });
                                 } else {
                                     list.push({ text: i.markup, type: "mu" });
@@ -7796,7 +7873,7 @@ class xcolor extends HTMLElement {
         this.els.c0.style.background = this.msk(`linear-gradient(${x.hexa()},${x.hexa()})`);
         this.els.pb.style.backgroundColor = `${x.hexa()}`;
         this.els.arange.style.background = this.msk(`linear-gradient(to right, ${x.hex()} 0%, #0000 100%)`);
-        this.els.par.style.left = (1 - (hsv?.[3] || 1)) * this.els.arange.offsetWidth + "px";
+        this.els.par.style.left = (1 - (hsv?.[3] ?? 1)) * this.els.arange.offsetWidth + "px";
 
         this.els.ci.value = x.hexa();
     }
@@ -8923,8 +9000,13 @@ class link_arrow extends HTMLElement {
     svg: SVGSVGElement;
     r: MutationObserver;
     r2: ResizeObserver;
-    _value: { start: { id: string; a: any; marker?: string }; end: { id: string; a: any; marker?: string } } = {
+    _value: {
+        start: { id: string; a: any; marker?: string };
+        center: { id: string };
+        end: { id: string; a: any; marker?: string };
+    } = {
         start: { id: "", a: 0 },
+        center: { id: "" },
         end: { id: "", a: null, marker: "point" },
     };
     connectedCallback() {
@@ -8974,6 +9056,17 @@ class link_arrow extends HTMLElement {
         if (this._value?.end?.marker) {
             p.setAttribute("marker-end", `url(${arrow_markers_svg}#flowchart-${this._value?.end?.marker}End)`);
         }
+        let cx = (start_p.x + 3 * start_ctrl.x + 3 * end_ctrl.x + end_p.x) / 8,
+            cy = (start_p.y + 3 * start_ctrl.y + 3 * end_ctrl.y + end_p.y) / 8;
+        if (this._value?.center?.id) {
+            let el = elFromId(this._value?.center?.id);
+            if (el) {
+                let x = cx - el.offsetWidth / 2;
+                let y = cy - el.offsetHeight / 2;
+                el.style.left = x + "px";
+                el.style.top = y + "px";
+            }
+        }
         this.svg.innerHTML = "";
         this.svg.append(p);
         let r = el_offset2(p, O);
@@ -8983,6 +9076,18 @@ class link_arrow extends HTMLElement {
         xel.style.height = r.h + "px";
         let t2 = `translate(${-r.x},${-r.y})`;
         p.setAttribute("transform", t2);
+
+        p.ondblclick = () => {
+            let x = createEl("x-x");
+            x.id = uuid_id();
+            z.push(x);
+            if (!this._value["center"]) this._value["center"] = { id: "" };
+            this._value.center.id = x.id;
+            let md = createEl("x-md");
+            x.append(md);
+            md.edit = true;
+            this.render(null);
+        };
     }
 
     ob() {
