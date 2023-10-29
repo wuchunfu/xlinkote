@@ -17,7 +17,8 @@
     <div id="main">
         <div id="nav">
             <div>
-                <div id="绑定文件" title="绑定文件"><img src="./assets/icons/binding_file.svg" class="icon"></div>
+                <div id="绑定文件" title="绑定文件"><img src="./assets/icons/up.svg" class="icon"><input type="file"
+                        name="upload" id="upload" class="hidden"></div>
                 <div id="导出文件" title="导出文件"><img src="./assets/icons/down.svg" class="icon"></div>
                 <div id="保存" title="保存"><img src="./assets/icons/save.svg" class="icon"></div>
                 <div id="新建画布" title="新建画布"><img src="./assets/icons/add_canvas.svg" class="icon"></div>
@@ -36,6 +37,10 @@
                 <div title="手写输入">
                     <div id="ink_icon"><img src="./assets/icons/ink.svg" class="icon"></div>
                     <canvas id="ink"></canvas>
+                </div>
+                <div id="select_type">
+                    <div id="select_rect"><img src="./assets/icons/select_rect.svg" class="icon"></div>
+                    <div id="select_free"><img src="./assets/icons/select_free.svg" class="icon"></div>
                 </div>
                 <div id="draw_bar">
                     <div id="颜色" title="色盘">
@@ -66,6 +71,7 @@
             </div>
 
             <div id="选择"></div>
+            <div id="控制"></div>
             <div id="选择框"></div>
             <div id="导航" class="flex gap-2 absolute right-3 bottom-3">
                 <div id="方向锁定"><img src="./assets/icons/x_y.svg" class="icon"></div>
@@ -81,6 +87,9 @@
                         <canvas id="mini_map"></canvas>
                     </div>
                 </div>
+            </div>
+            <div id="菜单" class="menu_hide">
+                <div id="菜单_新建"><img src="./assets/icons/add.svg" class="icon">新建</div>
             </div>
         </div>
     </div>
@@ -115,8 +124,9 @@
                     <div id="成组" title="成组"><img src="./assets/icons/group.svg" class="icon"></div>
                     <div id="转为一行" title="转为一行"><img src="./assets/icons/to_one_line.svg" class="icon"></div>
                     <div id="拆分为多行" title="拆分为多行"><img src="./assets/icons/to_more_line.svg" class="icon"></div>
+                    <div id="拆分组合" title="拆分组合"><img src="./assets/icons/out_group.svg" class="icon"></div>
                 </div>
-                <div class="z-10 relative">
+                <div class="z-20 relative">
                     <div class="w-full flex" id="xywh">
                         <input type="number" name="xywh_x" id="xywh_x">
                         <input type="number" name="xywh_y" id="xywh_y">
@@ -124,12 +134,14 @@
                         <input type="number" name="xywh_h" id="xywh_h">
                     </div>
                     <div id="el_style" class="w-full"></div>
+                    <div id="switch_global_style"><img src="./assets/icons/value.svg" class="icon"></div>
                     <div id="style_com_list"></div>
                 </div>
                 <div id="层handle"></div>
                 <div id="层"></div>
             </div>
             <div id="工具" class="tools icon-pel">
+                <div id="重新加载" title="重新加载"><img src="./assets/icons/reload.svg" class="icon"></div>
                 <div id="绑定文件" title="绑定文件"><img src="./assets/icons/file.svg" class="icon"></div>
                 <div id="导出文件" title="导出文件"><img src="./assets/icons/down.svg" class="icon"></div>
                 <div id="从云加载" title="从云加载"><img src="./assets/icons/cloud_down.svg" class="icon"></div>
@@ -200,12 +212,6 @@
                         延时<br><input type="number" name="延时" min="0.1" step="0.1">
                     </fieldset>
                 </form>
-                <form name="asr">
-                    <fieldset>
-                        <legend class="text-lg font-semibold">语音识别</legend>
-                        服务器<br><input type="url" name="url" autocomplete="url">
-                    </fieldset>
-                </form>
                 <form name="sort">
                     <fieldset>
                         <legend class="text-lg font-semibold">排序</legend>
@@ -217,6 +223,19 @@
                         </select>
                         <br>
                         <label><input type="checkbox" name="reverse">逆序</label>
+                    </fieldset>
+                </form>
+                <form name="ai">
+                    <fieldset>
+                        <legend class="text-lg font-semibold">AI</legend>
+                        api key<br><input type="text" name="key">
+                        <br>
+                    </fieldset>
+                </form>
+                <form name="backup">
+                    <fieldset>
+                        <legend class="text-lg font-semibold">自动备份</legend>
+                        频率（0为不自动备份）<br><input type="number" name="频率" min="0" step="1">天一次
                     </fieldset>
                 </form>
                 <div id="about">
@@ -234,7 +253,7 @@
                     <div id="about_licence"><a href="https://github.com/xushengfeng/xlinkote/blob/master/LICENSE"
                             target="_blank" rel="noopener noreferrer">GPL-3.0</a></div>
                     <div>
-                        <a href="https://www.netlify.com" target="_blank"> <img
+                        <a href="https://www.netlify.com" target="_blank"> <img loading="lazy"
                                 src="https://www.netlify.com/v3/img/components/netlify-light.svg"
                                 alt="Deploys by Netlify" class="mx-auto" /> </a>
                     </div>
@@ -253,12 +272,18 @@
     <div id="搜索">
         <input type="search" id="search" autocomplete="off" spellcheck="false">
         <div id="搜索结果"></div>
+        <div id="更多结果" class="search_more_hide"></div>
     </div>
-    <div id="viewer" class="viewer_hide"></div>
+    <div id="viewer" class="viewer_hide">
+        <div id="viewer_children"></div>
+        <div id="viewer_highlight"></div>
+    </div>
 
+    <div id="tips"></div>
     <div id="toast"></div>
 </body>
 
+<style id="css"></style>
 <script type="module" src="./src/js/js.ts"></script>
 
 </html>

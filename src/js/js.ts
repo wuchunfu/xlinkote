@@ -9,7 +9,6 @@ import close_svg from "../../assets/icons/close.svg";
 import file_svg from "../../assets/icons/file.svg";
 import handle_svg from "../../assets/icons/handle.svg";
 import ul_show_svg from "../../assets/icons/ul_show.svg";
-import ul_hide2_svg from "../../assets/icons/ul_hide2.svg";
 import add_svg from "../../assets/icons/add.svg";
 import minus_svg from "../../assets/icons/minus.svg";
 import remove_svg from "../../assets/icons/remove.svg";
@@ -30,7 +29,8 @@ import copy_svg from "../../assets/icons/copy.svg";
 import save_svg from "../../assets/icons/save.svg";
 import lock_svg from "../../assets/icons/lock.svg";
 import unlock_svg from "../../assets/icons/unlock.svg";
-import arrow_markers_svg from "../../assets/icons/arrow_markers.svg";
+import reload_svg from "../../assets/icons/reload.svg";
+import arrow_markers_svg from "../../assets/icons/arrow_markers.svg?raw";
 
 interface x_tag_map {
     "x-x": x;
@@ -54,6 +54,7 @@ interface x_tag_map {
     "time-b": time_s;
     "x-time": time;
     "x-link-arrow": link_arrow;
+    "x-link-add": add_link;
 }
 function createEl<K extends keyof HTMLElementTagNameMap>(tagName: K): HTMLElementTagNameMap[K];
 function createEl<K extends keyof HTMLElementDeprecatedTagNameMap>(tagName: K): HTMLElementDeprecatedTagNameMap[K];
@@ -71,11 +72,14 @@ function is_input_el(el: HTMLElement) {
 }
 
 // el
+const upload_file = elFromId("upload") as HTMLInputElement;
+
 var 设置_el = elFromId("设置");
 var 侧栏 = elFromId("侧栏");
 const 侧栏_tabs = document.querySelector("#侧栏 > #tabs");
 const 侧栏_items = document.querySelector("#侧栏 > #items");
 const toast = elFromId("toast");
+const tips = elFromId("tips");
 
 var nav = elFromId("nav");
 
@@ -84,12 +88,17 @@ const 画布s = elFromId("画布们");
 var O = elFromId("O");
 
 const select_con = elFromId("选择");
+const select_el = elFromId("选择框");
+
+const x_bar_con = elFromId("控制");
 
 const link_value_bar = createEl("x-link-value");
 画布.append(link_value_bar);
 
+const md_text = createEl("textarea");
+画布.append(md_text);
+
 const breadcrumbs_el = elFromId("breadcrumbs");
-const bc_sw_el = elFromId("bc_sw");
 
 const 临时中转站 = elFromId("临时");
 
@@ -105,6 +114,10 @@ const 文件_el = elFromId("文件");
 
 const assets_el = elFromId("资源");
 
+const select_type_el = elFromId("select_type");
+const select_rect_el = elFromId("select_rect");
+const select_free_el = elFromId("select_free");
+
 const pen_pel = elFromId("draw_bar");
 const color_yl = elFromId("color_yl");
 const penc_el = <xcolor>elFromId("penc").querySelector("x-color");
@@ -116,6 +129,7 @@ const pen_type_el = elFromId("笔刷");
 const 图层_el = elFromId("层");
 
 var el_style = elFromId("el_style");
+var switch_global_style = elFromId("switch_global_style");
 var style_list = elFromId("style_com_list");
 
 var xywh_x_el = <HTMLInputElement>elFromId("xywh_x");
@@ -130,9 +144,12 @@ const version_el = <HTMLElement>about.querySelector("#version");
 
 var search_el = elFromId("search") as HTMLInputElement;
 var search_r = elFromId("搜索结果");
+var search_more = elFromId("更多结果");
 var search_pel = elFromId("搜索");
 
 const view_el = elFromId("viewer");
+const view_children_el = elFromId("viewer_children");
+const view_highlight_el = elFromId("viewer_highlight");
 
 const ink_el = elFromId("ink") as HTMLCanvasElement;
 let ink_cxt = ink_el.getContext("2d");
@@ -140,6 +157,11 @@ let ink_points: [number[], number[]][] = [];
 
 const ys_list = elFromId("ys_list");
 const ys_add = elFromId("ys_add");
+
+const menu_el = elFromId("菜单");
+const menu_new = elFromId("菜单_新建");
+
+const css_style_el = elFromId("css");
 
 function icon(src: string) {
     return `<img src="${src}" class="icon">`;
@@ -231,9 +253,8 @@ const default_setting = {
         延时: "0.6",
     },
     sort: { type: "change_time", reverse: false } as sort_type,
-    asr: {
-        url: "",
-    },
+    ai: { key: "" },
+    backup: { 频率: "0" },
 };
 if (!store) {
     localStorage.setItem("config", JSON.stringify(default_setting));
@@ -280,13 +301,18 @@ const packagejson = JSON5.parse(pack);
 
 // 工具栏
 
-if (window.showOpenFilePicker) {
-    elFromId("绑定文件").onclick = file_load;
-} else {
-    elFromId("绑定文件").style.display = "none";
-}
+elFromId("重新加载").onclick = () => {
+    location.reload();
+};
+
+elFromId("绑定文件").onclick = () => {
+    upload_file.click();
+};
+
+upload_file.onchange = file_load;
+
 elFromId("导出文件").onclick = () => {
-    download_file(xln_out(get_data()));
+    download_file();
 };
 
 elFromId("从云加载").onclick = async () => {
@@ -311,7 +337,7 @@ function set_save_icon() {
 elFromId("加载数据库").onclick = () => {
     elFromId("db_load").click();
 };
-elFromId("下载数据库").onclick = db_download;
+elFromId("下载数据库").onclick = () => db_download;
 
 elFromId("新建集").onclick = () => {
     window.open(location.origin);
@@ -417,7 +443,7 @@ elFromId("handle").onpointerdown = (e) => {
         if (handle_e1) handle_a = e.clientY - handle_e1.clientY;
         handle_e1 = e;
     };
-    let u = (e: MouseEvent) => {
+    let u = () => {
         侧栏.style.transform = ``;
         侧栏.style.transition = "";
         handle_e = null;
@@ -469,10 +495,19 @@ elFromId("转为一行").onclick = () => {
 elFromId("拆分为多行").onclick = () => {
     to_more_line(selected_el);
 };
+elFromId("拆分组合").onclick = () => {
+    out_group(selected_el);
+};
 
 elFromId("层handle").onclick = () => {
     style_list.parentElement.classList.toggle("层hide");
 };
+
+function add_tips(el: HTMLElement) {
+    tips.append(el);
+    el.id = uuid();
+    return el.id;
+}
 
 function put_toast(t: string, time?: number) {
     if (!time) time = 1;
@@ -521,6 +556,7 @@ function set_模式(模式x: "浏览" | "设计" | "绘制") {
             if (link_value_bar) link_value_bar.style.display = "";
 
             ink_el.parentElement.style.display = "";
+            select_type_el.style.display = "none";
             pen_pel.style.display = "none";
             break;
         case "设计":
@@ -538,7 +574,10 @@ function set_模式(模式x: "浏览" | "设计" | "绘制") {
             ink_el.classList.add("ink_hide");
 
             ink_el.parentElement.style.display = "none";
+            select_type_el.style.display = "";
             pen_pel.style.display = "none";
+
+            set_select_free_type(false);
             break;
         case "绘制":
             document.querySelectorAll("x-md").forEach((el) => {
@@ -554,6 +593,7 @@ function set_模式(模式x: "浏览" | "设计" | "绘制") {
             ink_el.classList.add("ink_hide");
 
             ink_el.parentElement.style.display = "none";
+            select_type_el.style.display = "none";
             pen_pel.style.display = "";
             break;
     }
@@ -620,7 +660,7 @@ elFromId("常驻").onpointerdown = (e) => {
     set_模式("浏览");
     if (v) (<markdown>md).value = v;
     set_模式("设计");
-    free_o_rects = [{ el: xel, x: x / zoom, y: y / zoom }];
+    free_o_rects = [{ el: xel.id, x: x / zoom, y: y / zoom }];
     free_old_point = e2p(e);
     drag_block = true;
 };
@@ -632,10 +672,10 @@ type p_point = { x: number; y: number };
 var o_e: MouseEvent;
 var o_ab_p: p_point;
 var o_rect;
-var o_vb_sb = { x0: 0, y0: 0, x1: 0, y1: 0 };
 var move: boolean = false;
 var select_id = "";
 var fxsd_el = elFromId("方向锁定");
+var op = { x: NaN, y: NaN };
 /**
  * - 0为全向移动
  * - 1为y
@@ -644,21 +684,28 @@ var fxsd_el = elFromId("方向锁定");
  */
 var fxsd: 0 | 1 | 2 | 3 = 0;
 
-function set_O_p(x: number | null, y: number | null) {
+function set_O_p(x: number | null, y: number | null, dx?: number | null, dy?: number | null) {
+    if (dx) x = op.x + dx;
+    if (dy) y = op.y + dy;
     if (x) {
-        let dx = x - el_offset(O).x;
+        dx = x - op.x;
         link_value_bar.style.left = el_offset(link_value_bar).x + dx + "px";
         if (!search_pel.getAttribute("data-fid")) search_pel.style.left = el_offset(search_pel).x + dx + "px";
+        md_text.style.left = el_offset(md_text).x + dx + "px";
         O.style.left = x + "px";
+        op.x = x;
     }
     if (y) {
-        let dy = y - el_offset(O).y;
+        dy = y - op.y;
         link_value_bar.style.top = el_offset(link_value_bar).y + dy + "px";
         if (!search_pel.getAttribute("data-fid")) search_pel.style.top = el_offset(search_pel).y + dy + "px";
+        md_text.style.top = el_offset(md_text).y + dy + "px";
         O.style.top = y + "px";
+        op.y = y;
     }
     render_map();
     render_select_rects();
+    check_render_x();
 }
 
 fxsd_el.onclick = () => {
@@ -671,9 +718,29 @@ fxsd_el.onclick = () => {
 /** 滚动或触摸在之上时，不改变画布，只作用于元素，使用query */
 var ignore_el = [];
 
+var free_select = false;
+
+function set_select_free_type(b: boolean) {
+    if (b) {
+        select_free_el.style.display = "";
+        select_rect_el.style.display = "none";
+    } else {
+        select_free_el.style.display = "none";
+        select_rect_el.style.display = "";
+    }
+    free_select = b;
+}
+
+select_rect_el.onclick = () => {
+    set_select_free_type(true);
+};
+select_free_el.onclick = () => {
+    set_select_free_type(false);
+};
+
 document.onmousedown = (e) => {
     if (e.target == document.querySelector("#画布")) {
-        if (e.button == 0) {
+        if (e.button == 0 && !free_select) {
             if (模式 != "设计") return;
             o_e = e;
             o_ab_p = e2p(e);
@@ -686,7 +753,6 @@ document.onmousedown = (e) => {
 };
 
 document.onmousemove = (e) => {
-    let el = e.target as HTMLElement;
     mouse(e);
     if (o_e) move = true;
 };
@@ -698,7 +764,7 @@ document.onmouseup = (e) => {
             add_blank(o_ab_p, e2p(e));
         } else {
             let r = p2rect(o_ab_p, e2p(e));
-            create_x_x(r.x, r.y);
+            if (r.w > 8 && r.h > 8) create_x_x(r.x, r.y);
         }
     }
     o_e = null;
@@ -734,10 +800,65 @@ var mouse = (e: MouseEvent) => {
     }
 };
 
+let select_points: [number, number][] = [];
+document.addEventListener("mousedown", (e) => {
+    if (e.target == document.querySelector("#画布")) {
+        if (e.button == 0 && free_select) {
+            if (模式 != "设计") return;
+            let p = e2p(e);
+            select_points.push([p.x, p.y]);
+            let can = createEl("canvas");
+            select_el.append(can);
+            画布.style.userSelect = "none";
+        }
+    }
+});
+
+document.addEventListener("mousemove", (e) => {
+    mouse2(e);
+});
+document.addEventListener("mouseup", (e) => {
+    mouse2(e);
+    if (select_points.length) {
+        select_points = [];
+        select_el.innerHTML = "";
+        画布.style.userSelect = "auto";
+    }
+});
+
+var mouse2 = (e: MouseEvent) => {
+    if (select_points.length) {
+        let p = e2p(e);
+        select_points.push([p.x, p.y]);
+        select_x_x2(select_points);
+
+        let c = select_el.querySelector("canvas");
+        let px = el_offset2(O, select_el).x;
+        let py = el_offset2(O, select_el).y;
+        let z = 2;
+        let zz = zoom * z;
+        c.width = 画布.offsetWidth * z;
+        c.height = 画布.offsetHeight * z;
+        let ctx = c.getContext("2d");
+        if (select_points.length > 0) {
+            ctx.beginPath();
+            ctx.lineWidth = 2;
+            ctx.moveTo((select_points[0][0] + px) * zz, (select_points[0][1] + py) * zz);
+            for (let i of select_points) {
+                ctx.lineTo((i[0] + px) * zz, (i[1] + py) * zz);
+                ctx.moveTo((i[0] + px) * zz, (i[1] + py) * zz);
+            }
+            ctx.lineTo((select_points[0][0] + px) * zz, (select_points[0][1] + py) * zz);
+            ctx.closePath();
+            ctx.stroke();
+        }
+    }
+};
+
 var o_touch_e: TouchEvent;
+var o_touch_e_l: { e: TouchEvent; t: number }[] = [];
 var o_touch_zoom_e: TouchEvent;
 var o_zoom = NaN;
-var o_touch_t = NaN;
 画布.ontouchstart = (e) => {
     if (模式 == "绘制") return;
     let el = <HTMLElement>e.changedTouches[0].target;
@@ -752,16 +873,9 @@ var o_touch_t = NaN;
         ) &&
         !document.querySelector("x-sinppet").contains(el)
     ) {
-        o_touch_t = new Date().getTime();
         O.style.transition = "";
         o_touch_e = o_touch_zoom_e = e;
         o_rect = { x: el_offset(O).x, y: el_offset(O).y };
-        o_vb_sb = {
-            x0: el_offset(link_value_bar).x,
-            y0: el_offset(link_value_bar).y,
-            x1: el_offset(search_pel).x,
-            y1: el_offset(search_pel).y,
-        };
         o_zoom = zoom;
         if (e.targetTouches.length == 1) {
         } else if (e.targetTouches.length == 2) {
@@ -772,6 +886,7 @@ var o_touch_t = NaN;
     if (e.targetTouches.length == 1) {
         touch_move(e);
         if (o_touch_e) move = true;
+        o_touch_e_l.push({ e: e, t: new Date().getTime() });
     } else if (e.targetTouches.length == 2) {
         e.preventDefault();
         touch_zoom(e);
@@ -780,27 +895,31 @@ var o_touch_t = NaN;
 };
 画布.ontouchend = (e) => {
     // 惯性滚动
-    let dt = new Date().getTime() - o_touch_t;
-    let dx = fxsd == 0 || fxsd == 2 ? e.changedTouches[0].clientX - o_touch_e.changedTouches[0].clientX : 0,
-        dy = fxsd == 0 || fxsd == 1 ? e.changedTouches[0].clientY - o_touch_e.changedTouches[0].clientY : 0;
-    let ds = Math.sqrt(dx ** 2 + dy ** 2);
-    const m = 1,
-        a = 0.0015;
-    let p = 0.5 * m * (ds / dt / 2) ** 2;
-    let s = p / (m * a);
-    let t = Math.sqrt((2 * s) / a);
-    console.log(ds);
-    if (ds > 30) {
-        let x = el_offset(O).x + s * (dx / ds),
-            y = el_offset(O).y + s * (dy / ds);
-        O.style.transition = `${t / 1000}s`;
-        O.style.transitionTimingFunction = "cubic-bezier(.17, .89, .45, 1)";
-        setTimeout(() => {
-            O.style.transition = ``;
-            render_select_rects();
-            data_changed();
-        }, t);
-        set_O_p(x, y);
+    if (move) {
+        let o_e = o_touch_e_l?.[o_touch_e_l.length - 2] || { e: e, t: 0 };
+        let dt = new Date().getTime() - o_e.t;
+        let dx = fxsd == 0 || fxsd == 2 ? e.changedTouches[0].clientX - o_e.e.changedTouches[0].clientX : 0,
+            dy = fxsd == 0 || fxsd == 1 ? e.changedTouches[0].clientY - o_e.e.changedTouches[0].clientY : 0;
+        let ds = Math.sqrt(dx ** 2 + dy ** 2);
+        const m = 1,
+            a = 0.0015;
+        let p = 0.5 * m * (ds / dt / 2) ** 2;
+        let s = p / (m * a);
+        let t = Math.sqrt((2 * s) / a);
+        console.log(dt, ds);
+        if (dt < 15) {
+            let x = el_offset(O).x + s * (dx / ds),
+                y = el_offset(O).y + s * (dy / ds);
+            O.style.transition = `${t / 1000}s`;
+            O.style.transitionTimingFunction = "cubic-bezier(.17, .89, .45, 1)";
+            setTimeout(() => {
+                O.style.transition = ``;
+                render_select_rects();
+                data_changed();
+            }, t);
+            set_O_p(x, y);
+        }
+        o_touch_e_l = [];
     }
 
     o_touch_e = null;
@@ -878,17 +997,74 @@ function e2p(e: MouseEvent) {
     } as p_point;
 }
 
-var selected_el: x[] = [];
+var selected_el: string[] = [];
 
 /**选择元素 */
 function select_x_x(rect: { x: number; y: number; w: number; h: number }) {
-    for (const el of O.querySelectorAll(":scope > x-x")) {
-        let r = el_offset2(el);
-        if (rect.x <= r.x && r.x + r.w <= rect.x + rect.w && rect.y <= r.y && r.y + r.h <= rect.y + rect.h) {
-            selected_el.push(<x>el);
-            render_select_rects();
+    集_for_each((el, p, path) => {
+        if (p.id == 当前画布.id && path.length == 0) {
+            if (rect_in_rect(el.rect, rect)) {
+                selected_el.push(el.id);
+                render_select_rects();
+            }
+        }
+    });
+}
+function select_x_x2(points: [number, number][]) {
+    selected_el = [];
+
+    集_for_each((el, p, path) => {
+        if (p.id == 当前画布.id && path.length == 0) {
+            let r = el.rect;
+
+            if (
+                ray_casting([r.x, r.y], points) &&
+                ray_casting([r.x, r.y + r.h], points) &&
+                ray_casting([r.x + r.w, r.y], points) &&
+                ray_casting([r.x + r.w, r.y + r.h], points)
+            ) {
+                selected_el.push(el.id);
+                render_select_rects();
+            }
+        }
+    });
+}
+
+function ray_casting(p: [number, number], poly: [number, number][]) {
+    // px，py为p点的x和y坐标
+    let px = p[0],
+        py = p[1],
+        flag = false;
+    //这个for循环是为了遍历多边形的每一个线段
+    for (let i = 0, l = poly.length, j = l - 1; i < l; j = i, i++) {
+        let sx = poly[i][0], //线段起点x坐标
+            sy = poly[i][1], //线段起点y坐标
+            tx = poly[j][0], //线段终点x坐标
+            ty = poly[j][1]; //线段终点y坐标
+
+        // 点与多边形顶点重合
+        if ((sx === px && sy === py) || (tx === px && ty === py)) {
+            return true;
+        }
+
+        // 判断线段两端点是否在射线两侧
+        if ((sy < py && ty >= py) || (sy >= py && ty < py)) {
+            // 求射线和线段的交点x坐标，交点y坐标当然是py
+            let x = sx + ((py - sy) * (tx - sx)) / (ty - sy);
+
+            // 点在多边形的边上
+            if (x === px) {
+                return true;
+            }
+
+            // x大于px来保证射线是朝右的，往一个方向射，假如射线穿过多边形的边界，flag取反一下
+            if (x > px) {
+                flag = !flag;
+            }
         }
     }
+    // 射线穿过多边形边界的次数为奇数时点在多边形内
+    return flag ? true : false;
 }
 
 function add_blank(op: p_point, p: p_point) {
@@ -910,50 +1086,56 @@ function add_blank(op: p_point, p: p_point) {
         }
     }
 
-    for (let xel of O.querySelectorAll(":scope > x-x")) {
-        let el_o = el_offset2(xel);
-        let el = xel as x;
-        switch (a) {
-            case 0:
-                if (el_o.y + el_o.h < op.y && r.x <= el_o.x && el_o.x + el_o.w <= r.x + r.w) {
-                    el.style.top = el_o.y - r.h + "px";
+    for (let i of 集.数据) {
+        if (i.id == 当前画布.id) {
+            for (let xel of i.data) {
+                let el_o = xel.rect;
+                switch (a) {
+                    case 0:
+                        if (el_o.y + el_o.h < op.y && r.x <= el_o.x && el_o.x + el_o.w <= r.x + r.w) {
+                            set_data_style(xel, "top", el_o.y - r.h + "px");
+                            xel.rect.y -= r.h;
+                        }
+                        break;
+                    case 1:
+                        if (el_o.x > op.x && r.y <= el_o.y && el_o.y + el_o.h <= r.y + r.h) {
+                            set_data_style(xel, "left", el_o.x + r.w + "px");
+                            xel.rect.x += r.w;
+                        }
+                        break;
+                    case 2:
+                        if (el_o.y > op.y && r.x <= el_o.x && el_o.x + el_o.w <= r.x + r.w) {
+                            set_data_style(xel, "top", el_o.y + r.h + "px");
+                            xel.rect.y += r.h;
+                        }
+                        break;
+                    case 3:
+                        if (el_o.x + el_o.w < op.x && r.y <= el_o.y && el_o.y + el_o.h <= r.y + r.h) {
+                            set_data_style(xel, "left", el_o.x - r.w + "px");
+                            xel.rect.x -= r.w;
+                        }
+                        break;
                 }
-                break;
-            case 1:
-                if (el_o.x > op.x && r.y <= el_o.y && el_o.y + el_o.h <= r.y + r.h) {
-                    el.style.left = el_o.x + r.w + "px";
+                let el = elFromId(xel.id);
+                if (el) {
+                    el.setAttribute("style", xel.style);
                 }
-                break;
-            case 2:
-                if (el_o.y > op.y && r.x <= el_o.x && el_o.x + el_o.w <= r.x + r.w) {
-                    el.style.top = el_o.y + r.h + "px";
-                }
-                break;
-            case 3:
-                if (el_o.x + el_o.w < op.x && r.y <= el_o.y && el_o.y + el_o.h <= r.y + r.h) {
-                    el.style.left = el_o.x - r.w + "px";
-                }
-                break;
+            }
         }
     }
 }
 
 function render_select_rects() {
+    if (模式 != "设计") return;
     let xels: x[] = [];
     if (now_mouse_e) {
         let els = document.elementsFromPoint(now_mouse_e.clientX, now_mouse_e.clientY);
         if (els.length) {
-            if (els[0].id == "x-x_bar") {
-                els = document.elementsFromPoint(
-                    els[0].parentElement.getBoundingClientRect().x,
-                    els[0].parentElement.getBoundingClientRect().y
-                );
-            }
-            if (els[1].id == "x-x_bar") {
-                els = document.elementsFromPoint(
-                    els[1].parentElement.getBoundingClientRect().x,
-                    els[1].parentElement.getBoundingClientRect().y
-                );
+            if (els[0].className == "x-x_bar" || els[1].className == "x-x_bar") {
+                let x: Element;
+                if (els[0].className == "x-x_bar") x = elFromId(els[0].getAttribute("data-id"));
+                if (els[1].className == "x-x_bar") x = elFromId(els[1].getAttribute("data-id"));
+                if (x) els = document.elementsFromPoint(x.getBoundingClientRect().x, x.getBoundingClientRect().y);
             }
         }
         for (let i of els) {
@@ -961,18 +1143,15 @@ function render_select_rects() {
                 xels.push(i as x);
                 let select_bar = add_r(i as x);
                 select_bar.classList.add("x-x_hover");
+                break;
             }
         }
     }
     for (let i of selected_el) {
-        let select_bar = add_r(i);
+        let el = get_x_by_id(i);
+        if (!el) continue;
+        let select_bar = add_r(el);
         select_bar.classList.add("x-x_selected");
-    }
-    document.querySelectorAll(".x-x_bar_show2").forEach((el) => {
-        el.classList.remove("x-x_bar_show2");
-    });
-    if (selected_el.length == 1) {
-        selected_el[0].querySelector(":scope > #x-x_bar").classList.add("x-x_bar_show2");
     }
     function add_r(i: x) {
         let rect = i.getBoundingClientRect();
@@ -1006,14 +1185,15 @@ function render_select_rects() {
 
         select_bar.onpointerdown = (e) => {
             let el = e.target as HTMLDivElement;
+            i = get_x_by_id(i.id);
             if (x_h.includes(el)) {
                 e.preventDefault();
                 e.stopPropagation();
                 free_o_a = x_h.indexOf(el);
                 free_old_point = e2p(e);
-                free_o_rects = [{ el: i, x: i.offsetLeft, y: i.offsetTop, w: i.offsetWidth, h: i.offsetHeight }];
+                free_o_rects = [{ el: i.id, x: i.offsetLeft, y: i.offsetTop, w: i.offsetWidth, h: i.offsetHeight }];
                 if (selected_el.length <= 1) {
-                    z.focus(i);
+                    z.focus(i.id);
                 }
             }
             clearTimeout(free_db_time);
@@ -1033,7 +1213,7 @@ function render_select_rects() {
             i.classList.remove("x-x_hover");
         }
         for (let x of selected_el) {
-            if (x.id == i.getAttribute("data-id")) {
+            if (x == i.getAttribute("data-id")) {
                 has = true;
                 break;
             }
@@ -1042,11 +1222,72 @@ function render_select_rects() {
             i.remove();
         }
     }
+
+    render_x_bar();
 }
-document.addEventListener("dblclick", (e) => {
+
+let last_hover_x = "";
+
+function render_x_bar() {
+    if (模式 != "设计") return;
+    let xels: x[] = [];
+    if (now_mouse_e) {
+        let els = document.elementsFromPoint(now_mouse_e.clientX, now_mouse_e.clientY);
+        if (els.length) {
+            if (els[0].className == "x-x_bar" || els[1].className == "x-x_bar") {
+                let x: Element;
+                if (els[0].className == "x-x_bar") x = elFromId(els[0].getAttribute("data-id"));
+                if (els[1].className == "x-x_bar") x = elFromId(els[1].getAttribute("data-id"));
+                if (x?.id && x.id == last_hover_x) {
+                    els = document.elementsFromPoint(x.getBoundingClientRect().x, x.getBoundingClientRect().y);
+                }
+            }
+        }
+        last_hover_x = "";
+        for (let i of els) {
+            if (i.tagName == "X-X") {
+                xels.push(i as x);
+                add_r(i as x);
+                last_hover_x = i.id;
+                break;
+            }
+        }
+    }
+    if (selected_el.length == 1) if (get_x_by_id(select_el[0])) xels.push(get_x_by_id(select_el[0]));
+
+    for (let i of x_bar_con.children) {
+        let has = false;
+        for (let x of xels) {
+            if (i.getAttribute("data-id") == x.id) {
+                add_r(x);
+                has = true;
+            }
+        }
+        if (!has) {
+            setTimeout(() => {
+                if (!i.contains(document.elementFromPoint(now_mouse_e.clientX, now_mouse_e.clientY))) {
+                    i.remove();
+                }
+            }, 10);
+        }
+    }
+    function add_r(i: x) {
+        let rect = i.getBoundingClientRect();
+        let x_bar = (x_bar_con.querySelector(`[data-id="${i.id}"]`) as HTMLElement) || new_x_bar(i.id);
+        x_bar.setAttribute("data-id", i.id);
+        x_bar.style.left = rect.x - x_bar_con.getBoundingClientRect().left + "px";
+        x_bar.style.top = rect.y - x_bar_con.getBoundingClientRect().top - 16 + "px";
+        if (x_bar_con.querySelector(`[data-id="${i.id}"]`)) return x_bar;
+        x_bar_con.append(x_bar);
+
+        return x_bar;
+    }
+}
+
+document.addEventListener("dblclick", () => {
     if (模式 == "设计") {
         console.log(free_o_a, z.聚焦元素);
-        let el = z.聚焦元素;
+        let el = get_x_by_id(z.聚焦元素);
         let xl = [1, 3, 4, 5, 6, 7],
             yl = [0, 2, 4, 5, 6, 7];
         if (xl.includes(free_o_a)) el.style.width = "";
@@ -1077,14 +1318,14 @@ function zoom_o(z: number) {
     zoom_el.style.width = zoom_el.value.length + "ch";
     document.documentElement.style.setProperty("--zoom", String(z));
 
-    document.querySelectorAll("x-pdf").forEach((el: pdf_viewer) => {
+    画布.querySelectorAll("x-pdf").forEach((el: pdf_viewer) => {
         let r = el.getBoundingClientRect();
         let w = window.innerWidth,
             h = window.innerHeight;
         if (r.x < w && r.y < h && r.x + r.width > 0 && r.y + r.height > 0) el.set_m();
     });
 
-    document.querySelectorAll("x-graph").forEach((el: graph) => {
+    画布.querySelectorAll("x-graph").forEach((el: graph) => {
         el.reflasth();
     });
 }
@@ -1100,7 +1341,7 @@ zoom_el.onchange = () => {
     let dx = window.innerWidth / 2 - O.getBoundingClientRect().x,
         dy = window.innerHeight / 2 - O.getBoundingClientRect().y;
     zoom_o(zoom);
-    set_O_p(el_offset(O).x - dx * (dzoom / ozoom), el_offset(O).y - dy * (dzoom / ozoom));
+    set_O_p(null, null, -dx * (dzoom / ozoom), -dy * (dzoom / ozoom));
     zoom_list.classList.add("zoom_list_hide");
 };
 
@@ -1133,7 +1374,7 @@ for (let i = 25; i <= 200; i += 25) {
         let dx = window.innerWidth / 2 - O.getBoundingClientRect().x,
             dy = window.innerHeight / 2 - O.getBoundingClientRect().y;
         zoom_o(nzoom);
-        set_O_p(el_offset(O).x - dx * (dzoom / ozoom), el_offset(O).y - dy * (dzoom / ozoom));
+        set_O_p(null, null, -dx * (dzoom / ozoom), -dy * (dzoom / ozoom));
     };
 }
 set_O_p(画布.offsetWidth / 2, 画布.offsetHeight / 2);
@@ -1144,36 +1385,33 @@ mini_map_el.parentElement.parentElement.onclick = (e) => {
     mini_map_el.parentElement.classList.toggle("mini_map_hide");
     render_map();
 };
-let mini_down = false;
+
 mini_map_el.onpointerdown = (e) => {
-    mini_down = true;
     e.stopPropagation();
-    let els_rect = reflash_rect();
-    let out_rect = get_out_rect(els_rect);
+    let main_rect = el_offset2(画布, O);
     let px = e.offsetX / mini_map_el.offsetWidth;
     let py = e.offsetY / mini_map_el.offsetHeight;
+    const max = Math.max(main_rect.w, main_rect.h);
+    let out_rect = {
+        left: main_rect.x + main_rect.w / 2 - (max / 2) * mini_zoom,
+        top: main_rect.y + main_rect.h / 2 - (max / 2) * mini_zoom,
+    };
 
-    let rx = px * (out_rect.right - out_rect.left) + out_rect.left;
-    let ry = py * (out_rect.bottom - out_rect.top) + out_rect.top;
+    let rx = px * (max * mini_zoom) + out_rect.left;
+    let ry = py * (max * mini_zoom) + out_rect.top;
     set_O_p(-rx * zoom + 画布.offsetWidth / 2, -ry * zoom + 画布.offsetHeight / 2);
 };
-mini_map_el.onpointermove = (e) => {
-    if (mini_down) {
-        let els_rect = reflash_rect();
-        let out_rect = get_out_rect(els_rect);
-        let px = e.offsetX / mini_map_el.offsetWidth;
-        let py = e.offsetY / mini_map_el.offsetHeight;
-
-        let rx = px * (out_rect.right - out_rect.left) + out_rect.left;
-        let ry = py * (out_rect.bottom - out_rect.top) + out_rect.top;
-        set_O_p(-rx * zoom + 画布.offsetWidth / 2, -ry * zoom + 画布.offsetHeight / 2);
-    }
-};
-mini_map_el.onpointerup = (e) => {
-    e.stopPropagation();
-    mini_down = false;
-};
 ignore_el.push("#mini_map");
+
+mini_map_el.onwheel = (e) => {
+    let zz = 1 + Math.abs(e.deltaY) / 300;
+    if (e.deltaY > 0) {
+        mini_zoom = mini_zoom * zz;
+    } else {
+        mini_zoom = mini_zoom / zz;
+    }
+    render_map();
+};
 
 /**元素相对位置（屏幕坐标） */
 function el_offset(el: Element, pel?: Element) {
@@ -1183,75 +1421,142 @@ function el_offset(el: Element, pel?: Element) {
     return { x: ox, y: oy, w: el.getBoundingClientRect().width, h: el.getBoundingClientRect().height };
 }
 
+/**范围相对位置（屏幕坐标） */
+function range_offset(range: Range, pel?: Element) {
+    if (!pel) pel = range.commonAncestorContainer.parentElement;
+    let ox = range.getBoundingClientRect().x - pel.getBoundingClientRect().x,
+        oy = range.getBoundingClientRect().y - pel.getBoundingClientRect().y;
+    return { x: ox, y: oy, w: range.getBoundingClientRect().width, h: range.getBoundingClientRect().height };
+}
+
+type rect = { x: number; y: number; w: number; h: number };
+
 /**元素大小和相对位置（画布坐标） */
-function el_offset2(el: Element, pel?: Element) {
+function el_offset2(el: Element, pel?: Element, xz?: number): rect {
     if (!pel) pel = el.parentElement;
+    let z = xz || zoom;
     let ox = el.getBoundingClientRect().x - pel.getBoundingClientRect().x,
         oy = el.getBoundingClientRect().y - pel.getBoundingClientRect().y;
     return {
-        x: ox / zoom,
-        y: oy / zoom,
-        w: el.getBoundingClientRect().width / zoom,
-        h: el.getBoundingClientRect().height / zoom,
+        x: ox / z,
+        y: oy / z,
+        w: el.getBoundingClientRect().width / z,
+        h: el.getBoundingClientRect().height / z,
     };
 }
 
+function el_has(data: data[0], id: string) {
+    if (data.id == id) return true;
+    w(data.子元素);
+    function w(data: data) {
+        for (let i of data) {
+            if (i.id == id) {
+                return true;
+            }
+            if (i.子元素) {
+                w(i.子元素);
+            }
+        }
+    }
+    return false;
+}
+
+/** 框有交集 */
+function rect_x_rect(rect0: rect, rect1: rect) {
+    if (
+        rect0.x <= rect1.x + rect1.w &&
+        rect0.x + rect0.w >= rect1.x &&
+        rect0.y <= rect1.y + rect1.h &&
+        rect0.y + rect0.h >= rect1.y
+    ) {
+        return true;
+    } else {
+        return false;
+    }
+}
+/** rect0是rect1的子集 */
+function rect_in_rect(rect0: rect, rect1: rect) {
+    if (
+        rect0.x >= rect1.x &&
+        rect0.x + rect0.w <= rect1.x + rect1.w &&
+        rect0.y >= rect1.y &&
+        rect0.y + rect0.h <= rect1.y + rect1.h
+    ) {
+        return true;
+    } else {
+        return false;
+    }
+}
 /** 获取元素框 */
 function reflash_rect() {
-    let els_rect: { el: x; rect: { x: number; y: number; w: number; h: number } }[] = [];
-    O.querySelectorAll("x-x").forEach((xel: x) => {
-        if (集.values?.[xel.id]?.fixed) return;
-        els_rect.push({ el: xel, rect: el_offset2(xel, O) });
-    });
+    let els_rect: { x: number; y: number; w: number; h: number }[] = [];
+    if (集)
+        for (let i of 集.数据) {
+            if (i.id == 当前画布.id) w(i.data);
+        }
+    function w(data: data) {
+        for (let i of data) {
+            if (集.values?.[i.id]?.fixed) return;
+            if (i.rect) els_rect.push(i.rect);
+            if (i.子元素) {
+                w(i.子元素);
+            }
+        }
+    }
     return els_rect;
 }
 
 /** 获取最大框 */
-function get_out_rect(rect: { el: x; rect: { x: number; y: number; w: number; h: number } }[]) {
+function get_out_rect(rect: rect[]) {
     let out_rect = { left: Infinity, right: -Infinity, top: Infinity, bottom: -Infinity };
     for (let i of rect) {
-        const r = i.rect;
+        const r = i;
         out_rect.left = Math.min(r.x, out_rect.left);
         out_rect.right = Math.max(r.x + r.w, out_rect.right);
         out_rect.top = Math.min(r.y, out_rect.top);
         out_rect.bottom = Math.max(r.y + r.h, out_rect.bottom);
     }
-    return out_rect;
+    return {
+        ...out_rect,
+        x: out_rect.left,
+        y: out_rect.top,
+        w: out_rect.right - out_rect.left,
+        h: out_rect.bottom - out_rect.top,
+    };
 }
+
+var mini_zoom = 3;
 
 /** 渲染小地图 */
 function render_map() {
     if (mini_map_el.parentElement.classList.contains("mini_map_hide")) return;
+    let main_rect = el_offset2(画布, O);
     let els_rect = reflash_rect();
-    let out_rect = get_out_rect(els_rect);
     let z = 1;
+    const zz = 2;
     const min = 600,
-        minstyle = "300px";
-    if (out_rect.right - out_rect.left > out_rect.bottom - out_rect.top) {
-        mini_map_el.height = min;
-        mini_map_el.style.height = minstyle;
-        mini_map_el.style.width = "";
-        z = min / (out_rect.bottom - out_rect.top);
-        mini_map_el.width = (out_rect.right - out_rect.left) * z;
-    } else {
-        mini_map_el.width = min;
-        mini_map_el.style.width = minstyle;
-        mini_map_el.style.height = "";
-        z = min / (out_rect.right - out_rect.left);
-        mini_map_el.height = (out_rect.bottom - out_rect.top) * z;
-    }
+        minstyle = `${600 / zz}px`,
+        max = Math.max(main_rect.w, main_rect.h);
+    z = min / max / mini_zoom;
+    let out_rect = {
+        left: main_rect.x + main_rect.w / 2 - (max / 2) * mini_zoom,
+        top: main_rect.y + main_rect.h / 2 - (max / 2) * mini_zoom,
+    };
+    mini_map_el.style.height = minstyle;
+    mini_map_el.style.width = minstyle;
+    mini_map_el.height = min;
+    mini_map_el.width = min;
     let ctx = mini_map_el.getContext("2d");
     ctx.clearRect(0, 0, mini_map_el.offsetWidth, mini_map_el.height);
     for (let i of els_rect) {
-        const r = i.rect;
+        const r = i;
         let x = (r.x - out_rect.left) * z;
         let y = (r.y - out_rect.top) * z;
         let w = r.w * z;
         let h = r.h * z;
-        ctx.fillStyle = "#0002";
+        ctx.fillStyle = is_dark ? "#fff2" : "#0002";
         ctx.fillRect(x, y, w, h);
     }
-    let main_rect = el_offset2(画布, O);
     ctx.strokeStyle = "#00f";
     ctx.fillStyle = "#00f2";
     ctx.lineWidth = 1;
@@ -1269,14 +1574,18 @@ elFromId("画布").onwheel = (e) => {
         e.preventDefault();
 
         if (zoom_lock) return;
-        let ozoom = zoom,
-            dzoom = -e.deltaY / (800 / zoom);
-        zoom += dzoom;
+
+        let zz = 1 + Math.abs(e.deltaY) / 1000;
+        let ozoom = zoom;
+        zoom = e.deltaY > 0 ? ozoom / zz : ozoom * zz;
         zoom = Math.abs(zoom);
+        let dzoom = zoom - ozoom;
         let dx = e.clientX - O.getBoundingClientRect().x,
             dy = e.clientY - O.getBoundingClientRect().y;
-        zoom_o(zoom);
-        set_O_p(el_offset(O).x - dx * (dzoom / ozoom), el_offset(O).y - dy * (dzoom / ozoom));
+        requestAnimationFrame(() => {
+            zoom_o(zoom);
+            set_O_p(null, null, -dx * (dzoom / ozoom), -dy * (dzoom / ozoom));
+        });
     } else {
         let el = <HTMLElement>e.target;
         if (el.tagName == "TEXTAREA") return;
@@ -1295,7 +1604,9 @@ elFromId("画布").onwheel = (e) => {
                 if (fxsd == 0 || fxsd == 2) dx = -e.deltaX;
                 if (fxsd == 0 || fxsd == 1) dy = -e.deltaY;
             }
-            set_O_p(el_offset(O).x + dx, el_offset(O).y + dy);
+            requestAnimationFrame(() => {
+                set_O_p(null, null, +dx, +dy);
+            });
         } else {
             let a = e.deltaY > 0 ? "next" : "back";
             ys_bn(a as "next" | "back");
@@ -1321,7 +1632,7 @@ document.addEventListener("pointermove", (e) => {
         set_O_p(middle_p.x + dx, middle_p.y + dy);
     }
 });
-document.addEventListener("pointerup", (e) => {
+document.addEventListener("pointerup", () => {
     if (middle_b) {
         data_changed();
     }
@@ -1351,7 +1662,7 @@ var selections = [{ id: "", start: 0, end: 0 }] as selection_type[];
 /** 触发调节时的位置 */
 let free_old_point: p_point;
 /** 所作用的元素及其原始位置大小 */
-let free_o_rects = [] as { el: x; x: number; y: number; w?: number; h?: number }[];
+let free_o_rects = [] as { el: string; x: number; y: number; w?: number; h?: number }[];
 /** 应该对元素执行的操作，移动还是调节大小 */
 let free_o_a = NaN;
 /** 是否移动过，可用于判断点击还是拖动 */
@@ -1385,34 +1696,32 @@ document.addEventListener("pointermove", (e: PointerEvent) => {
             for (let el of els) {
                 if (el.tagName == "X-X") {
                     let rect = el.getBoundingClientRect();
-                    for (let x of selected_el) {
-                        if (
-                            el.parentElement.classList.contains("flex-column") ||
-                            el.parentElement.classList.contains("flex-row")
-                        ) {
-                            free_drag_tip.style.opacity = "1";
-                            if (el.parentElement.classList.contains("flex-column")) {
-                                if (e.clientY - rect.y < rect.height / 2) {
-                                    free_drag_tip.style.top = rect.top + "px";
-                                } else {
-                                    free_drag_tip.style.top = rect.bottom + "px";
-                                }
-                                free_drag_tip.style.left = rect.left + "px";
-                                free_drag_tip.style.width = rect.width + "px";
-                                free_drag_tip.style.height = "1px";
-                            }
-                            if (el.parentElement.classList.contains("flex-row")) {
-                                if (e.clientX - rect.x < rect.width / 2) {
-                                    free_drag_tip.style.left = rect.left + "px";
-                                } else {
-                                    free_drag_tip.style.left = rect.right + "px";
-                                }
+                    if (
+                        el.parentElement.classList.contains("flex-column") ||
+                        el.parentElement.classList.contains("flex-row")
+                    ) {
+                        free_drag_tip.style.opacity = "1";
+                        if (el.parentElement.classList.contains("flex-column")) {
+                            if (e.clientY - rect.y < rect.height / 2) {
                                 free_drag_tip.style.top = rect.top + "px";
-                                free_drag_tip.style.width = "1px";
-                                free_drag_tip.style.height = rect.height + "px";
+                            } else {
+                                free_drag_tip.style.top = rect.bottom + "px";
                             }
-                            return;
+                            free_drag_tip.style.left = rect.left + "px";
+                            free_drag_tip.style.width = rect.width + "px";
+                            free_drag_tip.style.height = "1px";
                         }
+                        if (el.parentElement.classList.contains("flex-row")) {
+                            if (e.clientX - rect.x < rect.width / 2) {
+                                free_drag_tip.style.left = rect.left + "px";
+                            } else {
+                                free_drag_tip.style.left = rect.right + "px";
+                            }
+                            free_drag_tip.style.top = rect.top + "px";
+                            free_drag_tip.style.width = "1px";
+                            free_drag_tip.style.height = rect.height + "px";
+                        }
+                        return;
                     }
                 }
             }
@@ -1437,71 +1746,94 @@ document.addEventListener("pointerup", (e: PointerEvent) => {
         画布.classList.remove("拖拽");
         free_drag_tip.remove();
         let els = document.elementsFromPoint(e.clientX, e.clientY);
+        let in_el = false;
         for (let el of els) {
             if (el.tagName == "X-X") {
+                in_el = true;
                 let rect = el.getBoundingClientRect();
-                for (let x of selected_el) {
-                    if (
-                        el.parentElement.classList.contains("flex-column") ||
-                        el.parentElement.classList.contains("flex-row")
-                    ) {
-                        if (el.parentElement.classList.contains("flex-column")) {
-                            if (e.clientY - rect.y < rect.height / 2) {
-                                cx(el, x, true);
-                            } else {
-                                cx(el, x, false);
-                            }
+                let x = free_o_rects[0].el;
+                if (
+                    el.parentElement.classList.contains("flex-column") ||
+                    el.parentElement.classList.contains("flex-row")
+                ) {
+                    if (el.parentElement.classList.contains("flex-column")) {
+                        if (e.clientY - rect.y < rect.height / 2) {
+                            cx(el, x, true);
+                        } else {
+                            cx(el, x, false);
                         }
-                        if (el.parentElement.classList.contains("flex-row")) {
-                            if (e.clientX - rect.x < rect.width / 2) {
-                                cx(el, x, true);
-                            } else {
-                                cx(el, x, false);
-                            }
+                    }
+                    if (el.parentElement.classList.contains("flex-row")) {
+                        if (e.clientX - rect.x < rect.width / 2) {
+                            cx(el, x, true);
+                        } else {
+                            cx(el, x, false);
                         }
-                        selected_el = [];
-                        break;
                     }
-                }
-                function cx(pel: Element, x: x, before: boolean) {
-                    let xel = createEl("x-x");
-                    xel.id = x.id;
-                    xel.setAttribute("style", x.getAttribute("style"));
-                    xel.style.left = "";
-                    xel.style.top = "";
-                    xel.className = x.className;
-                    const xx = get_x_by_id(x.id);
-                    if (before) {
-                        pel.before(xel);
-                    } else {
-                        pel.after(xel);
-                    }
-                    xel.value = x.value;
-                    xx.remove();
+                    free_o_rects = [];
+                    break;
                 }
             }
         }
+        function cx(pel: Element, id: string, before: boolean) {
+            let x = get_x_data(id);
+            let xel = createEl("x-x");
+            xel.id = id;
+            xel.setAttribute("style", x.style);
+            xel.style.left = "";
+            xel.style.top = "";
+            xel.className = x.class;
+            const xx = get_x_by_id(id);
+            if (before) {
+                pel.before(xel);
+            } else {
+                pel.after(xel);
+            }
+            xel.value = x.子元素;
+            xx?.remove();
+            let c = pel.parentElement.children;
+            for (let i in c) {
+                if (c[i] == xel) {
+                    move_x_data(id, pel.parentElement.id, Number(i));
+                    z.move(id, pel.parentElement.id, Number(i));
+                    break;
+                }
+            }
+            集_for_each((data) => {
+                if (data.id == id) {
+                    set_data_style(data, "left", "");
+                    set_data_style(data, "top", "");
+                    return true;
+                }
+            });
+        }
+        if (!in_el) {
+            let id = free_o_rects[0].el;
+            move_x_data(id, O.id);
+            z.move(id, O.id);
+        }
         free_drag = false;
+        render_select_rects();
     }
 
     if (free_old_point && free_o_a == -1 && 临时中转站.contains(e.target as HTMLElement)) {
         for (let i of selected_el) {
             let had = false;
             for (let x of global_x) {
-                if (x.data.id == i.id) {
+                if (x.data.id == i) {
                     had = true;
                     break;
                 }
             }
             for (let x of 集.中转站) {
-                if (x.id == i.id) {
+                if (x.id == i) {
                     had = true;
                     break;
                 }
             }
             if (had) continue;
-            集.中转站.push(get_x_out_value(i));
-            i.remove();
+            集.中转站.push(get_x_out_value(get_x_by_id(i)));
+            z.remove(i, true);
         }
         free_o_rects = [];
         console.log(集.中转站);
@@ -1512,23 +1844,22 @@ document.addEventListener("pointerup", (e: PointerEvent) => {
     if (!free_move && free_old_point && !mu_sel_key(e)) {
         document.querySelectorAll("x-x").forEach((el: x) => {
             if (el.contains(e.target as x)) {
-                z.focus(el);
+                z.focus(el.id);
                 return;
             }
         });
         data_changed();
     }
-    if (free_drag || free_old_point) z.reflash();
     if (
         !free_drag &&
         !free_move &&
         free_old_point &&
         free_o_a != -1 &&
-        !free_o_rects[0].el.querySelector("x-link-arrow") &&
-        is_smallest_el(free_o_rects[0].el)
+        !elFromId(free_o_rects[0].el)?.querySelector("x-link-arrow") &&
+        is_smallest_data_el(free_o_rects[0].el)
     ) {
         if (!free_link) {
-            let elid = free_o_rects[0].el.id;
+            let elid = free_o_rects[0].el;
             free_db_time = setTimeout(() => {
                 let id = uuid_id();
                 free_link = id;
@@ -1542,15 +1873,14 @@ document.addEventListener("pointerup", (e: PointerEvent) => {
                 x.style.stroke = "var(--color6)";
                 x.style.strokeWidth = "1";
                 x.classList.add("link_arrow_p");
-                selected_el = selected_el.filter((el) => el != x);
+                selected_el = selected_el.filter((el) => el != x.id);
             }, free_db_dtime);
         } else {
             let arrow = elFromId(free_link).querySelector("x-link-arrow") as link_arrow;
-            arrow._value.end.id = free_o_rects[0].el.id;
+            arrow._value.end.id = free_o_rects[0].el;
             arrow._value.end.a = free_o_a;
             render_link_arrow(free_link, e);
-            arrow.ob();
-            link(arrow._value.start.id).add(free_o_rects[0].el.id);
+            link(arrow._value.start.id).add(free_o_rects[0].el);
             free_link = "";
         }
     }
@@ -1563,7 +1893,7 @@ document.addEventListener("pointerup", (e: PointerEvent) => {
                 is_smallest_el(elFromId(el.parentElement.getAttribute("data-id")) as x)
             )
         ) {
-            z.remove(elFromId(free_link) as x);
+            z.remove(free_link);
         }
         free_link = "";
     }
@@ -1576,118 +1906,133 @@ document.addEventListener("pointerup", (e: PointerEvent) => {
 var free_mouse = (e: MouseEvent) => {
     if (free_old_point) {
         for (const xel of free_o_rects) {
-            let f =
-                xel.el.parentElement.classList.contains("flex-column") ||
-                xel.el.parentElement.classList.contains("flex-row");
-            let np = e2p(e);
-            let dx = np.x - free_old_point.x,
-                dy = np.y - free_old_point.y;
-            let x = xel.x,
-                y = xel.y,
-                w = xel.w,
-                h = xel.h;
-            switch (free_o_a) {
-                case -1:
-                    x = xel.x + dx;
-                    y = xel.y + dy;
-                    xel.el.style.left = x + "px";
-                    xel.el.style.top = y + "px";
-                    break;
-                case 0:
-                    c(0, -dy);
-                    break;
-                case 1:
-                    c(1, dx);
-                    break;
-                case 2:
-                    c(2, dy);
-                    break;
-                case 3:
-                    c(3, -dx);
-                    break;
-                case 4:
-                    // ↗
-                    if (e.shiftKey) {
-                        let j = dx * w - dy * h;
-                        c(0, (j * h) / (w ** 2 + h ** 2));
-                        c(1, (j * w) / (w ** 2 + h ** 2));
-                    } else {
-                        c(0, -dy);
-                        c(1, dx);
+            集_for_each((data, p, path) => {
+                if (data.id == xel.el) {
+                    let f = path[path.length - 1] ? is_data_flex(path[path.length - 1]) == "flex" : false;
+                    let np = e2p(e);
+                    let dx = np.x - free_old_point.x,
+                        dy = np.y - free_old_point.y;
+                    let w = xel.w,
+                        h = xel.h;
+                    switch (free_o_a) {
+                        case -1:
+                            c(-10, dx);
+                            c(-11, dy);
+                            break;
+                        case 0:
+                            c(0, -dy);
+                            break;
+                        case 1:
+                            c(1, dx);
+                            break;
+                        case 2:
+                            c(2, dy);
+                            break;
+                        case 3:
+                            c(3, -dx);
+                            break;
+                        case 4:
+                            // ↗
+                            if (e.shiftKey) {
+                                let j = dx * w - dy * h;
+                                c(0, (j * h) / (w ** 2 + h ** 2));
+                                c(1, (j * w) / (w ** 2 + h ** 2));
+                            } else {
+                                c(0, -dy);
+                                c(1, dx);
+                            }
+                            break;
+                        case 5:
+                            // ↘
+                            if (e.shiftKey) {
+                                let j = dx * w + dy * h;
+                                c(1, (j * w) / (w ** 2 + h ** 2));
+                                c(2, (j * h) / (w ** 2 + h ** 2));
+                            } else {
+                                c(1, dx);
+                                c(2, dy);
+                            }
+                            break;
+                        case 6:
+                            // ↙
+                            if (e.shiftKey) {
+                                let j = -dx * w + dy * h;
+                                c(2, (j * h) / (w ** 2 + h ** 2));
+                                c(3, (j * w) / (w ** 2 + h ** 2));
+                            } else {
+                                c(2, dy);
+                                c(3, -dx);
+                            }
+                            break;
+                        case 7:
+                            // ↖
+                            if (e.shiftKey) {
+                                let j = -dx * w - dy * h;
+                                c(3, (j * w) / (w ** 2 + h ** 2));
+                                c(0, (j * h) / (w ** 2 + h ** 2));
+                            } else {
+                                c(3, -dx);
+                                c(0, -dy);
+                            }
+                            break;
                     }
-                    break;
-                case 5:
-                    // ↘
-                    if (e.shiftKey) {
-                        let j = dx * w + dy * h;
-                        c(1, (j * w) / (w ** 2 + h ** 2));
-                        c(2, (j * h) / (w ** 2 + h ** 2));
-                    } else {
-                        c(1, dx);
-                        c(2, dy);
+                    function c(a: number, d: number) {
+                        let x = NaN,
+                            y = NaN,
+                            w = NaN,
+                            h = NaN;
+                        let i = 1,
+                            j = 0;
+                        if (e.ctrlKey) {
+                            i = 2;
+                            j = 1;
+                        }
+                        switch (a) {
+                            case -10:
+                                x = xel.x + dx;
+                                break;
+                            case -11:
+                                y = xel.y + dy;
+                                break;
+                            case 0:
+                                if (!f) y = xel.y - d;
+                                h = xel.h + i * d;
+                                break;
+                            case 1:
+                                w = xel.w + i * d;
+                                if (!f) x = xel.x - j * d;
+                                break;
+                            case 2:
+                                h = xel.h + i * d;
+                                if (!f) y = xel.y - j * d;
+                                break;
+                            case 3:
+                                if (!f) x = xel.x - d;
+                                w = xel.w + i * d;
+                                break;
+                        }
+                        if (!isNaN(x)) {
+                            data.rect.x = x;
+                            set_data_style(data, "left", x + "px");
+                        }
+                        if (!isNaN(y)) {
+                            data.rect.y = y;
+                            set_data_style(data, "top", y + "px");
+                        }
+                        if (!isNaN(w)) {
+                            data.rect.w = w;
+                            set_data_style(data, "width", w + "px");
+                        }
+                        if (!isNaN(h)) {
+                            data.rect.h = h;
+                            set_data_style(data, "height", h + "px");
+                        }
+                        elFromId(xel.el)?.setAttribute("style", data.style);
                     }
-                    break;
-                case 6:
-                    // ↙
-                    if (e.shiftKey) {
-                        let j = -dx * w + dy * h;
-                        c(2, (j * h) / (w ** 2 + h ** 2));
-                        c(3, (j * w) / (w ** 2 + h ** 2));
-                    } else {
-                        c(2, dy);
-                        c(3, -dx);
-                    }
-                    break;
-                case 7:
-                    // ↖
-                    if (e.shiftKey) {
-                        let j = -dx * w - dy * h;
-                        c(3, (j * w) / (w ** 2 + h ** 2));
-                        c(0, (j * h) / (w ** 2 + h ** 2));
-                    } else {
-                        c(3, -dx);
-                        c(0, -dy);
-                    }
-                    break;
-            }
-            function c(a: number, d: number) {
-                let x = NaN,
-                    y = NaN,
-                    w = NaN,
-                    h = NaN;
-                let i = 1,
-                    j = 0;
-                if (e.ctrlKey) {
-                    i = 2;
-                    j = 1;
+
+                    return true;
                 }
-                switch (a) {
-                    case 0:
-                        y = xel.y - d;
-                        h = xel.h + i * d;
-                        xel.el.style.height = h + "px";
-                        if (!f) xel.el.style.top = y + "px";
-                        break;
-                    case 1:
-                        w = xel.w + i * d;
-                        x = xel.x - j * d;
-                        xel.el.style.width = w + "px";
-                        if (!f) xel.el.style.left = x + "px";
-                        break;
-                    case 2:
-                        h = xel.h + i * d;
-                        y = xel.y - j * d;
-                        xel.el.style.height = h + "px";
-                        if (!f) xel.el.style.top = y + "px";
-                        break;
-                    case 3:
-                        x = xel.x - d;
-                        w = xel.w + i * d;
-                        xel.el.style.width = w + "px";
-                        if (!f) xel.el.style.left = x + "px";
-                        break;
-                }
-            }
+            });
             if (xel.el == z.聚焦元素) {
                 set_style(xel.el);
                 load_xywh();
@@ -1716,10 +2061,9 @@ function render_link_arrow(id: string, e: PointerEvent) {
 type free_a = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7;
 
 function get_link_arrow_p(id: string, a: free_a): p_point {
-    let xel = elFromId(id);
     let x = 0,
         y = 0,
-        rect = el_offset2(xel, O);
+        rect = get_x_data(id).rect;
     if (a == 7 || a == 3 || a == 6) x = rect.x;
     if (a == 0 || a == 2) x = rect.x + rect.w / 2;
     if (a == 4 || a == 1 || a == 5) x = rect.x + rect.w;
@@ -1728,11 +2072,11 @@ function get_link_arrow_p(id: string, a: free_a): p_point {
     if (a == 6 || a == 2 || a == 5) y = rect.y + rect.h;
     return { x, y };
 }
-function get_link_arrow_a(p: p_point, a: free_a): p_point {
+function get_link_arrow_a(p: p_point, a: free_a, long: number): p_point {
     let dx = 0,
         dy = 0;
-    const x = 60,
-        y = 60;
+    const x = long,
+        y = long;
     if (a == 7 || a == 3 || a == 6) dx = -x;
     if (a == 0 || a == 2) dx = 0;
     if (a == 4 || a == 1 || a == 5) dx = x;
@@ -1766,6 +2110,8 @@ function tmp_s_reflash() {
         let xel = createEl("x-x");
         xel.id = x.id;
         t.append(xel);
+        let bar = new_x_bar(x.id);
+        t.append(bar);
         xel.setAttribute("style", x.style);
         xel.style.left = "0px";
         xel.style.top = "0px";
@@ -1823,7 +2169,7 @@ document.onkeydown = (e) => {
                 let dx = now_mouse_e.clientX - O.getBoundingClientRect().x,
                     dy = now_mouse_e.clientY - O.getBoundingClientRect().y;
                 zoom_o(1);
-                set_O_p(el_offset(O).x - dx * (dzoom / ozoom), el_offset(O).y - dy * (dzoom / ozoom));
+                set_O_p(null, null, -dx * (dzoom / ozoom), -dy * (dzoom / ozoom));
                 data_changed();
             }
             break;
@@ -1855,7 +2201,8 @@ document.onkeydown = (e) => {
                 if (!is_input_el(target)) {
                     set_模式("浏览");
                     e.preventDefault();
-                    if (z.聚焦元素.querySelector("x-md")) (z.聚焦元素.querySelector("x-md") as markdown).edit = true;
+                    if (get_x_by_id(z.聚焦元素).querySelector("x-md"))
+                        (get_x_by_id(z.聚焦元素).querySelector("x-md") as markdown).edit = true;
                 }
             }
             break;
@@ -1864,7 +2211,7 @@ document.onkeydown = (e) => {
                 if (!侧栏.contains(target)) set_模式("设计");
             }
             if (free_link) {
-                z.remove(elFromId(free_link) as x);
+                z.remove(free_link);
                 free_link = "";
             }
             break;
@@ -1916,9 +2263,15 @@ type 集type = {
     };
     数据: 画布type[];
     链接: { [key: string]: { [key: string]: { value?: number; time?: number; s: number } } };
-    assets: { [key: string]: { url: string; base64: string; sha: string } };
+    assets: {
+        [key: string]: {
+            source: Blob | File;
+            type: [string, string];
+        };
+    };
     中转站: data;
     values: { [key: string]: { [key: string]: any } };
+    links?: { [key: string]: { pid: string; rect: rect } };
 };
 
 type meta = {
@@ -1942,6 +2295,7 @@ type data = Array<{
     子元素?: data;
     value?: string;
     global?: boolean;
+    rect?: rect;
 }>;
 /** 画布 */
 type 画布type = {
@@ -1981,40 +2335,47 @@ function new_集(pname: string): 集type {
 /** 获取集 */
 function get_data() {
     let l = 集;
-    let p = {};
-    for (let i of 集.数据) {
-        p[i.id] = i.p;
-    }
-    集.数据 = [];
     for (let O of 画布s.children) {
-        let data = [] as data;
-        let els = O.querySelectorAll(":scope > *");
-        let map: { index: number; z: number }[] = [];
-        els.forEach((el: HTMLElement, i) => {
-            map.push({ index: i, z: Number(el.style.zIndex) || 1 });
-        });
-        map = map.sort((a, b) => a.z - b.z);
-        for (let i of map) {
-            let el = <x>els[i.index];
-            let type = "X-X";
-            data.push({ id: el.id, style: "", 子元素: el.value, type, class: "" });
-            if (el.getAttribute("style")) data[data.length - 1].style = el.getAttribute("style");
-            data[data.length - 1].class = el.className;
+        let show = (O as HTMLElement).style.visibility != "hidden";
+        for (let i of 集.数据) {
+            if (i.id == O.id) {
+                let els = O.querySelectorAll(":scope > *");
+                let z = get_zoom(i.id);
+                els.forEach((el: x) => {
+                    let data = i.data;
+                    let has = false;
+                    for (let i of data) {
+                        if (i.id == el.id) {
+                            if (el.getAttribute("style")) i.style = el.getAttribute("style");
+                            i.class = el.className;
+                            i.子元素 = el.value;
+                            i.rect = el_offset2(el, O, z);
+                            has = true;
+                            break;
+                        }
+                    }
+                    if (!has && el.id) {
+                        data.push({
+                            id: el.id,
+                            style: el.getAttribute("style"),
+                            type: "X-X",
+                            class: el.className,
+                            子元素: el.value,
+                            rect: el_offset2(el, O, z),
+                        });
+                    }
+                });
+                if (show)
+                    i.p = {
+                        x: (画布.offsetWidth / 2 - el_offset(O).x) / zoom,
+                        y: (画布.offsetHeight / 2 - el_offset(O).y) / zoom,
+                        zoom,
+                    };
+                i.name = O.getAttribute("data-name");
+                if (show) 当前画布 = i;
+            }
         }
-        if ((O as HTMLElement).style.display == "block") {
-            p[O.id] = { x: el_offset(O).x - 画布.offsetWidth / 2, y: el_offset(O).y - 画布.offsetHeight / 2, zoom };
-            集.meta.focus_page = O.id;
-        }
-        let 画布数据 = {
-            id: O.id,
-            data,
-            name: O.getAttribute("data-name"),
-            p: p[O.id],
-        };
-        集.数据.push(画布数据);
-        if (O.id == 当前画布.id) {
-            当前画布 = 画布数据;
-        }
+        if (show) 集.meta.focus_page = O.id;
     }
     window["xln"]["集"] = l;
     return l;
@@ -2043,9 +2404,18 @@ function rename_el() {
  * @returns if v>=v2
  */
 function version_is_big(v: string, v2: string) {
-    let vl = v.split(".").map((n) => Number(n));
-    let vl2 = v2.split(".").map((n) => Number(n));
-    return Boolean(vl[0] >= vl2[0] && vl[1] >= vl2[1] && vl[2] >= vl2[2]);
+    let vl = v.split(".");
+    let vl2 = v2.split(".");
+    let maxl = 0;
+    for (let i of vl) {
+        if (i.length > maxl) maxl = i.length;
+    }
+    for (let i of vl2) {
+        if (i.length > maxl) maxl = i.length;
+    }
+    vl.map((s) => s.padStart(maxl, "0"));
+    vl2.map((s) => s.padStart(maxl, "0"));
+    return Number(vl.join("")) >= Number(vl2.join(""));
 }
 
 /**
@@ -2179,6 +2549,44 @@ function version_tr(obj): 集type {
             }
             obj.meta.version = "0.22.0";
         case version_in(v, "0.22.0", "0.23.0"):
+            for (let i in obj.assets) {
+                if (!obj.assets[i].source) {
+                    obj.assets[i]["source"] = base64_blob(obj.assets[i].base64);
+                    obj.assets[i]["type"] = obj.assets[i]["source"].type.split("/");
+                }
+                if (!obj.assets[i].type) {
+                    let type = [];
+                    (obj.assets[i].base64 as string).replace(/data:(.*)\/(.*);/, (a, b, c) => {
+                        type.push(b, c);
+                        return "";
+                    });
+                    obj.assets[i]["type"] = type;
+                }
+                delete obj.assets[i]?.base64;
+                delete obj.assets[i]?.sha;
+                delete obj.assets[i]?.url;
+            }
+            obj.meta.version = "0.24.0";
+        case version_in(v, "0.24.0", "0.24.1"):
+            {
+                for (let i of obj.数据) {
+                    w(i.data);
+                }
+                w(obj.中转站);
+                function w(data) {
+                    for (let i of data) {
+                        if (i.type == "X-MD") {
+                            let o = JSON5.parse(i.value);
+                            if (o.type == "math") o.type = "latex math";
+                            i.value = JSON.stringify(o);
+                        } else {
+                            if (i.子元素) w(i.子元素);
+                        }
+                    }
+                }
+            }
+            obj.meta.version = "0.25.0";
+        case version_in(v, "0.25.0", "0.25.0"):
             return obj;
         default:
             put_toast(`文件版本是 ${v}，与当前软件版本 ${packagejson.version} 不兼容，请升级软件`);
@@ -2186,10 +2594,6 @@ function version_tr(obj): 集type {
 }
 
 var 当前画布 = 集.数据[0] as 画布type;
-
-import diff from "deep-diff";
-
-window["diff"] = diff;
 
 /** 设置集 */
 async function set_data(l: 集type) {
@@ -2204,6 +2608,11 @@ async function set_data(l: 集type) {
 
     await set_dependencies(集.meta.dependencies || []);
 
+    for (let i in 集.assets) {
+        const s = 集.assets[i];
+        if (!s.source.type) 集.assets[i].source = new Blob([s.source], { type: s.type.join("/") });
+    }
+
     let ps = {};
     for (const p of 集.数据) {
         ps[p.id] = render_data(p);
@@ -2211,54 +2620,74 @@ async function set_data(l: 集type) {
             当前画布 = p;
             集.meta.focus_page = p.id;
             O = ps[p.id];
-            O.style.display = "block";
+            O.style.visibility = "visible";
             zoom_o(Number(O.style.transform.match(/scale\((.*)\)/)[1] || p.p.zoom));
-            reload_side();
+            op = { x: parseFloat(O.style.left), y: parseFloat(O.style.top) };
         }
     }
+    reload_side();
     location.hash = `#${集.meta.UUID}`;
 
-    set_css(l.extra.style || "./md.css");
+    set_css(l.extra.style);
     if (l.extra?.slide) ys_init(l.extra.slide);
+
+    check_webdav_file();
 }
 
 /** 侧栏刷新 */
 function reload_side() {
     if (O.children[O.children.length - 1]) {
-        z.focus(O.children[O.children.length - 1] as x);
+        z.focus(O.children[O.children.length - 1].id);
     }
-    z.reflash(true);
-    l_math();
+    l_latex_math();
     tmp_s_reflash();
     assets_reflash();
 }
 
+let rez = createEl("div");
+rez.onclick = () => {
+    z.reflash();
+};
+rez.innerHTML = icon(reload_svg);
+rez.style.width = "16px";
+rez.style.height = "16px";
+rez.style.position = "relative";
+图层_el.before(rez);
+
 /** 渲染画布 */
 function render_data(inputdata: 画布type) {
+    let rect: rect = {
+        x: inputdata.p.x - (10 + 画布.offsetWidth / 2) / inputdata.p.zoom,
+        y: inputdata.p.y - (10 + 画布.offsetHeight / 2) / inputdata.p.zoom,
+        w: (画布.offsetWidth + 20) / inputdata.p.zoom,
+        h: (画布.offsetHeight + 20) / inputdata.p.zoom,
+    };
     let el = createEl("div");
-    el.style.display = "none";
+    el.style.visibility = "hidden";
     el.id = inputdata.id;
     el.setAttribute("data-name", inputdata.name);
     let values = {};
     function w(data: data, pid?: string) {
         let text = "";
         for (let i of data) {
-            let style = i.style ? `style='${i.style}'` : "";
-            let _class = i.class ? `class='${i.class}'` : "";
-            if (i.value) {
-                values[pid] = i.value;
+            if (pid || can_rander_x(i, rect)) {
+                let style = i.style ? `style='${i.style}'` : "";
+                let _class = i.class ? `class='${i.class}'` : "";
+                if (i.value) {
+                    values[pid] = i.value;
+                }
+                let s = i.子元素 ? w(i.子元素, i.id) : "";
+                if (i.type == "X-X" && !i.id) i.id = uuid_id();
+                text += `<${i.type} id='${i.id}' ${style} ${_class}>${s}</${i.type}>`;
             }
-            let s = i.子元素 ? w(i.子元素, i.id) : "";
-            if (i.type == "X-X" && !i.id) i.id = uuid_id();
-            text += `<${i.type} id='${i.id}' ${style} ${_class}>${s}</${i.type}>`;
             link(i.id).add();
         }
         return text;
     }
     let t = w(inputdata.data);
     el.innerHTML = t;
-    el.style.left = (inputdata?.p?.x || 0) + 画布.offsetWidth / 2 + "px";
-    el.style.top = (inputdata?.p?.y || 0) + 画布.offsetHeight / 2 + "px";
+    el.style.left = -(inputdata?.p?.x || 0) * inputdata.p.zoom + 画布.offsetWidth / 2 + "px";
+    el.style.top = -(inputdata?.p?.y || 0) * inputdata.p.zoom + 画布.offsetHeight / 2 + "px";
     el.style.transform = `scale(${inputdata.p.zoom})`;
     画布s.append(el);
 
@@ -2268,11 +2697,13 @@ function render_data(inputdata: 画布type) {
         try {
             for (let i of data) {
                 if (values[pid]) {
-                    (<markdown>get_x_by_id(pid).querySelector(i.type)).value = values[pid];
+                    if (<markdown>get_x_by_id(pid)?.querySelector(i.type))
+                        (<markdown>get_x_by_id(pid).querySelector(i.type)).value = values[pid];
                 }
                 if (i.子元素) v(i.子元素, i.id);
             }
         } catch (error) {
+            console.error(error);
             console.log(pid);
         }
     }
@@ -2283,154 +2714,103 @@ function render_data(inputdata: 画布type) {
 
 /** 选择画布 */
 function select_p(id: string) {
+    for (let p of 集.数据) {
+        if (p.id == id) {
+            当前画布 = p;
+            集.meta.focus_page = p.id;
+        }
+    }
     for (let el of 画布s.children) {
         if (el.id == id) {
             O = el as HTMLElement;
-            O.style.display = "block";
+            O.style.visibility = "visible";
             set_zoom(O.style.transform);
+            op = { x: parseFloat(O.style.left), y: parseFloat(O.style.top) };
         } else {
-            (el as HTMLElement).style.display = "none";
+            (el as HTMLElement).style.visibility = "hidden";
         }
     }
-    z.focus(O.children[O.children.length - 1] as x);
-    z.reflash(true);
+    图层_el.querySelectorAll(":scope > ul > li").forEach((el: HTMLElement) => {
+        if (el.getAttribute("data-id") == id) {
+            el.classList.add("画布focus");
+        } else {
+            el.classList.remove("画布focus");
+        }
+    });
+    selected_el = [];
+}
+
+/** 转换zoom */
+function get_zoom(id: string) {
+    let el = elFromId(id);
+    let tran = el.style.transform;
+
+    if (!tran || isNaN(Number(tran.match(/scale\((.*)\)/)[1]))) {
+        for (let i of 集.数据) {
+            if (i.id == id) {
+                return i.p.zoom;
+            }
+        }
+        return 1;
+    } else {
+        return Number(tran.match(/scale\((.*)\)/)[1]);
+    }
 }
 
 function set_zoom(zooms: string) {
     zoom_o(Number(zooms.match(/scale\((.*)\)/)[1]) || zoom);
 }
 
-type diff_i = diff.Diff<any, any>;
+function render_x(data: data[0]) {
+    if (O.contains(elFromId(data.id))) return;
+    let xel = createEl("x-x");
+    xel.id = data.id;
+    O.append(xel);
+    xel.className = data.class;
+    xel.setAttribute("style", data.style);
+    xel.value = data.子元素;
+}
 
-function set_diff_data(diffl: diff_i[], undo_data: 集type) {
-    if (!diffl) return;
-    console.log(diffl);
-    const main_data = get_data();
-    for (let d of diffl) {
-        if (!d.path) continue;
-        switch (d.path[0]) {
-            case "meta":
-                if (d.path.length == 1) {
-                    集.meta = d["rhs"];
+function can_rander_x(data: data[0], rect: rect) {
+    let large =
+        data.子元素[0]?.type == "X-FILE" || data.子元素[0]?.type == "X-GRAPH" || data.子元素[0]?.type == "X-DRAW";
+    let none_layout = !is_data_flex(data) && (data.子元素.length > 1 || data.子元素[0]?.type == "X-X");
+    if (none_layout) {
+        let rects: rect[] = [];
+        for (let i of data.子元素) {
+            if (i.rect) rects.push(i.rect);
+        }
+        none_layout = rect_x_rect(get_out_rect(rects), rect);
+    }
+    return large || !data.rect || rect_x_rect(data.rect, rect) || none_layout;
+}
+
+function check_render_x() {
+    if (!集?.数据) return;
+    let w = (画布.offsetWidth + 20) / zoom;
+    let h = (画布.offsetHeight + 20) / zoom;
+    let x = (-el_offset(O).x - 10) / zoom;
+    let y = (-el_offset(O).y - 10) / zoom;
+    for (let i of 集.数据) {
+        if (i.id == 当前画布.id) {
+            for (let data of i.data) {
+                if (can_rander_x(data, { x, y, w, h })) {
+                    render_x(data);
                 } else {
-                    let last = d.path[d.path.length - 1];
-                    if (last == "focus_page") {
-                        let id = d["rhs"];
-                        集.meta.focus_page = id;
-                        for (let el of 画布s.children) {
-                            if (el.id == id) {
-                                (el as HTMLElement).style.display = "block";
-                                O = el as HTMLElement;
-                            } else {
-                                (el as HTMLElement).style.display = "none";
-                            }
-                        }
-                    }
-                    if (last == "file_name") {
-                        set_title(d["rhs"]);
-                        load_file_side_bar();
-                        reload_file_list();
-                    }
+                    elFromId(data.id)?.remove();
                 }
-                break;
-            case "链接":
-                集.链接 = undo_data.链接;
-                break;
-            case "assets":
-                集.assets = undo_data.assets;
-                assets_reflash();
-                break;
-            case "中转站":
-                集.中转站 = undo_data.中转站;
-                tmp_s_reflash();
-                break;
-            case "数据":
-                if (d.path.includes("data")) {
-                    if (d.path.includes("子元素")) {
-                        let offset = -1 - 2;
-                        if (d.path[d.path.length - 1] != "value") {
-                            offset = -1;
-                        }
-                        let t = main_data;
-                        for (let i = 0; i < d.path.length + offset; i++) {
-                            t = t[d.path[i]];
-                        }
-
-                        const id = t["id"];
-                        console.log(id);
-
-                        let el = get_x_by_id(id);
-                        if (d.kind == "E") {
-                            if (d.path[d.path.length - 1] == "value") {
-                                let t = main_data;
-                                for (let i = 0; i < d.path.length - 1; i++) {
-                                    t = t[d.path[i]];
-                                }
-                                (el.querySelector(`${t["type"]}`) as markdown).value = d["rhs"];
-                            } else if (d.path[d.path.length - 1] == "style") {
-                                el.setAttribute("style", d["rhs"]);
-                            } else if (d.path[d.path.length - 1] == "class") {
-                                el.className = d["rhs"];
-                            } else if (d.path[d.path.length - 1] == "id") {
-                                el.id = d["rhs"];
-                            } else if (d.path[d.path.length - 1] == "子元素") {
-                                el.value = d["rhs"];
-                            } else if (d.path[d.path.length - 1] == "type") {
-                                let new_el = createEl(d["rhs"]) as x;
-                                new_el.id = el.id;
-                                new_el.className = el.className;
-                                new_el.setAttribute("style", el.getAttribute("style"));
-                                let v = el.value;
-                                el.parentElement.replaceChild(new_el, el);
-                                if (v) {
-                                    new_el.value = el.value;
-                                }
-                            }
-                        }
-                    }
-                }
-                break;
-            case "values":
-                集.values = undo_data.values;
-                if (d.path[1]) {
-                    (elFromId(d.path[1]).querySelector("x-md") as markdown).reload();
-                }
-                break;
-            default:
-                break;
+            }
         }
     }
 }
 
-set_css("./md.css");
+const default_style = "@import url('./md.css');";
+set_css();
 
 /** 设置文件css样式 */
-function set_css(t: string) {
-    let style: HTMLElement;
-    const css = elFromId("css");
-    if (t.includes("\n")) {
-        if (css && css.tagName == "STYLE") {
-            css.innerHTML = t;
-        } else {
-            style = createEl("style");
-            style.innerHTML = t;
-            _new();
-        }
-    } else {
-        if (css && css.tagName == "LINK") {
-            (css as HTMLLinkElement).href = t;
-        } else {
-            style = createEl("link");
-            (style as HTMLLinkElement).href = t;
-            (style as HTMLLinkElement).rel = "stylesheet";
-            _new();
-        }
-    }
-    function _new() {
-        css?.remove();
-        style.id = "css";
-        document.body.append(style);
-    }
+function set_css(t?: string) {
+    t = t || default_style;
+    css_style_el.innerHTML = t;
 }
 
 function set_dependencies(ds: meta["dependencies"]) {
@@ -2463,33 +2843,39 @@ function xln_in(t: string) {
 var fileHandle;
 
 async function file_load() {
-    let file: File;
-    if (window.showOpenFilePicker) {
-        [fileHandle] = await window.showOpenFilePicker({
-            types: [
-                {
-                    description: "xlinkote 文件",
-                    accept: {
-                        "text/*": [".xln"],
-                    },
-                },
-            ],
-            excludeAcceptAllOption: true,
-        });
-        if (fileHandle.kind != "file") return;
-        fileHandle.requestPermission({ mode: "readwrite" });
-        file = await fileHandle.getFile();
-    }
-    集.meta.file_name = file.name.replace(/\.xln$/, "");
-    document.title = get_title();
+    let file = upload_file.files[0];
 
     let reader = new FileReader();
-    reader.onload = () => {
-        let o = xln_in(<string>reader.result) as any;
-        set_data(o);
-        data_changed();
-    };
+    reader.onload = () => {};
     reader.readAsText(file);
+
+    let fs = new zip.fs.FS();
+    let o, str;
+    await fs.importBlob(file);
+    let assets: { [key: string]: Blob } = {};
+    for (let i of fs.children) {
+        if (i.name == "assets") {
+            for (let a of i.children) {
+                const zipWriter = new zip.BlobWriter();
+                assets[a.name] = await a.data.getData(zipWriter, { password: store.webdav.加密密钥 });
+            }
+        } else if (i.name.includes(".xln")) {
+            const zipWriter = new zip.TextWriter();
+            str = await i.data.getData(zipWriter, { password: store.webdav.加密密钥 });
+            o = JSON5.parse(<string>str);
+        }
+    }
+
+    if (o.assets && Object.keys(assets).length)
+        for (let i in o.assets) {
+            let x = () => {
+                o.assets[i].source = assets[i];
+            };
+            await x();
+        }
+
+    set_data(o);
+    db_can_save = false;
 }
 
 var saved = true;
@@ -2521,9 +2907,13 @@ var request = indexedDB.open("files");
 var db_store_name = "files";
 var db: IDBDatabase;
 
+// 持久化存储
+navigator.storage?.persist();
+
 request.onsuccess = (event) => {
     db = (<any>event.target).result;
     db_get();
+    check_backup();
 };
 request.onerror = (event) => {
     console.error(new Error((<any>event.target).error));
@@ -2583,10 +2973,10 @@ function db_get() {
                     if (x.global) global_x.push({ pid: (f as 集type).meta.UUID, data: x });
                 }
 
-            if (`#${f.meta.UUID}` == location.hash) {
+            if (`#${f.meta.UUID}` == location.hash || `#${f.meta.file_name}` == decodeURIComponent(location.hash)) {
                 ihash = true;
                 set_data(f);
-                文件_el.querySelector(`[data-uuid="${f.meta.UUID}"]`).classList.add("selected_item");
+                文件_el.querySelector(`[data-uuid="${f.meta.UUID}"]`).classList.add("selected_item2");
                 db_can_save = true;
                 set_save_icon();
             }
@@ -2680,14 +3070,26 @@ function set_db_file(uuid: string) {
 }
 
 /** 下载数据库 */
-function db_download() {
+function db_download(name?: string) {
     let customerObjectStore = db.transaction(db_store_name, "readwrite").objectStore(db_store_name);
     let r = customerObjectStore.getAll();
-    r.onsuccess = () => {
-        let t = JSON.stringify(r.result);
+    r.onsuccess = async () => {
+        let fs = new zip.fs.FS();
+        let assets_dir = fs.addDirectory("assets");
+        let data1 = structuredClone(r.result);
+        for (let x of data1) {
+            for (let i in x.assets) {
+                if (x.assets[i].source) {
+                    assets_dir.addBlob(i, x.assets[i].source);
+                    x.assets[i].source = null;
+                }
+            }
+        }
+        let t = JSON.stringify(data1, null, 2);
+        fs.addText("xlinkote.json", t);
         let a = createEl("a");
-        let blob = new Blob([t]);
-        a.download = `xlinkote_db.json`;
+        let blob = await fs.exportBlob();
+        a.download = name || `xlinkote_db.zip`;
         a.href = URL.createObjectURL(blob);
         a.click();
         URL.revokeObjectURL(String(blob));
@@ -2695,10 +3097,32 @@ function db_download() {
 }
 
 /** 上传数据库 */
-function db_load(t: string) {
-    let o = JSON5.parse(t);
+async function db_load(file: File) {
+    let fs = new zip.fs.FS();
+    await fs.importBlob(file);
+    let assets: { [key: string]: Blob } = {};
+    let data;
+    for (let i of fs.children) {
+        if (i.name == "assets") {
+            for (let a of i.children) {
+                const zipWriter = new zip.BlobWriter();
+                assets[a.name] = await a.data.getData(zipWriter);
+            }
+        } else {
+            const zipWriter = new zip.TextWriter();
+            let str = await i.data.getData(zipWriter);
+            data = JSON5.parse(<string>str);
+        }
+    }
+
+    for (let o of data) {
+        if (o.assets && Object.keys(assets).length)
+            for (let i in o.assets) {
+                if (assets[i]) o.assets[i].source = assets[i];
+            }
+    }
     let customerObjectStore = db.transaction(db_store_name, "readwrite").objectStore(db_store_name);
-    for (let obj of o) {
+    for (let obj of data) {
         let r = customerObjectStore.put(obj);
         r.onerror = (event) => {
             console.error(new Error((<any>event.target).error));
@@ -2709,16 +3133,36 @@ function db_load(t: string) {
 
 elFromId("db_load").onchange = () => {
     let file = (<HTMLInputElement>elFromId("db_load")).files[0];
-    let reader = new FileReader();
-    reader.onload = () => {
-        db_load(<string>reader.result);
-    };
-    reader.readAsText(file);
+    db_load(file);
 };
 
+function check_backup() {
+    let now = new Date();
+    if (
+        Number(store.backup.频率) &&
+        (now.getTime() - Number(localStorage.getItem("backup_last_time"))) / 1000 / 60 / 60 / 24 >
+            Number(store.backup.频率)
+    ) {
+        localStorage.setItem("backup_last_time", String(now.getTime()));
+        setTimeout(() => {
+            db_download(
+                `xln_db_${now.getFullYear().toString().slice(-2)}${(now.getMonth() + 1)
+                    .toString()
+                    .padStart(2, "0")}${now.getDate().toString().padStart(2, "0")}${now
+                    .getHours()
+                    .toString()
+                    .padStart(2, "0")}.zip`
+            );
+        }, 10);
+    }
+    setTimeout(() => {
+        check_backup();
+    }, 1000 * 60 * 60);
+}
+
 // 撤销
-type undo_diff_data = { s: any; diff: diff.Diff<any, any>[] };
-var undo_stack: undo_diff_data[] = [],
+type undo_data = { s: any; data: 集type };
+var undo_stack: undo_data[] = [],
     undo_i = -1;
 
 function undo(v: boolean) {
@@ -2730,9 +3174,7 @@ function undo(v: boolean) {
         if (undo_i >= undo_stack.length) undo_i = undo_stack.length - 1;
     }
     let data = get_undo_s(undo_i);
-    let now_data = get_data();
-    set_diff_data(diff.diff(now_data, data.data), data.data);
-    console.log(diff.diff(get_data(), now_data));
+    set_data(data.data);
 
     selections = data.s;
     if (selections[0].id) {
@@ -2743,66 +3185,37 @@ function undo(v: boolean) {
     }
 }
 
-function get_undo_s(i: number): { s: selection_type[]; data: 集type } {
-    let z = {};
-    for (let n = 0; n <= i; n++) {
-        for (let d of undo_stack[n].diff) {
-            diff.applyChange(z, null, d);
-        }
-    }
-    return { s: undo_stack[i].s, data: z as 集type };
-}
-
-function clone(obj: object) {
-    return JSON5.parse(JSON.stringify(obj));
+function get_undo_s(i: number): undo_data {
+    return undo_stack[i];
 }
 
 function push_undo() {
     if (undo_i != undo_stack.length - 1 && undo_i != -1) {
         // 把当前位置的数据移到末
         let pre_data = get_undo_s(undo_i);
-        let last_data = get_undo_s(undo_stack.length - 1);
-        let d = diff.diff(last_data.data, pre_data.data);
-        if (!d) return;
-        let data: undo_diff_data = { s: clone(pre_data.s), diff: d };
-        undo_stack.push(data);
+        if (!pre_data) return;
+        undo_stack.push(pre_data);
         undo_i = undo_stack.length - 1;
     }
 
-    let per = undo_i == -1 ? {} : get_undo_s(undo_i).data;
-    let now_data = clone(get_data());
-    let d = diff.diff(per, now_data);
-    if (!d) return;
-    undo_stack.push({ s: clone(selections), diff: d });
+    let now_data = structuredClone(get_data());
+    if (!now_data) return;
+    undo_stack.push({ s: structuredClone(selections), data: now_data });
+    if (undo_stack.length > 20) undo_stack.splice(0, 1);
     undo_i = undo_stack.length - 1;
 
     console.log(undo_stack);
 }
 
 /** 下载文件 */
-async function download_file(text: string) {
-    if (window.showSaveFilePicker) {
-        fileHandle = await window.showSaveFilePicker({
-            suggestedName: get_file_name(),
-            types: [
-                {
-                    description: "xlinkote 文件",
-                    accept: { "text/*": [".xln"] },
-                },
-            ],
-        });
-        const writable = await fileHandle.createWritable();
-        await writable.write(text);
-        await writable.close();
-    } else {
-        let a = createEl("a");
-        let blob = new Blob([text]);
-        let name = get_file_name();
-        a.download = `${name}.xln`;
-        a.href = URL.createObjectURL(blob);
-        a.click();
-        URL.revokeObjectURL(String(blob));
-    }
+async function download_file() {
+    let a = createEl("a");
+    let name = get_file_name();
+    a.download = `${name}.xln`;
+    let b = await 压缩(get_data());
+    a.href = URL.createObjectURL(b);
+    a.click();
+    URL.revokeObjectURL(String(b));
 }
 
 var save_timeout = NaN,
@@ -2881,16 +3294,13 @@ function put_datatransfer(data: DataTransfer, x: number, y: number) {
                     add_file(f.type, reader.result as string, null, x, y);
                 };
             } else {
-                let reader = new FileReader();
-                reader.readAsDataURL(f);
-                reader.onload = () => {
-                    add_file(f.type, null, reader.result as string, x, y);
-                };
+                add_file(f.type, null, f, x, y);
             }
         }
     } else {
-        let html = data.getData("text/html");
-        add_file("text/html", html, null, x, y);
+        let type = data.types[data.types.length - 1] || "text/plain";
+        let text = data.getData(type);
+        add_file(type, text, null, x, y);
     }
 }
 
@@ -2907,7 +3317,7 @@ function put_datatransfer(data: DataTransfer, x: number, y: number) {
 // 添加文件或文字
 import TurndownService from "turndown";
 /** 添加文件或文字到画布 */
-function add_file(type: string, text: string, data: string, x: number, y: number) {
+function add_file(type: string, text: string, data: File, x: number, y: number) {
     let types = type.split("/");
     let xel = createEl("x-x");
     xel.style.left = x / zoom + "px";
@@ -2920,17 +3330,32 @@ function add_file(type: string, text: string, data: string, x: number, y: number
             let turndownService = new TurndownService({ headingStyle: "atx" });
             md.value = JSON.stringify({ type: "text", text: turndownService.turndown(text) });
         } else if (type == "text/xln") {
-            let data = JSON5.parse(text) as data;
-            xel.value = data;
+            let data = JSON5.parse(text) as { data: data[0]; links: [string, string][] };
+            xel.setAttribute("class", data.data.class);
+            xel.value = data.data.子元素;
+            for (let i of data.links) {
+                link(i[0]).add(i[1]);
+            }
         } else {
-            md.value = JSON.stringify({ type: "p", text });
+            try {
+                let data = JSON5.parse(text) as { data: data[0]; links: [string, string][] };
+                xel.setAttribute("class", data.data.class);
+                xel.value = data.data.子元素;
+                for (let i of data.links) {
+                    link(i[0]).add(i[1]);
+                }
+            } catch (error) {
+                md.value = JSON.stringify({ type: "p", text });
+            }
         }
     } else {
-        let id = put_assets("", data);
+        let id = put_assets(null, data);
         let file = createEl("x-file");
         xel.append(file);
         file.value = JSON.stringify({ r: true, id });
     }
+
+    get_data();
 }
 
 /** 摘录 */
@@ -2969,21 +3394,33 @@ document.addEventListener("message", (msg: any) => {
     }
 });
 
-import CryptoJS from "crypto-js";
-
 /** 添加资源到assets */
-function put_assets(url: string, base64: string) {
-    let id = uuid_id();
-    let sha = "";
-    if (base64) {
-        sha = CryptoJS.SHA256(base64).toString();
-        for (let id in 集.assets) {
-            if (集.assets[id].sha == sha) return id;
+function put_assets(blob: Blob, file: File) {
+    let has: boolean | string = false;
+
+    for (let i in 集.assets) {
+        if (file && file.size == 集.assets[i].source.size && file.name == 集.assets[i].source.name) {
+            has = i;
+            break;
         }
     }
-    集.assets[id] = { url, base64, sha };
-    assets_reflash();
-    return id;
+
+    if (!has) {
+        let id = uuid_id();
+        集.assets[id] = {
+            type: (blob?.type || file?.type || "/").split("/") as [string, string],
+            source: blob || file,
+        };
+        assets_reflash();
+        return id;
+    } else {
+        return has;
+    }
+}
+
+function get_assets(id: string) {
+    let x = 集.assets[id];
+    return URL.createObjectURL(x.source);
 }
 
 /** 刷新资源栏 */
@@ -2997,6 +3434,8 @@ function assets_reflash() {
         file.value = JSON.stringify({ r: true, id: i });
 
         let bar = createEl("div");
+        let size_el = createEl("div");
+        size_el.innerText = bytes_to_size(集.assets[i].source.size);
         let r = createEl("div");
         r.innerHTML = icon(remove_svg);
         let id_el = createEl("div");
@@ -3007,11 +3446,43 @@ function assets_reflash() {
             div.remove();
         };
 
-        画布s.querySelectorAll("x-file").forEach((el: file) => {
-            if (el._value.id == i) {
-                r.classList.add("not_click");
+        let goto = createEl("div");
+        goto.classList.add("assets_goto");
+
+        集_for_each((data) => {
+            if (data.子元素?.[0]?.type == "X-FILE") {
+                if (JSON5.parse(data.子元素[0].value).id == i) {
+                    r.classList.add("not_click");
+                    let go = createEl("div");
+                    go.onclick = () => {
+                        jump_to_x_link(data.id);
+                    };
+                    goto.append(go);
+                }
             }
         });
+
+        for (let data of 集.中转站) {
+            if (data.子元素?.[0]?.type == "X-FILE") {
+                if (JSON5.parse(data.子元素[0].value).id == i) {
+                    r.classList.add("not_click");
+                }
+            }
+        }
+
+        function bytes_to_size(sizes: number) {
+            let mYsize = sizes;
+            if (mYsize == 0) return 0 + "B";
+            if (mYsize > 1024 ** 3) {
+                return (mYsize / 1024 / 1024 / 1024).toFixed(2) + "GB";
+            } else if (mYsize > 1024 ** 2) {
+                return (mYsize / 1024 / 1024).toFixed(2) + "MB";
+            } else if (mYsize > 1024) {
+                return (mYsize / 1024).toFixed(2) + "KB";
+            } else {
+                return mYsize.toFixed(2) + "B";
+            }
+        }
 
         let add = createEl("div");
         add.onclick = (e) => {
@@ -3034,17 +3505,7 @@ function assets_reflash() {
                     suggestedName: `${get_file_name()}资源文件${i}`,
                 });
                 const writable = await fileHandle.createWritable();
-
-                let arr = 集.assets[i].base64.split(","),
-                    mime = arr[0].match(/:(.*?);/)[1],
-                    bstr = window.atob(arr[1]),
-                    n = bstr.length,
-                    u8arr = new Uint8Array(n);
-                while (n--) {
-                    u8arr[n] = bstr.charCodeAt(n);
-                }
-                let blob = new Blob([u8arr], { type: mime });
-                await writable.write(blob);
+                await writable.write(集.assets[i].source);
                 await writable.close();
                 async.style.display = "";
                 async_init = true;
@@ -3053,9 +3514,9 @@ function assets_reflash() {
                 let a = createEl("a");
                 let name = get_file_name();
                 a.download = `${name}资源文件${i}`;
-                a.href = 集.assets[i].base64;
+                a.href = get_assets(i);
                 a.click();
-                URL.revokeObjectURL(集.assets[i].base64);
+                URL.revokeObjectURL(a.href);
             }
         };
         download.innerHTML = icon(down_svg);
@@ -3074,22 +3535,16 @@ function assets_reflash() {
         async.innerHTML = icon(binding_svg);
         async function async_file() {
             let r: File = await fileHandle.getFile();
-            let a = new FileReader();
-            a.onload = () => {
-                let t = a.result as string;
-                if (t != 集.assets[i].base64) {
-                    集.assets[i].base64 = t;
-                    集.assets[i].sha = CryptoJS.SHA256(a.result as string).toString();
-                }
-            };
-            a.readAsDataURL(r);
+            if (r.size != 集.assets[i].source.size) {
+                集.assets[i].source = r;
+            }
             if (async_init) {
                 setTimeout(async_file, 1000);
             }
         }
         async.style.display = "none";
 
-        bar.append(id_el, add, download, async, r);
+        bar.append(id_el, size_el, goto, add, download, async, r);
     }
 }
 
@@ -3108,7 +3563,7 @@ function new_draw() {
     z.push(xel, O.lastElementChild as x);
 }
 var focus_draw_el = null as draw;
-画布.onpointerdown = (e) => {
+画布.onpointerdown = () => {
     if (模式 == "绘制") {
         penc_el.classList.remove("color_show");
         pen_el.classList.remove("pen_show");
@@ -3138,7 +3593,7 @@ color_yl.onclick = (e) => {
     if (e.target == color_yl) penc_el.classList.toggle("color_show");
 };
 penc_el.addEventListener("input", () => {
-    let el = z.聚焦元素?.querySelector("x-draw") as draw;
+    let el = get_x_by_id(z.聚焦元素)?.querySelector("x-draw") as draw;
     if (el && 模式 == "设计") {
         el.main_svg.querySelectorAll("*").forEach((el) => {
             if (el.getAttribute("fill")) {
@@ -3188,7 +3643,7 @@ function get_link_el_by_id(id: string) {
 }
 
 class 图层 {
-    聚焦元素 = <x>null;
+    聚焦元素 = <string>null;
 
     create_li(i: data[0]) {
         let li = createEl("li");
@@ -3199,6 +3654,11 @@ class 图层 {
         li.setAttribute("data-id", i.id);
         li.append(c);
         li.append(s);
+        if (is_smallest_data_el(i.id)) {
+            let add_link = createEl("x-link-add");
+            li.append(add_link);
+            add_link.value = i.id;
+        }
         c.onclick = () => {
             li.querySelectorAll("input").forEach((el) => {
                 el.checked = c.checked;
@@ -3206,30 +3666,29 @@ class 图层 {
             selected_el = [];
             图层_el.querySelectorAll("input").forEach((el) => {
                 if (el.checked) {
-                    let x = get_x_by_id(el.parentElement.getAttribute("data-id"));
-                    selected_el.push(x);
+                    selected_el.push(el.parentElement.getAttribute("data-id"));
                     render_select_rects();
                 }
             });
         };
         s.onclick = () => {
-            jump_to_x_link(get_x_by_id(i.id));
+            jump_to_x_link(i.id);
             图层_el.querySelectorAll("input").forEach((el) => {
                 if (el.checked) {
-                    this.focus(get_x_by_id(el.parentElement.getAttribute("data-id")));
+                    this.focus(el.parentElement.getAttribute("data-id"));
                 }
             });
         };
-        li.onpointerenter = (e) => {
-            move_to_x_link(get_x_by_id(i.id));
+        li.onpointerenter = () => {
+            preview_x_link(i.id);
         };
         li.onpointermove = (e) => {
             window.requestAnimationFrame(() => {
                 set_viewer_posi(li.offsetWidth + li.getBoundingClientRect().left + 8, e.clientY);
             });
         };
-        if (this.聚焦元素?.id == i.id && selected_el.length == 1) {
-            this.focus(get_x_by_id(i.id));
+        if (this.聚焦元素 == i.id && selected_el.length == 1) {
+            this.focus(i.id);
             c.checked = true;
         }
         if (i?.子元素?.length > 0) {
@@ -3282,8 +3741,7 @@ class 图层 {
                         get_x_by_id(i.id).style.setProperty("--z", String(i.子元素.length));
                 }
                 图层_el.querySelectorAll("input").forEach((el) => {
-                    let x = get_x_by_id(el.parentElement.getAttribute("data-id"));
-                    if (selected_el.includes(x)) {
+                    if (selected_el.includes(el.parentElement.getAttribute("data-id"))) {
                         el.checked = true;
                     } else {
                         el.checked = false;
@@ -3320,6 +3778,9 @@ class 图层 {
             text.innerText = `${i.name}`;
             s.append(text);
             li.setAttribute("data-id", i.id);
+            if (i.id == 集.meta.focus_page) {
+                li.classList.add("画布focus");
+            }
             let ul_img = createEl("img");
             ul_img.src = ul_show_svg;
             ul_img.onclick = () => {
@@ -3329,15 +3790,16 @@ class 图层 {
                 for (let el of 画布s.children) {
                     let this_li = root_ul.querySelector(`li[data-id="${el.id}"]`);
                     if (el.id == i.id) {
-                        O = el as HTMLElement;
-                        O.style.display = "block";
-                        set_zoom(O.style.transform);
-                        this_li.classList.remove("层ul_hide");
+                        if (this_li.classList.contains("层ul_hide")) {
+                            this_li.classList.remove("层ul_hide");
+                        } else {
+                            this_li.classList.add("层ul_hide");
+                        }
                     } else {
-                        (el as HTMLElement).style.display = "none";
                         this_li.classList.add("层ul_hide");
                     }
                 }
+                select_p(i.id);
             };
             li.append(ul_img, s);
             w(i.data, li);
@@ -3354,8 +3816,12 @@ class 图层 {
                 let n = await xprompt("重命名画布", i.name);
                 if (n) {
                     elFromId(i.id).setAttribute("data-name", n);
+                    for (let p of 集.数据) {
+                        if (p.id == i.id) {
+                            p.name = n;
+                        }
+                    }
                     get_data();
-                    z.reflash();
                 }
             };
             let rm = createEl("div");
@@ -3364,15 +3830,20 @@ class 图层 {
                 if (画布s.children.length == 1) return;
                 let x = await xconfirm(`确定删除画布 ${i.name}`);
                 if (!x) return;
-                z.remove(elFromId(i.id).querySelector(":scope > x-x") as x);
+                z.remove(elFromId(i.id).querySelector(":scope > x-x").id);
                 elFromId(i.id).remove();
+                for (let pi in 集.数据) {
+                    if (集.数据[pi].id == i.id) {
+                        集.数据.splice(Number(pi), 1);
+                    }
+                }
                 if (i.id == 当前画布.id) {
                     let id = 画布s.children[0].id;
                     select_p(id);
+                    z.focus(O.children[O.children.length - 1].id);
                 }
                 li.remove();
                 get_data();
-                z.reflash();
             };
             more.append(idel, rm, rename);
             s.append(more);
@@ -3381,12 +3852,25 @@ class 图层 {
         document.documentElement.style.setProperty("--zest-index", String(当前画布.data.length));
 
         if (!nosave) data_changed();
+    }
 
-        if (O.querySelectorAll("x-x").length > 128) {
-            O.style.willChange = "left, top, transform";
-        } else {
-            O.style.willChange = "";
-        }
+    add(id: string) {
+        集_for_each((data, p, path) => {
+            if (data.id == id) {
+                let ppel = path[path.length - 1];
+                if (!data.style.includes("z-index") && !(is_data_flex(ppel) == "flex")) {
+                    set_data_style(data, "z-index", String(ppel.子元素.length + 1));
+                }
+                let li = this.create_li(data);
+                let pli = 图层_el.querySelector(`li[data-id="${path[path.length - 1].id}"]`);
+                if (pli?.querySelector(":scope > ul")) {
+                    pli.querySelector(":scope > ul").insertAdjacentElement("afterbegin", li);
+                } else {
+                    get_data();
+                }
+            }
+        });
+        link(id).add();
     }
 
     push(el: x, pel?: x) {
@@ -3398,66 +3882,88 @@ class 图层 {
         ppel.append(el);
         let li = this.create_li(get_x_out_value(el));
         let pli = 图层_el.querySelector(`li[data-id="${ppel.id}"]`);
-        if (pli.querySelector(":scope > ul")) {
+        if (pli?.querySelector(":scope > ul")) {
             pli.querySelector(":scope > ul").insertAdjacentElement("afterbegin", li);
         } else {
             get_data();
-            this.reflash();
         }
-        this.focus(el);
+        this.focus(el.id);
         link(el.id).add();
     }
 
-    remove(el: x) {
-        link(el.id).rm();
-        el.querySelectorAll("x-x, x-link").forEach((el) => {
-            link(el.id).rm();
-            breadcrumbs_el.querySelector(`div[data-id="${el.id}"]`)?.remove();
-        });
-        el.remove();
-        delete 集.values[el.id];
-        图层_el.querySelector(`li[data-id="${el.id}"]`)?.remove();
-        breadcrumbs_el.querySelector(`div[data-id="${el.id}"]`)?.remove();
+    /**
+     * 移除元素
+     * @param id id
+     * @param p 是否仅在画布移除
+     */
+    remove(id: string, p?: boolean) {
+        if (!p) {
+            link(id).rm();
+            delete 集.values[id];
+        }
+        get_x_by_id(id)
+            .querySelectorAll("x-x, x-link")
+            .forEach((el) => {
+                if (!p) link(el.id).rm();
+                breadcrumbs_el.querySelector(`div[data-id="${el.id}"]`)?.remove();
+            });
+        get_x_by_id(id)?.remove();
+        图层_el.querySelector(`li[data-id="${id}"]`)?.remove();
+        breadcrumbs_el.querySelector(`div[data-id="${id}"]`)?.remove();
+        remove_x_data(id);
         render_select_rects();
         data_changed();
     }
 
-    focus(el: x) {
-        this.聚焦元素 = el;
+    move(id: string, toid: string, posi?: number) {
+        let li = 图层_el.querySelector(`li[data-id="${id}"]`);
+        let ul = 图层_el.querySelector(`li[data-id="${toid}"] > ul`);
+        if (li && ul) {
+            if (posi) {
+                ul.children[ul.children.length - posi].before(li);
+            } else {
+                ul.children[ul.children.length - 1].after(li);
+            }
+        }
+    }
+
+    focus(id: string) {
+        let el = get_x_by_id(id);
+        this.聚焦元素 = id;
         for (let l of 图层_el.querySelectorAll("input")) {
-            if (el.id == l.parentElement.getAttribute("data-id")) {
+            if (id == l.parentElement.getAttribute("data-id")) {
                 l.checked = true;
             } else {
                 l.checked = false;
             }
         }
         focus_draw_el = null;
-        if (el.querySelector("x-draw") && 模式 == "绘制") focus_draw_el = el.querySelector("x-draw") as draw;
+        if (el?.querySelector("x-draw") && 模式 == "绘制") focus_draw_el = el.querySelector("x-draw") as draw;
 
         selected_el = [];
-        selected_el.push(el);
+        selected_el.push(id);
         render_select_rects();
-        set_style(el);
+        set_style(id);
         load_xywh();
         load_value();
 
-        add_bci(el);
+        add_bci(id);
 
-        link(el.id).value("0", link_value_min_d());
+        link(id).value("0", link_value_min_d());
 
         if (模式 == "设计") {
-            let d = el.querySelector("x-draw") as draw;
+            let d = el?.querySelector("x-draw") as draw;
             if (d) {
                 penc_el.value = d.pen.color;
             }
         }
     }
 
-    get(el: x) {
+    get(id: string) {
         let w = (data: data) => {
             for (let n in data) {
                 const i = data[n];
-                if (i.id == el.id) return { n: Number(n), data };
+                if (i.id == id) return { n: Number(n), data };
                 if (i?.子元素?.length > 0) {
                     w(i.子元素);
                 }
@@ -3471,52 +3977,176 @@ class 图层 {
         array.splice(t, 0, array.splice(i, 1)[0]);
     }
 
-    底层(el: x) {
-        let v = this.get(el);
+    底层(id: string) {
+        let v = this.get(id);
         this.mv(v.data, v.n, 0);
-        this.reflash();
     }
-    下一层(el: x) {
-        let v = this.get(el);
+    下一层(id: string) {
+        let v = this.get(id);
         this.mv(v.data, v.n, v.n - 1);
-        this.reflash();
     }
-    上一层(el: x) {
-        let v = this.get(el);
+    上一层(id: string) {
+        let v = this.get(id);
         this.mv(v.data, v.n, v.n + 1);
-        this.reflash();
     }
-    顶层(el: x) {
-        let v = this.get(el);
+    顶层(id: string) {
+        let v = this.get(id);
         this.mv(v.data, v.n, v.data.length - 1);
-        this.reflash();
     }
 }
 
 var z = new 图层();
 
+function for_each(data: data, f: (data: data[0], i: number, path?: data) => boolean | void) {
+    w(data, []);
+    function w(data: data, path: data) {
+        for (let i in data) {
+            let stop = f(data[i], Number(i), path);
+            if (!stop) {
+                if (data[i].子元素) {
+                    w(data[i].子元素, path.concat(data[i]));
+                }
+            } else {
+                break;
+            }
+        }
+    }
+}
+function 集_for_each(f: (data: data[0], p?: 画布type, path?: data) => boolean | void) {
+    for (let i of 集.数据) {
+        w(i.data, i, []);
+    }
+    function w(data: data, p: 画布type, path: data) {
+        for (let i of data) {
+            let stop = f(i, p, path);
+            if (!stop) {
+                if (i.子元素) {
+                    w(i.子元素, p, path.concat(i));
+                }
+            } else {
+                break;
+            }
+        }
+    }
+}
+function get_x_data(id: string) {
+    let xdata: data[0];
+    集_for_each((data, path) => {
+        if (data.id == id) {
+            xdata = data;
+            return true;
+        }
+    });
+    return xdata;
+}
+
+function remove_x_data(id: string) {
+    for (let i of 集.数据) {
+        w(i.data);
+    }
+    function w(data: data) {
+        for (let i in data) {
+            if (data[i].type == "X-X" && data[i].id == id) {
+                data.splice(Number(i), 1);
+            } else {
+                if (data[i].子元素) w(data[i].子元素);
+            }
+        }
+    }
+}
+
+function move_x_data(id: string, to: string, posi?: number) {
+    let d: data[0];
+    for (let i of 集.数据) {
+        w(i.data);
+    }
+    function w(data: data) {
+        for (let i in data) {
+            if (data[i].type == "X-X" && data[i].id == id) {
+                d = data.splice(Number(i), 1)[0];
+            } else {
+                if (data[i].子元素) w(data[i].子元素);
+            }
+        }
+    }
+    for (let i of 集.数据) {
+        if (i.id == to) {
+            i.data.splice(posi || i.data.length, 0, d);
+            return;
+        }
+    }
+    集_for_each((data) => {
+        if (data.id == to && d) {
+            if (posi) {
+                data.子元素.splice(posi, 0, d);
+            } else {
+                data.子元素.push(d);
+            }
+            return true;
+        }
+    });
+}
+
+function set_data_style(el: data[0], x: string, v: string) {
+    let ns = el.style.split(";").reduce((styleObj, rule) => {
+        if (!rule.trim()) return styleObj;
+        const [key, value] = rule.split(":");
+        styleObj[key.trim()] = value.trim();
+        return styleObj;
+    }, {});
+    ns[x] = v;
+    el.style = Object.entries(ns)
+        .map(([key, value]) => `${key}: ${value};`)
+        .join(" ");
+}
+
 xywh_x_el.oninput = () => {
-    z.聚焦元素.style.left = xywh_x_el.value + "px";
+    if (get_x_by_id(z.聚焦元素)) get_x_by_id(z.聚焦元素).style.left = xywh_x_el.value + "px";
+    集_for_each((data) => {
+        if (data.id == z.聚焦元素) {
+            set_data_style(data, "left", xywh_x_el.value);
+            return true;
+        }
+    });
     data_changed();
 };
 xywh_y_el.oninput = () => {
-    z.聚焦元素.style.top = xywh_y_el.value + "px";
+    if (get_x_by_id(z.聚焦元素)) get_x_by_id(z.聚焦元素).style.top = xywh_y_el.value + "px";
+    集_for_each((data) => {
+        if (data.id == z.聚焦元素) {
+            set_data_style(data, "top", xywh_y_el.value);
+            return true;
+        }
+    });
     data_changed();
 };
 xywh_w_el.oninput = () => {
-    z.聚焦元素.style.width = xywh_w_el.value + "px";
+    if (get_x_by_id(z.聚焦元素)) get_x_by_id(z.聚焦元素).style.width = xywh_w_el.value + "px";
+    集_for_each((data) => {
+        if (data.id == z.聚焦元素) {
+            set_data_style(data, "width", xywh_w_el.value);
+            return true;
+        }
+    });
     data_changed();
 };
 xywh_h_el.oninput = () => {
-    z.聚焦元素.style.height = xywh_h_el.value + "px";
+    if (get_x_by_id(z.聚焦元素)) get_x_by_id(z.聚焦元素).style.height = xywh_h_el.value + "px";
+    集_for_each((data) => {
+        if (data.id == z.聚焦元素) {
+            set_data_style(data, "height", xywh_h_el.value);
+            return true;
+        }
+    });
     data_changed();
 };
 function load_xywh() {
-    let fe = z.聚焦元素;
-    xywh_x_el.value = String(fe.offsetLeft);
-    xywh_y_el.value = String(fe.offsetTop);
-    xywh_w_el.value = String(fe.offsetWidth);
-    xywh_h_el.value = String(fe.offsetHeight);
+    let fe = get_x_data(z.聚焦元素)?.rect;
+    if (!fe) return;
+    xywh_x_el.value = String(fe.x);
+    xywh_y_el.value = String(fe.y);
+    xywh_w_el.value = String(fe.w);
+    xywh_h_el.value = String(fe.h);
 }
 
 import css_properties_file from "../../lib/css/CSSProperties.json?raw";
@@ -3650,9 +4280,10 @@ function change_input_w(el: HTMLInputElement) {
     el.style.width = `${el.value.length}ch`;
 }
 
-function set_style(el: x) {
-    let style = el.getAttribute("style");
-    el_style.setAttribute("data-id", el.id);
+function set_style(id: string) {
+    let style = get_x_data(id)?.style;
+    if (!style) return;
+    el_style.setAttribute("data-id", id);
     el_style.innerHTML = "";
     let l = style.split(";");
     for (let i of l) {
@@ -3681,9 +4312,31 @@ function style_to_el() {
         if (i.querySelector("input"))
             t += `${i.querySelectorAll("input")[0].value}:${i.querySelectorAll("input")[1].value};`;
     }
-    elFromId(el_style.getAttribute("data-id")).setAttribute("style", t);
+    集_for_each((data) => {
+        if (data.id == el_style.getAttribute("data-id")) {
+            data.style = t;
+            return true;
+        }
+    });
+    elFromId(el_style.getAttribute("data-id"))?.setAttribute("style", t);
     data_changed();
 }
+
+switch_global_style.onclick = () => {
+    if (el_style.querySelector("textarea")) {
+        set_style(el_style.getAttribute("data-id"));
+    } else {
+        el_style.innerHTML = "";
+        let text = createEl("textarea");
+        el_style.append(text);
+        text.value = 集.extra.style;
+        text.onchange = () => {
+            集.extra.style = text.value || default_style;
+            set_css(集.extra.style);
+            data_changed();
+        };
+    }
+};
 
 // url
 if (location.search) {
@@ -3699,7 +4352,7 @@ if (location.search) {
 }
 
 // 云
-import { createClient } from "webdav";
+import { createClient, FileStat } from "webdav";
 var client = createClient(store.webdav.网址, {
     username: store.webdav.用户名,
     password: store.webdav.密码,
@@ -3797,16 +4450,8 @@ async function get_xln_value(path: string) {
 
         if (o.assets && Object.keys(assets).length)
             for (let i in o.assets) {
-                const fileReader = new FileReader();
                 let x = () => {
-                    return new Promise((rj) => {
-                        fileReader.onload = (e) => {
-                            let t = o.assets[i].base64.replace(/base64,.*/, "");
-                            o.assets[i].base64 = t + (e.target.result as string).match(/base64,.*/)[0];
-                            rj(0);
-                        };
-                        fileReader.readAsDataURL(assets[i]);
-                    });
+                    o.assets[i].source = assets[i];
                 };
                 await x();
             }
@@ -3820,6 +4465,8 @@ async function get_xln_value(path: string) {
         o = JSON5.parse(<string>str);
     }
     now_dav_data = str;
+
+    set_webdav_file_time(path, ((await client.stat(path)) as FileStat).lastmod);
     return o as 集type;
 }
 
@@ -3845,6 +4492,8 @@ async function put_xln_value() {
             },
         });
         show_upload_v(v);
+        const stat = (await client.stat(path)) as FileStat;
+        set_webdav_file_time(path, stat.lastmod);
     };
     reader.readAsArrayBuffer(b);
 }
@@ -3857,16 +4506,57 @@ function show_upload_v(v: boolean) {
 }
 function show_upload_pro(l?: number, t?: number) {
     let p = createEl("progress");
-    if (l) p.value = l / t;
+    if (l && t) p.value = l / t;
     toast.classList.add("toast_show");
     toast.innerHTML = "";
     toast.append(p);
-    if (l == t) {
+    if (l >= t) {
         toast.classList.remove("toast_show");
     }
 }
 
 var auto_put_xln_t = NaN;
+
+let file_time = {};
+function set_webdav_file_time(path: string, time: string) {
+    file_time[path] = time;
+    localStorage.setItem("webdav_file_time", JSON.stringify(file_time));
+}
+function get_webdav_file_time(path: string) {
+    file_time = JSON5.parse(localStorage.getItem("webdav_file_time") || "{}");
+    return file_time[path];
+}
+async function check_webdav_file() {
+    const path = 集.meta.url;
+    if (path && store.webdav.网址) {
+        let p = get_webdav_file_time(path);
+        let n = ((await client.stat(path)) as FileStat).lastmod;
+        if (new Date(n).getTime() > new Date(p).getTime()) {
+            toast.classList.add("toast_show");
+            let download = createEl("div");
+            download.innerHTML = icon(down_svg);
+            download.onclick = () => {
+                get_xln_value(path);
+            };
+            let cancel = createEl("div");
+            cancel.innerHTML = icon(close_svg);
+            cancel.onclick = () => {
+                toast.classList.remove("toast_show");
+            };
+            setTimeout(() => {
+                toast.classList.remove("toast_show");
+            }, 5 * 1000);
+
+            toast.append("云端有新上传的版本", download, cancel);
+        }
+    }
+}
+
+document.onvisibilitychange = (e) => {
+    if (!document.hidden) {
+        check_webdav_file();
+    }
+};
 
 /** 自动上传到云 */
 function auto_put_xln() {
@@ -3885,12 +4575,10 @@ import * as zip from "@zip.js/zip.js";
 async function 压缩(data: 集type) {
     let fs = new zip.fs.FS();
     let assets_dir = fs.addDirectory("assets");
-    data = clone(data);
-    for (let i in data.assets) {
-        assets_dir.addData64URI(i, data.assets[i].base64);
-        let b64 = data.assets[i].base64;
-        b64 = b64.replace(/base64,.*/, "");
-        data.assets[i].base64 = b64;
+    let data1 = structuredClone(data);
+    for (let i in data1.assets) {
+        assets_dir.addBlob(i, data1.assets[i].source);
+        data1.assets[i].source = null;
     }
     let t = JSON.stringify(data, null, 2);
     fs.addText("text.xln", t);
@@ -3934,9 +4622,10 @@ function show_setting() {
     let setting = JSON5.parse(localStorage.getItem("config"));
     for (let f in setting) {
         let fel = document.querySelector(`form[name="${f}"]`);
-        for (let k in setting[f]) {
-            fel[k].value = setting[f][k];
-        }
+        if (fel)
+            for (let k in setting[f]) {
+                fel[k].value = setting[f][k];
+            }
     }
 }
 show_setting();
@@ -3963,100 +4652,125 @@ type search_result = {
     type?: "str" | "regex";
     score: number;
 }[];
+let search_x: string = "";
+
+let search_list: { [id: string]: { text: string; type: string } } = {};
+
+function get_search_list() {
+    search_list = {};
+    for (let i of 集.数据) {
+        w(i.data);
+    }
+    function w(data: data, pid?: string) {
+        // TODO pdf
+        for (let i of data) {
+            if (i.type == "X-MD") {
+                if (!集.链接[0][pid]) continue;
+                search_list[pid] = JSON5.parse(i.value);
+            } else {
+                if (i.子元素) {
+                    w(i.子元素, i.id);
+                }
+            }
+        }
+    }
+    link("0").map();
+}
+
+/** 设置默认搜索，清楚更多搜索 */
+function set_search_de() {
+    search_main = search_r;
+    search_more.classList.add("search_more_hide");
+}
+
 function search(input: string[], type: "str" | "regex") {
     let x = search_cmd(input);
+    console.log(x);
+    let xop = window["xln"]["search"]["score"];
+    search_x = input[1] || "";
     let s = x.str;
     let result = [] as search_result;
     let sr: search_result = [];
-    let chainr: search_result = [];
-    let flex: search_result = [];
+    let bci: search_result = [];
     let other: search_result = [];
     let has_id = {};
-    画布s.querySelectorAll("x-md, x-pdf").forEach((el: HTMLElement) => {
-        let text = "";
-        let searched = false;
-        if (el.tagName == "X-MD") {
-            text = JSON5.parse((el as markdown).value).text;
-        } else if (el.tagName == "X-PDF") {
-            text = (el as pdf_viewer).text.innerText;
-        } else {
-            text = el.innerText;
-        }
-        switch (type) {
-            case "str":
-                const fuse = new Fuse(text.split("\n"), {
-                    includeMatches: true,
-                    findAllMatches: true,
-                    useExtendedSearch: true,
-                    includeScore: true,
-                });
-                let fr = fuse.search(s);
-                for (let i of fr) {
-                    sr.push({
-                        id: el.parentElement.id,
-                        l: i.matches,
-                        n: i.refIndex,
-                        type: "str",
-                        score: search_score(el.parentElement.id, 1 - i.score, x.t, x.v, x.s, x.opsit),
-                    });
-                    searched = true;
-                }
-                break;
-            case "regex":
-                let r: RegExp;
-                try {
-                    r = eval("/" + s + "/g");
-                } catch (error) {
-                    console.error(error);
-                }
-                let rl = Array.from(new Set(text.match(r)));
-                let l = [];
-                for (let i of rl) {
-                    l.push({ value: i, indices: s_i(i, text).map((v) => [v, v + i.length]) });
-                }
-                if (l.length != 0) {
-                    sr.push({
-                        id: el.parentElement.id,
-                        l,
-                        score: search_score(el.parentElement.id, 1, x.t, x.v, x.s, x.opsit),
-                    });
-                    searched = true;
-                }
-                break;
-        }
-        // 链式搜索
-        if (searched) {
-            let c = link(el.parentElement.id).get(1);
-            for (let i in c) {
-                chainr.push({
-                    id: i,
-                    score: search_score(i, 0, x.t, x.v, x.s, x.opsit),
-                    text: elFromId(i).innerText,
-                });
-            }
-        }
+    for (let id in search_list) {
+        const info = search_list[id];
+        let r = x.f(x.str, info, id);
+        sr.push(...r);
 
-        if (searched && is_flex(el.parentElement.parentElement) == "flex") {
-            el.parentElement.parentElement.querySelectorAll("x-x").forEach((xel: x) => {
-                if (is_smallest_el(xel)) {
-                    if (xel.id != el.parentElement.id) {
-                        flex.push({
-                            id: xel.id,
-                            score: search_score(xel.id, 0, x.t, x.v, x.s, x.opsit),
-                            text: xel.innerText,
-                        });
-                    }
-                }
-            });
-        }
-
-        if (!s)
+        if (!s && !input[1]) {
             other.push({
-                id: el.parentElement.id,
-                score: search_score(el.parentElement.id, 0, x.t, x.v, x.s, x.opsit),
-                text: text,
+                id: id,
+                score: search_score(id, 0, xop.t, xop.v, xop.s, xop.opsit),
+                text: info.text,
             });
-    });
+
+            bci.push({
+                id: id,
+                score: search_score(id, 0, xop.t, xop.v, xop.s, xop.opsit),
+                text: info.text,
+            });
+        }
+    }
+
+    for (let i of sr) {
+        has_id[i.id] = true;
+        result.push(i);
+    }
+    for (let i of other) {
+        if (!has_id[i.id]) {
+            result.push(i);
+            has_id[i.id] = true;
+        }
+    }
+    for (let i of bci) {
+        if (!has_id[i.id]) {
+            result.push(i);
+            has_id[i.id] = true;
+        }
+    }
+    if (xop.random) {
+        for (let x of result) {
+            x.score = Math.random();
+        }
+    }
+    return result;
+}
+
+function search_cmd(str: string[]) {
+    let xop = window["xln"]["search"]["score"];
+    type sf = (str: string, info: { type: string; text: string }, id: string) => search_result;
+    let d_search: sf = (str, info, id) => {
+        let sr: search_result = [];
+        sr.push({
+            id: id,
+            type: "str",
+            text: info.text,
+            score: search_score(id, 1, xop.t, xop.v, xop.s, xop.opsit),
+        });
+        return sr;
+    };
+    let str_search: sf = (str, md, id) => {
+        const fuse = new Fuse(md.text.split("\n"), {
+            includeMatches: true,
+            findAllMatches: true,
+            useExtendedSearch: true,
+            includeScore: true,
+        });
+        let fr = fuse.search(str);
+        let sr: search_result = [];
+        for (let i of fr) {
+            sr.push({
+                id: id,
+                l: i.matches,
+                n: i.refIndex,
+                type: "str",
+                score: search_score(id, 1 - i.score, xop.t, xop.v, xop.s, xop.opsit),
+            });
+        }
+        return sr;
+    };
 
     function s_i(t: string, st: string) {
         let l = [];
@@ -4069,55 +4783,43 @@ function search(input: string[], type: "str" | "regex") {
         }
         return l;
     }
-    console.log(sr, flex);
 
-    for (let i of sr) {
-        has_id[i.id] = true;
-        result.push(i);
+    let regex_search: sf = (str, info, id) => {
+        let r: RegExp;
+        try {
+            r = eval("/" + str + "/g");
+        } catch (error) {
+            console.error(error);
+        }
+        let rl = Array.from(new Set(info.text.match(r)));
+        let l = [];
+        for (let i of rl) {
+            l.push({ value: i, indices: s_i(i, info.text).map((v) => [v, v + i.length]) });
+        }
+        let sr: search_result = [];
+        if (l.length != 0) {
+            sr.push({
+                id: id,
+                l,
+                score: search_score(id, 1, xop.t, xop.v, xop.s, xop.opsit),
+            });
+        }
+        return sr;
+    };
+    let fun: sf;
+    if (str?.[1]?.[0] == "#") {
+        let data = get_x_data(str[1].replace("#", ""));
+        if (data && data.子元素[0].type == "X-MD") {
+            let code = JSON5.parse(data.子元素[0].value).text;
+            let f: sf = eval(code);
+            fun = f;
+        } else {
+            fun = str_search;
+        }
+    } else {
+        fun = str_search;
     }
-    for (let i of chainr) {
-        if (!has_id[i.id]) {
-            result.push(i);
-            has_id[i.id] = true;
-        }
-    }
-    for (let i of flex) {
-        if (!has_id[i.id]) {
-            result.push(i);
-            has_id[i.id] = true;
-        }
-    }
-    for (let i of other) {
-        if (!has_id[i.id]) {
-            result.push(i);
-            has_id[i.id] = true;
-        }
-    }
-    return result;
-}
-
-function search_cmd(str: string[]) {
-    let op = false,
-        s = 2,
-        v = 1,
-        t = 1;
-    if (str[1]) {
-        let ll = str.slice(1);
-        if (ll[0] == "-") {
-            op = true;
-            ll.splice(0, 1);
-        }
-        if (ll[0]) {
-            s = Number(ll[0]);
-        }
-        if (ll[1]) {
-            v = Number(ll[1]);
-        }
-        if (ll[2]) {
-            t = Number(ll[2]);
-        }
-    }
-    return { str: str[0] || "", s, v, t, opsit: op };
+    return { str: str[0], f: fun };
 }
 
 /** 计算 时间 值 搜索匹配度 距离 */
@@ -4133,24 +4835,31 @@ function search_score(
     const vt = 集.链接[0][id];
     let t = (now_t - vt.time) / 1000 / 60 / 60 / 24 / 7;
     t = 1 / (t + 1);
-    let v = vt.value;
+    let v = link(id).get_v();
     let s = search_s;
-    return (op ? -1 : 1) * Math.sqrt(((time_n ?? 1) * t) ** 2 + ((value_n ?? 1) * v) ** 2 + ((search_n ?? 2) * s) ** 2);
+    return (
+        (op ? -1 : 1) * (Math.sqrt(((time_n ?? 1) * t) ** 2) + ((value_n ?? 1) * v) ** 2 + ((search_n ?? 2) * s) ** 2)
+    );
 }
 
 let select_index = 0;
+let select_main_i = 0;
+let search_main = search_r;
 search_el.oninput = search_el.click = () => {
     let arg = cmd(search_el.value);
     if (arg.name == "s") {
+        console.time();
         let l = search(arg.args, "str");
+        console.timeLog();
         show_search_l(l);
+        console.timeEnd();
         if (l.length == 0) {
             view_el.classList.add("viewer_hide");
             return;
         }
         select_index = clip(select_index, 0, l.length - 1); // 搜索记录上次定位
         let el = select_search(select_index);
-        move_to_x_link(get_link_el_by_id(el.getAttribute("data-id")));
+        preview_x_link(el.getAttribute("data-id"));
         let r = el.getBoundingClientRect();
         set_viewer_posi(r.x + r.width, r.y);
     }
@@ -4158,33 +4867,55 @@ search_el.oninput = search_el.click = () => {
         show_md_type_l(arg.args);
     }
 };
-search_el.onblur = () => {
+function hide_search() {
     search_pel.classList.remove("搜索展示");
     search_pel.setAttribute("data-fid", "");
 
     view_el.classList.add("viewer_hide");
+
+    set_search_de();
+}
+search_el.onblur = () => {
+    hide_search();
+};
+search_el.onkeydown = (e) => {
+    if (e.key == "ArrowUp" || e.key == "ArrowDown") {
+        e.preventDefault();
+    }
 };
 search_el.onkeyup = (e) => {
     switch (e.key) {
         case "Escape":
-            search_pel.classList.remove("搜索展示");
-            search_pel.setAttribute("data-fid", "");
-
-            view_el.classList.add("viewer_hide");
+            hide_search();
             break;
         case "ArrowUp":
             if (select_index == -1) {
-                select_index = search_r.childElementCount - 1;
+                select_index = search_r_divs.length - 1;
             } else {
                 select_index--;
             }
             break;
         case "ArrowDown":
-            if (select_index == search_r.childElementCount - 1) {
+            if (select_index == search_r_divs.length - 1) {
                 select_index = -1;
             } else {
                 select_index++;
             }
+            break;
+        case "ArrowRight":
+            let el = select_search(select_index);
+            search_main = search_more;
+            select_main_i = select_index;
+            search_main_r_divs = search_r_divs;
+            select_index = 0;
+            load_more_search(el.getAttribute("data-id"));
+            search_more.classList.remove("search_more_hide");
+            break;
+        case "ArrowLeft":
+            search_main = search_r;
+            select_index = select_main_i;
+            search_r_divs = search_main_r_divs;
+            search_more.classList.add("search_more_hide");
             break;
         case "Enter":
             if (select_index != -1) e.preventDefault();
@@ -4198,7 +4929,7 @@ search_el.onkeyup = (e) => {
         let arg = cmd(search_el.value);
         if (el) {
             if (arg.name == "s") {
-                move_to_x_link(get_link_el_by_id(el.getAttribute("data-id")));
+                preview_x_link(el.getAttribute("data-id"));
                 let r = el.getBoundingClientRect();
                 set_viewer_posi(r.x + r.width, r.y);
             }
@@ -4206,29 +4937,75 @@ search_el.onkeyup = (e) => {
     }
 };
 
+function load_more_search(id: string) {
+    let chainr: search_result = [];
+    let flex: search_result = [];
+    // 链式搜索
+    let c = link(id).get(1);
+    for (let i in c) {
+        集_for_each((xel) => {
+            if (xel.id == i && xel.子元素.length == 1 && xel.子元素[0].type == "X-MD") {
+                chainr.push({
+                    id: i,
+                    score: 1,
+                    text: JSON5.parse(xel.子元素[0].value).text,
+                });
+                return true;
+            }
+        });
+    }
+    集_for_each((i, p, path) => {
+        if (i.id == id && path[path.length - 1]?.子元素) {
+            for (let i of path[path.length - 1].子元素) {
+                if (i.子元素?.length == 1 && i.子元素[0].type != "X-X") {
+                    flex.push({
+                        id: i.id,
+                        score: 1,
+                        text: i.子元素[0].type == "X-MD" ? JSON5.parse(i.子元素[0].value).text : i.子元素[0].value,
+                    });
+                }
+            }
+            return true;
+        }
+    });
+    let has_id = {};
+    let result = [] as search_result;
+    for (let i of chainr) {
+        if (!has_id[i.id]) {
+            result.push(i);
+            has_id[i.id] = true;
+        }
+    }
+    for (let i of flex) {
+        if (!has_id[i.id]) {
+            result.push(i);
+            has_id[i.id] = true;
+        }
+    }
+    show_search_l(result);
+    select_search(0);
+}
+
 function select_search(i: number) {
-    search_r.querySelectorAll(".search_item_select").forEach((el) => {
+    search_main.querySelectorAll(".search_item_select").forEach((el) => {
         el.classList.remove("search_item_select");
     });
-    let el = <HTMLElement>search_r.children[i];
+    let el = search_r_divs[i];
     if (!el) return;
     el.classList.add("search_item_select");
-    let ri = search_r.children[i].getBoundingClientRect();
-    let r = search_r.getBoundingClientRect();
-    if (ri.top < r.top) {
-        search_r.scrollTop = el.offsetTop - (<HTMLElement>search_r.children[0]).offsetTop;
+    if (i * search_i_height < search_main.scrollTop) {
+        search_main.scrollTop = i * search_i_height;
     }
-    if (ri.bottom > r.bottom) {
-        search_r.scrollTop = el.offsetTop + el.offsetHeight - r.height - (<HTMLElement>search_r.children[0]).offsetTop;
+    if ((i + 1) * search_i_height > search_main.scrollTop + search_main.offsetHeight) {
+        search_main.scrollTop = (i + 1) * search_i_height - search_main.offsetHeight;
     }
-    return search_r.children[i];
+    return el;
 }
 
 function click_search_item(iid: string) {
     let arg = cmd(search_el.value);
     if (arg.name == "s") {
-        let el = elFromId(iid);
-        if (search_pel.getAttribute("data-fid") == "0") jump_to_x_link(el as x & xlink);
+        if (search_pel.getAttribute("data-fid") == "0") jump_to_x_link(iid);
         else view_el.classList.add("viewer_hide");
         show_search_l([]);
         let id = search_pel.getAttribute("data-fid") || link_value_bar.elid;
@@ -4236,6 +5013,7 @@ function click_search_item(iid: string) {
         link(id).add(iid);
         search_el.blur();
         link_value_bar.elid = link_value_bar.elid;
+        add_bci(iid);
     }
     if (arg.name == "type") {
         search_el.value = `type ${iid}`;
@@ -4246,10 +5024,17 @@ function click_search_item(iid: string) {
 search_r.onpointerleave = () => {
     view_el.classList.add("viewer_hide");
 };
+search_more.onpointerleave = () => {
+    view_el.classList.add("viewer_hide");
+};
 
 search_el.onchange = () => {
     run_cmd();
 };
+
+let search_r_divs: HTMLElement[] = [];
+let search_main_r_divs: HTMLElement[] = [];
+const search_i_height = 32;
 
 /** 展示搜索结果 */
 function show_search_l(l: search_result, exid?: string) {
@@ -4257,17 +5042,17 @@ function show_search_l(l: search_result, exid?: string) {
         return a.score - b.score;
     });
     if (exid) l = l.filter((i) => i.id != exid);
-    search_r.innerHTML = "";
-    let els: HTMLElement[] = [];
-    let ids = {};
-    for (let i of l) {
-        if (!ids[i.id]) {
-            let div = create_r_item();
+    search_main.innerHTML = "";
+    search_r_divs = [];
+    const els = new Map<string, HTMLElement>();
+    for (let n = l.length - 1; n >= 0; n--) {
+        const i = l[n];
+        let div = els.get(i.id);
+        if (!div) {
+            div = create_r_item();
             div.setAttribute("data-id", i.id);
-            els.push(div);
-            ids[i.id] = els.length - 1;
+            els.set(i.id, div);
         }
-        let div = els[ids[i.id]];
         let line = createEl("div");
         let p = createEl("span");
         if (i.l) {
@@ -4293,12 +5078,17 @@ function show_search_l(l: search_result, exid?: string) {
         div.append(line);
         div.setAttribute("data-id", i.id);
         add_div_event(div, i.id);
+
+        let value = createEl("div");
+        value.append(link_value_text(link(i.id).get_v()));
+        div.append(value);
+        div.style.top = search_i_height * (l.length - n - 1) + "px";
+        search_r_divs.push(div);
     }
 
     function add_div_event(div: HTMLElement, id: string) {
         div.addEventListener("mouseenter", () => {
-            let el = elFromId(id);
-            move_to_x_link(el as x & xlink);
+            preview_x_link(id);
         });
         div.onmousemove = (e) => {
             window.requestAnimationFrame(() => {
@@ -4308,27 +5098,44 @@ function show_search_l(l: search_result, exid?: string) {
     }
 
     link("0").衰减();
-    for (let div of els) {
-        if (search_r.firstChild) {
-            search_r.firstChild.before(div);
-        } else {
-            search_r.append(div);
-        }
-        let value = createEl("div");
-        value.append(link_value_text(link(div.getAttribute("data-id")).get_v()));
-        div.append(value);
-    }
+    let ddd = createEl("div");
+    search_main.append(ddd);
+    ddd.style.height = search_r_divs.length * search_i_height + 8 + "px";
+    render_search_l();
     r_i_r();
 }
+
+function render_search_l() {
+    let top = search_main.scrollTop;
+    let b = top + search_main.offsetHeight;
+    let start = Math.floor(top / search_i_height);
+    let len = Math.ceil((b - top) / search_i_height);
+    let has = [];
+    for (let el of search_main.querySelector("div").children) {
+        let eli = Number(el.getAttribute("data-i"));
+        if (eli < start || start + len < eli) {
+            el.remove();
+        } else {
+            has.push(eli);
+        }
+    }
+    for (let i = start; i < Math.min(search_r_divs.length, start + len); i++) {
+        if (!has.includes(i)) search_main.querySelector("div").append(search_r_divs[i]);
+    }
+}
+
+search_main.onscroll = () => {
+    render_search_l();
+};
 
 /** 创建项 */
 function create_r_item() {
     let div = createEl("div");
-    div.onpointerdown = (e) => {
+    div.onpointerdown = () => {
         const id = div.getAttribute("data-id");
         click_search_item(id);
     };
-    div.onmouseenter = (e) => {
+    div.onmouseenter = () => {
         select_index = Number(div.getAttribute("data-i"));
         select_search(select_index);
     };
@@ -4337,9 +5144,17 @@ function create_r_item() {
 
 /** 为项添加序列信息 */
 function r_i_r() {
-    [...search_r.children].forEach((div, i) => {
+    search_r_divs.forEach((div, i) => {
         div.setAttribute("data-i", String(i));
     });
+}
+
+function search_text(text: string) {
+    let t = `s '${text}'`;
+    if (search_x) {
+        t += ` ${search_x || ""}`;
+    }
+    return t;
 }
 
 /** 全局搜索栏 */
@@ -4353,9 +5168,11 @@ function show_g_search() {
     let arg = cmd(search_el.value);
     if (arg.name != "s") {
         arg.args = [""];
-        search_el.value = "s ''";
+        search_el.value = search_text("");
         search_el.setSelectionRange(3, 3);
     }
+    set_search_de();
+    get_search_list();
     let l = search(arg.args, "str");
     show_search_l(l);
 }
@@ -4375,7 +5192,11 @@ function show_md_type_l(arg: string[]) {
     });
     let fr = fuse.search(arg[0]);
     search_r.innerHTML = "";
-    for (let i of fr) {
+    let dd = createEl("div");
+    search_r.append(dd);
+    search_r_divs = [];
+    for (let n in fr) {
+        const i = fr[n];
         for (let j of i.matches) {
             let indices = [...j.indices].sort((a, b) => a[0] - b[0]);
             let line = create_r_item();
@@ -4392,13 +5213,16 @@ function show_md_type_l(arg: string[]) {
             }
             line.append(p);
             line.setAttribute("data-id", j.value);
-            search_r.append(line);
+            dd.append(line);
+            line.style.top = Number(n) * search_i_height + "px";
+            search_r_divs.push(line);
             line.onpointerdown = () => {
                 search_el.value = "type " + j.value;
                 run_cmd();
             };
         }
     }
+    dd.style.height = fr.length * search_i_height + 8 + "px";
     select_index = -1;
     r_i_r();
 }
@@ -4415,6 +5239,7 @@ const md_type_l: md_type[] = [
     "p",
     "text",
     "todo",
+    "latex math",
     "math",
     "iframe",
 ];
@@ -4444,19 +5269,36 @@ function is_smallest_el(el: x | xlink) {
         return false;
     }
 }
+/** 判断是否是最小元素 */
+function is_smallest_data_el(id: string) {
+    let data = get_x_data(id);
+    if (!data) return true;
+    if (集.links?.[id]) return true;
+    let has = false;
+    for_each(data.子元素, (d) => {
+        if (d.type == "X-X") has = true;
+    });
+    return !has;
+}
 
 /** 展示链接栏 */
 function show_link_value_bar(el: x | xlink) {
     if (模式 != "浏览") return;
     if (search_pel.classList.contains("搜索展示")) return;
+    link_value_bar.elid = el.id;
     link_value_bar.style.left = el_offset(el, 画布).x + "px";
     link_value_bar.style.top = el_offset(el, 画布).y - link_value_bar.offsetHeight + 4 + "px";
-    link_value_bar.elid = el.id;
+    if (el.tagName == "X-LINK") {
+        const range = document.createRange();
+        range.setStart(el.firstChild, 0);
+        range.setEnd(el.firstChild, 1);
+        link_value_bar.style.left = range_offset(range, 画布).x + "px";
+        link_value_bar.style.top = range_offset(range, 画布).y - link_value_bar.offsetHeight + 4 + "px";
+    }
     if (!search_pel.getAttribute("data-fid") && el.id != now_focus_id) {
         search_el.blur();
         search_pel.classList.remove("搜索展示");
         now_focus_id = el.id;
-        link_value_bar.querySelector(":scope > div:nth-child(2)").innerHTML = "";
     }
 
     // 不是最小元素不显示控件，只显示计算后的值
@@ -4490,116 +5332,139 @@ function set_viewer_posi(x: number, y: number) {
 }
 
 /** 跳转到元素位置 */
-function move_to_x_link(el: x | xlink) {
-    let pel: HTMLElement;
-    画布s.querySelectorAll(":scope > div").forEach((xel) => {
-        if (xel.contains(el)) {
-            pel = xel as HTMLElement;
-            return;
+function preview_x_link(id: string) {
+    let pid = "",
+        rect: rect;
+    for (let i of 集.数据) {
+        pid = i.id;
+        w(i.data);
+        if (rect) break;
+    }
+    function w(data: data) {
+        for (let i of data) {
+            if (i.type == "X-X") {
+                if (i.id == id) {
+                    rect = i.rect;
+                    return;
+                }
+                if (i.id == 集.links?.[id]?.pid) {
+                    rect = 集.links[id].rect;
+                    return;
+                }
+                if (i.子元素) {
+                    w(i.子元素);
+                }
+            }
         }
-    });
-    let pel_display = pel.style.display;
-    pel.style.display = "block";
-    let center_rect = el_offset2(el, pel);
+    }
+    let center_rect = rect;
 
     let center_point = { x: center_rect.x + center_rect.w / 2, y: center_rect.y + center_rect.h / 2 };
     let dx = view_width / 2 / zoom,
         dy = view_height / 2 / zoom;
     let out_rect = {
-        left: center_point.x - dx,
-        right: center_point.x + dx,
-        top: center_point.y - dy,
-        bottom: center_point.y + dy,
+        x: center_point.x - dx,
+        y: center_point.y - dy,
+        w: 2 * dx,
+        h: 2 * dy,
     };
 
-    let els: { el: x; x: number; y: number }[] = [];
-    pel.querySelectorAll(":scope > x-x").forEach((el: x) => {
-        let r = el_offset2(el);
-        if (r.x < out_rect.right && out_rect.left < r.x + r.w && r.y < out_rect.bottom && out_rect.top < r.y + r.h) {
-            els.push({ el: el, x: r.x, y: r.y });
+    let els: { el: data[0]; x: number; y: number }[] = [];
+    for (let p of 集.数据) {
+        if (p.id == pid) {
+            for (let x of p.data) {
+                let r = x.rect;
+                if (
+                    rect_x_rect(r, out_rect) ||
+                    el_has(x, id) // 针对固定布局元素
+                ) {
+                    els.push({ el: x, x: r.x, y: r.y });
+                }
+            }
         }
-    });
-    pel.style.display = pel_display;
+    }
 
-    view_el.style.width = 2 * dx + "px";
-    view_el.style.height = 2 * dy + "px";
-    view_el.style.transform = `scale(${zoom})`;
-    view_el.innerHTML = "";
+    view_el.style.width = 2 * dx * zoom + "px";
+    view_el.style.height = 2 * dy * zoom + "px";
+
+    view_children_el.style.width = 2 * dx + "px";
+    view_children_el.style.height = 2 * dy + "px";
+    view_children_el.style.transform = `scale(${zoom})`;
+    view_children_el.innerHTML = "";
     view_el.classList.remove("viewer_hide");
     for (let x of els) {
         let xel = createEl("x-x");
-        xel.setAttribute("style", x.el.getAttribute("style"));
-        xel.style.left = x.x - out_rect.left + "px";
-        xel.style.top = x.y - out_rect.top + "px";
-        xel.className = x.el.className;
-        view_el.append(xel);
+        xel.setAttribute("style", x.el.style);
+        xel.style.left = x.x - out_rect.x + "px";
+        xel.style.top = x.y - out_rect.y + "px";
+        xel.className = x.el.class;
+        view_children_el.append(xel);
         xel.id = x.el.id;
-        xel.value = x.el.value;
+        xel.value = x.el.子元素;
     }
-    view_el.querySelectorAll("x-x").forEach((xcel: x) => {
-        if (xcel.id == el.id) {
-            xcel.classList.add("viewer_target");
-            return;
-        }
-    });
+    let highlight = view_highlight_el;
+    highlight.style.left = (center_rect.x - out_rect.x) * zoom + "px";
+    highlight.style.top = (center_rect.y - out_rect.y) * zoom + "px";
+    highlight.style.width = center_rect.w * zoom + "px";
+    highlight.style.height = center_rect.h * zoom + "px";
 }
 
 var now_data_id = "0";
 
 /** 跳转到元素位置并记录 */
-function jump_to_x_link(el: x | xlink, nrc?: boolean) {
+function jump_to_x_link(id: string, nrc?: boolean) {
     view_el.classList.add("viewer_hide");
-
-    for (let 画布el of 画布s.querySelectorAll(":scope > div")) {
-        if (画布el.contains(el)) {
-            O = 画布el as HTMLElement;
-            for (let p of 集.数据) {
-                if (p.id == O.id) {
-                    当前画布 = p;
-                    集.meta.focus_page = p.id;
-                    O.style.display = "block";
-                    let x = el_offset(el, O).x - 画布.offsetWidth / 2,
-                        y = el_offset(el, O).y - 画布.offsetHeight / 2;
-                    let ex = -x - (el.offsetWidth * zoom) / 2,
-                        ey = -y - (el.offsetHeight * zoom) / 2;
-                    let t = Math.sqrt((ex - O.offsetLeft) ** 2 + (ey - O.offsetTop) ** 2) / 1.6;
-                    O.style.transitionDuration = `${t / 1000}s`;
-                    O.ontransitioncancel = O.ontransitionend = () => {
-                        O.style.transitionDuration = "";
-                        render_select_rects();
-                    };
-                    zoom_o(Number(O.style.transform.match(/scale\((.*)\)/)[1] || p.p.zoom));
-                    set_O_p(ex, ey);
-                    if (el.tagName == "X-X") {
-                        z.focus(el as x);
-                    }
-                    z.reflash(true);
-                }
+    集_for_each((data, p) => {
+        if (data.id == id) {
+            select_p(p.id);
+            let x = data.rect.x * p.p.zoom - 画布.offsetWidth / 2,
+                y = data.rect.y * p.p.zoom - 画布.offsetHeight / 2;
+            let ex = -x - (data.rect.w * p.p.zoom) / 2,
+                ey = -y - (data.rect.h * p.p.zoom) / 2;
+            render_select_rects();
+            check_render_x();
+            render_map();
+            set_O_p(ex, ey);
+            if (data.type == "X-X") {
+                z.focus(id);
             }
-        } else {
-            (画布el as HTMLElement).style.display = "none";
+            return true;
         }
-    }
-    if (!nrc) add_bci(el);
+    });
+    if (!nrc) add_bci(id);
 }
 
+let bci_ids = [];
+
 /** 添加到面包屑栏 */
-function add_bci(el: x | xlink) {
-    if (breadcrumbs_el.querySelector(`div[data-id="${el.id}"]`)) return;
+function add_bci(id: string) {
+    let qel = breadcrumbs_el.querySelector(`div[data-id="${id}"]`) as HTMLElement;
+    if (qel) {
+        // breadcrumbs_el.scrollLeft = qel.offsetLeft + qel.offsetWidth - breadcrumbs_el.offsetWidth;
+        // return;
+        qel.remove();
+    }
     if (breadcrumbs_el.offsetHeight == 0) breadcrumbs_el.style.height = "16px";
     let li = createEl("div");
     let main = createEl("div");
     li.append(main);
+    let text = createEl("span");
     li.classList.add("bci");
-    main.innerText = `#${el.id}`;
-    li.setAttribute("data-id", el.id);
-    main.onpointerenter = (e) => {
-        move_to_x_link(elFromId(el.id) as x);
+    text.innerText = `#${id}`;
+    main.append(text);
+    if (is_smallest_data_el(id)) {
+        let add = createEl("x-link-add");
+        main.append(add);
+        add.value = id;
+    }
+    li.setAttribute("data-id", id);
+    text.onpointerenter = () => {
+        preview_x_link(id);
     };
-    main.onpointerdown = () => {
-        jump_to_x_link(elFromId(el.id) as x);
+    text.onpointerdown = () => {
+        jump_to_x_link(id);
     };
-    main.onpointermove = (e) => {
+    text.onpointermove = (e) => {
         window.requestAnimationFrame(() => {
             set_viewer_posi(e.clientX, e.clientY);
         });
@@ -4608,6 +5473,10 @@ function add_bci(el: x | xlink) {
         view_el.classList.add("viewer_hide");
     };
     breadcrumbs_el.append(li);
+    breadcrumbs_el.scrollLeft = li.offsetLeft + li.offsetWidth - breadcrumbs_el.offsetWidth;
+
+    bci_ids = bci_ids.filter((x) => x != id);
+    bci_ids.push(id);
 }
 
 breadcrumbs_el.onwheel = (e) => {
@@ -4648,6 +5517,7 @@ function link(key0: string) {
                 delete 集.链接[key1][key0];
             } else {
                 delete 集.链接[0][key0];
+                link("0").map();
                 for (let i in link(key0).get()) {
                     link(key0).rm(i);
                 }
@@ -4660,39 +5530,32 @@ function link(key0: string) {
          * @returns 指向链接
          */
         get: (chain?: number) => {
-            let l = { ...集.链接[key0] };
-            for (let i in 集.链接[0]) {
-                for (let x in 集.链接[i]) {
-                    if (x == key0) {
-                        l[i] = 集.链接[i][x];
-                    }
-                }
-            }
+            const l = link_map[key0];
             if (!chain) {
                 return l;
             } else {
-                let xl: typeof l = {};
-                let walk = (list: typeof l, chain_n: number) => {
+                const walk = (list: typeof l, chain_n: number) => {
+                    const xl = {};
                     let next = null;
                     let maxn = 0;
-                    for (let i in list) {
-                        if (i == "0") continue;
+                    for (const i of Object.keys(list || [])) {
+                        if (i === "0") continue;
                         if (xl[i]) continue;
                         if (list[i].value > maxn) {
                             next = i;
                             maxn = list[i].value;
                         }
                     }
-                    if (!next) return;
-                    let ln = chain_n - list[next].value;
+                    if (!next) return xl;
+                    const ln = chain_n - list[next].value;
                     if (ln > 0) {
-                        walk(link(next).get(), ln);
+                        return walk(link(next).get(), ln);
                     } else {
                         xl[next] = list[next];
+                        return xl;
                     }
                 };
-                walk(l, chain);
-                return xl;
+                return walk(l, chain);
             }
         },
         value: (key1: string, dv: number) => {
@@ -4711,29 +5574,44 @@ function link(key0: string) {
         },
         /** 获取值 */
         get_v: (is_small?: boolean) => {
-            if (is_small || !get_link_el_by_id(key0) || is_smallest_el(get_link_el_by_id(key0))) {
-                if (集.链接[0][key0]) {
-                    let l = link(key0).get();
+            const el = get_link_el_by_id(key0);
+            if (is_small || !el || is_smallest_el(el)) {
+                const link_value = 集.链接[0][key0]?.value;
+                if (link_value) {
+                    const l = link(key0).get();
                     let n = 0;
                     l["0"] = 集.链接[0][key0];
-                    for (let i in l) {
+                    for (const i in l) {
                         n += l[i].value;
                     }
                     return n;
                 }
             } else {
-                let nl = [];
-                get_link_el_by_id(key0)
-                    .querySelectorAll("x-x, x-link")
-                    .forEach((el) => {
-                        if (集.链接[0][el.id]) {
-                            let n = link(el.id).get_v(true);
-                            nl.push(n);
-                        }
-                    });
                 let n = 0;
-                for (let i of nl) n += i;
-                return n / nl.length;
+                let count = 0;
+                el.querySelectorAll("x-x, x-link").forEach((child) => {
+                    if (集.链接[0][child.id]) {
+                        n += link(child.id).get_v(true);
+                        count++;
+                    }
+                });
+                return count === 0 ? 0 : n / count;
+            }
+        },
+        map: () => {
+            link_map = {};
+            for (const i of Object.keys(集.链接[0] || [])) {
+                for (const x of Object.keys(集.链接[i] || [])) {
+                    const value = 集.链接[i][x];
+                    if (!link_map[i]) {
+                        link_map[i] = {};
+                    }
+                    link_map[i][x] = value;
+                    if (!link_map[x]) {
+                        link_map[x] = {};
+                    }
+                    link_map[x][i] = value;
+                }
             }
         },
         衰减: () => {
@@ -4764,6 +5642,8 @@ function link(key0: string) {
         },
     };
 }
+
+let link_map: 集type["链接"] = null;
 
 /** 链接展示精度位数 */
 let link_value_precision = 2;
@@ -4800,14 +5680,11 @@ function find_root_layout(el: HTMLElement) {
     }
 }
 
-/** 元素集转为父根元素集 */
-function els_to_rels(els: x[]) {
-    let xels = [] as x[];
-    for (let el of els) {
-        let rel = find_root_layout(el);
-        if (!xels.includes(rel)) xels.push(rel);
+/** 获取画布 */
+function find_p(el: HTMLElement) {
+    for (let p of 画布s.querySelectorAll(":scope > div")) {
+        if (p.contains(el)) return p as x;
     }
-    return xels;
 }
 
 /** 获取主元素值 */
@@ -4823,8 +5700,8 @@ function get_x_out_value(el: x) {
 
 function copy_x(x: x, pel?: x) {
     let new_x = createEl("x-x");
-    z.push(new_x, pel);
     new_x.id = x.id;
+    (pel || O).append(new_x);
     new_x.setAttribute("style", x.getAttribute("style"));
     new_x.className = x.className;
     new_x.value = x.value;
@@ -4840,46 +5717,45 @@ function copy_value(id: string, new_id: string) {
 }
 
 /** 转化为堆叠布局 */
-function to_flex(els: x[], d: "x" | "y") {
+function to_flex(els: string[], d: "x" | "y") {
     if (els.length == 1) {
-        if (els[0].classList.contains("flex-row") && d == "y") {
-            els[0].classList.replace("flex-row", "flex-column");
+        let elclass = get_x_data(els[0]).class;
+        if (elclass.includes("flex-row") && d == "y") {
+            elclass.replace("flex-row", "flex-column");
         }
-        if (els[0].classList.contains("flex-column") && d == "x") {
-            els[0].classList.replace("flex-column", "flex-row");
+        if (elclass.includes("flex-column") && d == "x") {
+            elclass.replace("flex-column", "flex-row");
         }
         get_data();
-        z.reflash();
         return;
     }
-    let xels = [] as x[];
-    for (let el of els) {
-        let rel = find_root_layout(el);
-        if (!xels.includes(rel)) xels.push(rel);
+    let xels = [] as data;
+    for (let i of els) {
+        xels.push(get_x_data(i));
     }
     let xel = createEl("x-x");
     xel.id = uuid_id();
     if (d == "x") {
         xel.classList.add("flex-row");
-        xels.sort((a, b) => el_offset2(a).x - el_offset2(b).x);
+        xels.sort((a, b) => a.rect.x - b.rect.x);
     } else {
         xel.classList.add("flex-column");
-        xels.sort((a, b) => el_offset2(a).y - el_offset2(b).y);
+        xels.sort((a, b) => a.rect.y - b.rect.y);
     }
-    xel.style.left = el_offset2(xels[0]).x + "px";
-    xel.style.top = el_offset2(xels[0]).y + "px";
+    xel.style.left = xels[0].rect.x + "px";
+    xel.style.top = xels[0].rect.y + "px";
     z.push(xel);
     let data = [] as data;
     for (let el of xels) {
-        el.style.left = "";
-        el.style.top = "";
-        el.style.position = "relative";
-        data.push(get_x_out_value(el));
-        el.remove();
+        set_data_style(el, "left", "");
+        set_data_style(el, "top", "");
+        set_data_style(el, "position", "relative");
+        data.push(el);
+        remove_x_data(el.id);
+        elFromId(el.id)?.remove();
     }
     xel.value = data;
     get_data();
-    z.reflash();
 }
 
 /** 判断是否为flex */
@@ -4891,6 +5767,17 @@ function is_flex(el: HTMLElement) {
         return "col";
     }
     if (el.classList.contains("flex-row")) {
+        return "row";
+    }
+}
+function is_data_flex(data: data[0]) {
+    if (data.class.split(" ").includes("flex-column") || data.class.split(" ").includes("flex-row")) {
+        return "flex";
+    }
+    if (data.class.split(" ").includes("flex-column")) {
+        return "col";
+    }
+    if (data.class.split(" ").includes("flex-row")) {
         return "row";
     }
 }
@@ -4907,7 +5794,7 @@ function add_none_layout() {
 /** 固定布局修剪 */
 function reflash_none_layout(el: x) {
     if (el.value.length == 0) {
-        z.remove(el);
+        z.remove(el.id);
         data_changed();
         return;
     }
@@ -4931,56 +5818,96 @@ function reflash_none_layout(el: x) {
 }
 
 /** 转化为固定布局 */
-function to_none_layout(els: x[]) {
+function to_none_layout(els: string[]) {
     let x = add_none_layout();
     let data = [] as data;
-    let xels = els_to_rels(els);
-    for (let el of xels) {
-        data.push(get_x_out_value(el));
-        z.remove(el);
+    for (let id of els) {
+        data.push(get_x_data(id));
+        remove_x_data(id);
+        elFromId(id)?.remove();
     }
     x.value = data;
     reflash_none_layout(x);
 }
 
 /** 把flex所有文字转为一行 */
-function to_one_line(xels: x[]) {
-    for (let el of xels) {
-        if (is_flex(el) == "flex") {
-            let t = "";
-            let type: md_type;
-            el.querySelectorAll("x-md").forEach((md: markdown, i) => {
-                t += md._value.text;
-                if (i == 0) type = md._value.type;
-            });
-            el.querySelectorAll("x-x").forEach((el) => z.remove(el as x));
-            let md = createEl("x-md");
-            el.append(md);
-            md.value = JSON.stringify({ text: t, type });
-            data_changed();
-        }
+function to_one_line(xels: string[]) {
+    get_data();
+    for (let id of xels) {
+        集_for_each((data) => {
+            if (data.id == id) {
+                if (is_data_flex(data) == "flex") {
+                    let t = "";
+                    let type: md_type;
+                    let p_ids: string[] = [];
+                    for_each(data.子元素, (x, i, path) => {
+                        if (x.type == "X-MD") {
+                            t += JSON5.parse(x.value).text;
+                            if (i == 0) type = JSON5.parse(x.value).type;
+
+                            p_ids.push(path[path.length - 1].id);
+                        }
+                    });
+                    for (let i of p_ids) {
+                        z.remove(i);
+                    }
+                    data.子元素 = [
+                        { id: "", type: "X-MD", class: type, style: "", value: JSON.stringify({ text: t, type }) },
+                    ];
+                    // TODO 链接合并
+                    let x = get_x_by_id(id);
+                    if (x) {
+                        x.innerHTML = "";
+                        x.value = data.子元素;
+                    }
+                    data_changed();
+                }
+                return true;
+            }
+        });
     }
 }
 
 /** 按换行拆分 */
-function to_more_line(xels: x[], c?: string | RegExp) {
-    for (let el of xels) {
-        if (is_smallest_el(el) && el.querySelector("x-md")) {
-            let v = (el.querySelector("x-md") as markdown)._value;
-            let l = v.text.trim().split(c || "\n");
-            el.querySelector("x-md").remove();
-            el.classList.add("flex-column");
-            for (let t of l) {
-                if (!t) continue;
-                let x = createEl("x-x");
-                x.setAttribute("style", "");
-                let md = createEl("x-md");
-                x.append(md);
-                z.push(x, el);
-                md.value = JSON.stringify({ text: t, type: v.type });
+function to_more_line(xels: string[], c?: string | RegExp) {
+    for (let id of xels) {
+        集_for_each((el, path) => {
+            if (el.id == id) {
+                if (el.子元素.length == 1 && el.子元素[0].type == "X-MD") {
+                    let v = JSON5.parse(el.子元素[0].value);
+                    let l = v.text.trim().split(c || "\n");
+                    el.子元素 = [];
+                    el.class += " flex-column";
+                    for (let t of l) {
+                        if (!t) continue;
+                        let id = uuid_id();
+                        el.子元素.push({
+                            type: "X-X",
+                            id,
+                            class: "",
+                            style: "",
+                            子元素: [
+                                {
+                                    type: "X-MD",
+                                    id: "",
+                                    class: v.type,
+                                    style: "",
+                                    value: JSON.stringify({ text: t, type: v.type }),
+                                },
+                            ],
+                        });
+                        z.add(id);
+                    }
+                    let x = get_x_by_id(id);
+                    if (x) {
+                        x.innerHTML = "";
+                        x.value = el.子元素;
+                    }
+                    data_changed();
+                }
+                return true;
             }
-            data_changed();
-        }
+        });
     }
 }
 
@@ -5014,55 +5941,91 @@ function fixed_el() {
     requestAnimationFrame(fixed_el);
 }
 
+/** 拆分组合 */
+function out_group(els: string[]) {
+    for (let id of els) {
+        let el = get_x_data(id);
+        if (el.子元素.length > 1 || el.子元素[0].type == "X-X") {
+            let p: { [id: string]: data[0] } = {};
+            for (let data of el.子元素) {
+                if (data.type == "X-X") {
+                    p[data.id] = data;
+                }
+            }
+            for (let r of 集.数据) {
+                if (r.id == 当前画布.id) {
+                    for (let i in p) {
+                        let el = p[i];
+                        set_data_style(el, "left", p[i].rect.x + "px");
+                        set_data_style(el, "top", p[i].rect.y + "px");
+                        set_data_style(el, "position", "absolute");
+                        set_data_style(el, "z-index", String(r.data.length + 1));
+                        r.data.push(p[i]);
+                    }
+                }
+            }
+            z.remove(id);
+            check_render_x();
+        }
+    }
+    get_data();
+}
+
 /** 获取从近到远元素列表 */
-function match_nearest_x(x: x) {
-    let l: { el: x; x: number; y: number; r: number }[] = [];
-    let r = el_offset2(x, O);
+function match_nearest_x(id: string) {
+    let l: { id: string; x: number; y: number; r: number }[] = [];
+    let r = get_x_data(id).rect;
     let center = { x: r.x + r.w / 2, y: r.y + r.h / 2 };
-    O.querySelectorAll("x-x").forEach((el: x) => {
-        if (is_smallest_el(el)) {
-            let r = el_offset2(el, O);
-            let center2 = { x: r.x + r.w / 2, y: r.y + r.h / 2 };
-            l.push({
-                el: el,
-                x: center2.x - center.x,
-                y: center2.y - center.y,
-                r: Math.sqrt((center2.x - center.x) ** 2 + (center2.y - center.y) ** 2),
-            });
+    集_for_each((el, p) => {
+        if (p.id == 当前画布.id) {
+            if (is_smallest_data_el(el.id)) {
+                let r = el.rect;
+                let center2 = { x: r.x + r.w / 2, y: r.y + r.h / 2 };
+                l.push({
+                    id: el.id,
+                    x: center2.x - center.x,
+                    y: center2.y - center.y,
+                    r: Math.sqrt((center2.x - center.x) ** 2 + (center2.y - center.y) ** 2),
+                });
+            }
         }
     });
     l.sort((a, b) => a.r - b.r);
     return l;
 }
 
-function get_nearest_x(x: x, a: "left" | "right" | "up" | "down") {
-    console.log(match_nearest_x(x));
-    for (let i of match_nearest_x(x)) {
-        if (i.el == x) continue;
+function get_nearest_x(id: string, a: "left" | "right" | "up" | "down") {
+    console.log(match_nearest_x(id));
+    for (let i of match_nearest_x(id)) {
+        if (i.id == id) continue;
         switch (a) {
             case "down":
-                if (i.y > 0) return i.el;
+                if (i.y > 0) return i.id;
                 break;
             case "up":
-                if (i.y <= 0) return i.el;
+                if (i.y <= 0) return i.id;
                 break;
             case "left":
-                if (i.x <= 0) return i.el;
+                if (i.x <= 0) return i.id;
                 break;
             case "right":
-                if (i.x > 0) return i.el;
+                if (i.x > 0) return i.id;
                 break;
         }
     }
-    return x;
+    return id;
 }
 
-function init_value(id: string, type: string) {
-    if (!集.values[id]) 集.values[id] = {};
-    if (!集.values[id][type]) 集.values[id][type] = {};
-}
-
-window["xln"] = {};
+window["xln"] = {
+    el: {
+        selected_els: () => selected_el,
+        get_data: get_x_data,
+        set_style: set_data_style,
+    },
+    search: {
+        score: { t: 1, v: 1, s: 3, opsit: false, random: false },
+    },
+};
 
 // 手写识别
 elFromId("ink_icon").onpointerdown = (e) => {
@@ -5085,6 +6048,9 @@ mqList.addEventListener("change", (event) => {
         ink_color = "#000";
     }
 });
+
+import { pinyin } from "pinyin-pro";
+
 let ink_move = false;
 var ink_t = {}; // 确保清除所有计时器
 ink_el.onpointerdown = (e) => {
@@ -5148,6 +6114,7 @@ ink_el.onpointerup = () => {
                         let text_l = v[1][0][1];
                         set_text(text_l[0]);
                         ink_reset();
+                        put_toast(pinyin(text_l[0], { multiple: true }));
                     });
             }, Number(store.ink.延时) * 1000 || 600)
         )
@@ -5224,9 +6191,9 @@ function ys_jump(item: ys_item) {
         for (let el of 画布s.children) {
             if (el.id == item.position.O) {
                 O = el as HTMLElement;
-                O.style.display = "block";
+                O.style.visibility = "visible";
             } else {
-                (el as HTMLElement).style.display = "none";
+                (el as HTMLElement).style.visibility = "hidden";
             }
         }
         O.style.transition = item.transition;
@@ -5270,7 +6237,7 @@ ys_add.onclick = () => {
 import JSON5 from "json5";
 
 function load_value() {
-    let el = z.聚焦元素;
+    let el = get_x_by_id(z.聚焦元素);
     value_el.innerHTML = "";
     if (el.value && is_smallest_el(el)) {
         let t = createEl("textarea");
@@ -5331,6 +6298,64 @@ function load_value() {
     }
 }
 
+let ai_messages: { role: "system" | "user" | "assistant"; content: string }[] = [];
+
+function ai(text: string) {
+    return new Promise((re: (text: string) => void) => {
+        let x = ai_messages[ai_messages.length - 1];
+        if (!x || (x.role != "user" && x.content != text)) ai_messages.push({ role: "user", content: text });
+        window["ai"]["messages"] = ai_messages;
+        fetch(`https://api.openai.com/v1/chat/completions`, {
+            method: "POST",
+            headers: { Authorization: `Bearer ${store.ai.key}`, "content-type": "application/json" },
+            body: JSON.stringify({
+                model: "gpt-3.5-turbo",
+                temperature: 0,
+                top_p: 1,
+                frequency_penalty: 1,
+                presence_penalty: 1,
+                messages: ai_messages,
+            }),
+        })
+            .then((v) => v.json())
+            .then((t) => {
+                let answer = t.choices[0].message.content;
+                console.log(answer);
+                ai_messages.push({ role: "assistant", content: answer });
+                window["ai"]["messages"] = ai_messages;
+                re(answer);
+            });
+    });
+}
+
+function new_ai(text?: string) {
+    ai_messages = [];
+    if (text) ai_messages.push({ role: "system", content: text });
+}
+
+window["ai"] = { ask: ai, new: new_ai, messages: ai_messages };
+
+menu_el.onclick = () => {
+    menu_el.classList.add("menu_hide");
+};
+画布.oncontextmenu = (e) => {
+    if (e.target == 画布) {
+        e.preventDefault();
+        let p = e2p(e);
+        menu_el.style.left = e.offsetX + "px";
+        menu_el.style.top = e.offsetY + "px";
+        menu_el.classList.remove("menu_hide");
+        menu_new.onclick = () => {
+            create_x_x(p.x, p.y);
+        };
+    }
+};
+画布.addEventListener("pointerdown", (e) => {
+    if (!menu_el.contains(e.target as HTMLElement)) {
+        menu_el.classList.add("menu_hide");
+    }
+});
+
 // MD
 import markdownit from "markdown-it";
 import markdownitTaskLists from "markdown-it-task-lists";
@@ -5342,6 +6367,8 @@ var md = markdownit({
 })
     .use(markdownitTaskLists, { enabled: true })
     .use(markdownitEmoji);
+
+import * as xmmath from "xmmath";
 
 var defaultRender =
     md.renderer.rules.heading_open ||
@@ -5456,17 +6483,17 @@ function tikz_svg(e: Event) {
     let svg1 = elFromId(id);
     let rx = Infinity,
         ry = Infinity,
-        rw = 0,
-        rh = 0;
+        rr = -Infinity,
+        rb = -Infinity;
     svg1.querySelectorAll(":scope > *").forEach((el: SVGGElement) => {
         let r = el.getBBox();
         if (r.x < rx) rx = r.x;
         if (r.y < ry) ry = r.y;
-        if (r.x + r.width > rw) rw = r.x + r.width;
-        if (r.y + r.height > rh) rh = r.y + r.height;
+        if (r.x + r.width > rr) rr = r.x + r.width;
+        if (r.y + r.height > rb) rb = r.y + r.height;
     });
-    rw = rw - rx;
-    rh = rh - ry;
+    let rw = rr - rx;
+    let rh = rb - ry;
     svg1.setAttribute("viewBox", `${rx} ${ry} ${rw} ${rh}`);
     svg1.setAttribute("width", String(rw));
     svg1.setAttribute("height", String(rh));
@@ -5475,7 +6502,7 @@ function tikz_svg(e: Event) {
 
 md.renderer.rules.image = function (tokens, idx, options, env, self) {
     let value = tokens[idx].attrGet("src");
-    let b = 集.assets?.[value]?.base64;
+    let b = get_assets(value);
     if (b) tokens[idx].attrSet("src", b);
     return defaultRender(tokens, idx, options, env, self);
 };
@@ -5491,28 +6518,28 @@ md.renderer.rules.link_open = function (tokens, idx, options, env, self) {
 
 import "iconify-icon";
 
+import pako from "pako";
+
 var will_load_math = false;
-var mathjax_cache = {};
+var mathjax_cache = JSON.parse(
+    pako.inflate(JSON.parse(localStorage.getItem("mathjax") || "[]"), { to: "string" }) || "{}"
+);
 var math_loaded = false;
-function get_svg(c: string) {
+function get_latex_math_svg(c: string) {
     let html: string,
         ca = mathjax_cache?.[c];
     if (ca) {
-        html = ca[0];
-        mathjax_cache[c][1] = 2;
+        html = ca;
     } else {
         if (math_loaded) {
             html = window.MathJax.tex2svg(c).outerHTML;
-            mathjax_cache[c] = [window.MathJax.tex2svg(c).outerHTML, 1];
+            mathjax_cache[c] = html;
         } else {
-            html = `<mjx-container>${c}</mjx-container>`;
+            html = `<mjx-container loaded="false">${c}</mjx-container>`;
         }
     }
     if (!math_loaded && !will_load_math) {
         window.MathJax = {
-            tex: {
-                inlineMath: [["$", "$"]],
-            },
             options: {
                 enableMenu: false,
             },
@@ -5522,7 +6549,7 @@ function get_svg(c: string) {
                     return window.MathJax.startup.defaultPageReady().then(() => {
                         console.log("MathJax initial typesetting complete");
                         math_loaded = true;
-                        l_math();
+                        l_latex_math();
                     });
                 },
             },
@@ -5539,27 +6566,28 @@ function get_svg(c: string) {
     }
     return html;
 }
-function l_math() {
+function l_latex_math() {
     画布.querySelectorAll("x-md").forEach((pel) => {
-        if (pel.querySelector("mjx-container")) {
+        if (pel.querySelector("mjx-container[loaded=false]")) {
             (<markdown>pel).reload();
         }
     });
-}
-setInterval(() => {
-    for (let i in mathjax_cache) {
-        if (mathjax_cache[i][1] == 1) {
-            delete mathjax_cache[i];
+    setTimeout(() => {
+        if (Object.keys(mathjax_cache).length) {
+            try {
+                localStorage.setItem("mathjax", "[" + pako.deflate(JSON.stringify(mathjax_cache)) + "]");
+            } catch (error) {
+                localStorage.setItem("mathjax", "[]");
+            }
+        } else {
+            mathjax_cache = {};
         }
-    }
-}, 10000);
-setInterval(() => {
-    mathjax_cache = {};
-}, 100000);
+    }, 10000);
+}
 
 md.renderer.rules["mathjax_inline"] = (tokens, idx, options, env, self) => self.renderToken(tokens, idx, options);
-md.renderer.rules.mathjax_inline = (tokens, idx, options, env, self) => {
-    return get_svg(tokens[idx].content).replace(`display="true"`, "");
+md.renderer.rules.mathjax_inline = (tokens, idx) => {
+    return get_latex_math_svg(tokens[idx].content).replace(`display="true"`, "");
 };
 md.inline.ruler.after("escape", "mathjax_inline", function (state, silent) {
     var found,
@@ -5613,8 +6641,8 @@ md.inline.ruler.after("escape", "mathjax_inline", function (state, silent) {
 });
 
 md.renderer.rules["mathjax_block"] = (tokens, idx, options, env, self) => self.renderToken(tokens, idx, options);
-md.renderer.rules.mathjax_block = (tokens, idx, options, env, self) => {
-    return get_svg(`\\displaylines{${tokens[idx].content} }`);
+md.renderer.rules.mathjax_block = (tokens, idx) => {
+    return get_latex_math_svg(`\\displaylines{${tokens[idx].content} }`);
 };
 
 function math_b(state, startLine, endLine, silent) {
@@ -5800,148 +6828,28 @@ class x extends HTMLElement {
     }
 
     connectedCallback() {
-        var bar = createEl("div");
-        bar.id = "x-x_bar";
-        const m = createEl("div");
-        m.innerHTML = icon(handle_svg);
-        var f = createEl("div");
-        f.innerHTML = icon(ding_svg);
-        var d = createEl("div");
-        d.innerHTML = icon(close_svg);
-        let copy = createEl("div");
-        copy.innerHTML = icon(copy_svg);
-
-        bar.append(m);
-        bar.append(copy);
-        bar.append(f);
-        bar.append(d);
-        this.append(bar);
-
-        var bar_hide_t = NaN;
-        this.onmouseenter = () => {
-            if (模式 == "设计" || 临时中转站.contains(this)) {
-                clearTimeout(bar_hide_t);
-                bar.classList.add("x-x_bar_show");
-            }
-        };
         this.onmouseleave = () => {
             if (模式 == "设计" || 临时中转站.contains(this)) {
-                bar_hide_t = window.setTimeout(() => {
-                    bar.classList.remove("x-x_bar_show");
-                }, 200);
                 画布.style.cursor = "crosshair";
             }
         };
 
         this.onpointerdown = (e) => {
-            let el = e.target as HTMLDivElement;
-            if (bar.contains(el) && el != m) return;
-            if (el == m) {
-                e.preventDefault();
-                e.stopPropagation();
-                free_drag = true;
-                画布.classList.add("拖拽");
-                new_free_drag_tip();
-                if (this.parentElement != O) {
-                    let x = e.clientX - O.getBoundingClientRect().x,
-                        y = e.clientY - O.getBoundingClientRect().y + m.offsetHeight - e.offsetY;
-
-                    let xel = copy_x(this);
-                    xel.style.left = el_offset2(this, O).x + "px";
-                    xel.style.top = el_offset2(this, O).y + "px";
-                    xel.style.position = "absolute";
-                    this.remove();
-                    free_o_rects = [{ el: xel, x: x / zoom, y: y / zoom }];
-                    free_old_point = e2p(e);
-                    free_o_a = -1;
-
-                    set_模式("设计");
-
-                    for (let i of 集.中转站) {
-                        if (xel.id == i.id) {
-                            drag_block = true;
-                            if (!i.global) {
-                                集.中转站 = 集.中转站.filter((x) => x != i);
-                                tmp_s_reflash();
-                            }
-                            data_changed();
-                        }
-                    }
-                    return;
-                }
-            }
-            if (!mu_sel_key(e) && selected_el.length <= 1) z.focus(this);
+            if (!mu_sel_key(e) && selected_el.length <= 1) z.focus(this.id);
             if (模式 != "设计") return;
             e.preventDefault();
             free_old_point = e2p(e);
             free_o_a = -1;
 
             if (mu_sel_key(e)) {
-                selected_el.push(this);
+                selected_el.push(this.id);
             }
 
             free_o_rects = [];
-            for (const el of selected_el) {
-                free_o_rects.push({ el, x: el.offsetLeft, y: el.offsetTop });
+            for (const id of selected_el) {
+                let el = get_x_data(id);
+                free_o_rects.push({ el: el.id, x: el.rect.x, y: el.rect.y });
             }
-        };
-
-        f.onclick = () => {
-            f.classList.toggle("buttom_a");
-            if (f.classList.contains("buttom_a")) {
-                global_x.push({
-                    pid: 集.meta.UUID,
-                    data: { id: this.id, 子元素: this.value, class: this.className, type: "X-X", style: "" },
-                });
-            } else {
-                remove_global(this.id);
-            }
-        };
-
-        for (let x of global_x)
-            if (x.data.id == this.id)
-                if (x.data.global) {
-                    f.classList.add("buttom_a");
-                    break;
-                }
-
-        copy.onpointerdown = (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            free_drag = true;
-            画布.classList.add("拖拽");
-            new_free_drag_tip();
-            let x = e.clientX - O.getBoundingClientRect().x - copy.offsetLeft - e.offsetX,
-                y = e.clientY - O.getBoundingClientRect().y + copy.offsetHeight - e.offsetY;
-            let xel = copy_x(this);
-            let nid = uuid_id();
-            copy_value(this.id, nid);
-            xel.id = nid;
-            xel.style.left = el_offset2(this, O).x + "px";
-            xel.style.top = el_offset2(this, O).y + "px";
-            xel.style.position = "absolute";
-            xel.querySelectorAll("x-x").forEach((el) => {
-                let nid = uuid_id();
-                copy_value(el.id, nid);
-                el.id = nid;
-                link(nid).add();
-            });
-            free_o_rects = [{ el: xel, x: x / zoom, y: y / zoom }];
-            free_old_point = e2p(e);
-            free_o_a = -1;
-        };
-
-        d.onclick = () => {
-            selected_el = selected_el.filter((el) => el != this);
-            z.remove(this);
-
-            if (this.querySelector("x-file")) assets_reflash();
-        };
-        d.onpointerenter = () => {
-            this.style.opacity = "0.5";
-        };
-        d.onpointerleave = () => {
-            this.style.opacity = "";
         };
 
         if (this.getAttribute("value")) {
@@ -5955,12 +6863,13 @@ class x extends HTMLElement {
     }
 
     get value() {
+        let p_el = find_p(this);
+        let z = p_el ? get_zoom(p_el.id) : NaN;
         let list = [] as data;
         let els = this.querySelectorAll(":scope > *");
         let map: { index: number; z: number }[] = [];
         const _is_flex = is_flex(this);
         els.forEach((el: HTMLElement, i) => {
-            if (el.id == "x-x_bar" || el.id == "x-x_handle") return;
             map.push({ index: i, z: Number(el.style.zIndex) || 1 });
         });
         if (!_is_flex) map = map.sort((a, b) => a.z - b.z);
@@ -5968,13 +6877,21 @@ class x extends HTMLElement {
             const l = els[n.index];
             let el = l as HTMLElement;
             if (el.tagName == "X-X") {
-                list.push({
+                if (el.querySelector("x-link")) {
+                    if (!集.links) 集.links = {};
+                    el.querySelectorAll("x-link").forEach((lel) => {
+                        if (z) 集.links[lel.id] = { pid: el.id, rect: el_offset2(lel, p_el, z) };
+                    });
+                }
+                let data = {
                     id: el.id,
                     style: el.getAttribute("style") || "",
                     class: el.className,
                     子元素: (el as x).value,
                     type: el.tagName,
-                });
+                };
+                if (z) data["rect"] = el_offset2(el, p_el, z);
+                list.push(data);
             } else {
                 list.push({
                     id: el.id,
@@ -6020,6 +6937,155 @@ class x extends HTMLElement {
 
 window.customElements.define("x-x", x);
 
+/** 创建主元素控制栏 */
+function new_x_bar(id: string) {
+    const main_x = elFromId(id) as x;
+    if (!main_x) return;
+
+    var bar = createEl("div");
+    bar.className = "x-x_bar";
+    const m = createEl("div");
+    m.innerHTML = icon(handle_svg);
+    var f = createEl("div");
+    f.innerHTML = icon(ding_svg);
+    var d = createEl("div");
+    d.innerHTML = icon(close_svg);
+    let copy = createEl("div");
+    copy.innerHTML = icon(copy_svg);
+
+    bar.append(m);
+    bar.append(copy);
+    bar.append(f);
+    bar.append(d);
+
+    m.onpointerdown = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        free_drag = true;
+        画布.classList.add("拖拽");
+        new_free_drag_tip();
+        if (main_x.parentElement != O) {
+            let x = e.clientX - O.getBoundingClientRect().x,
+                y = e.clientY - O.getBoundingClientRect().y + m.offsetHeight - e.offsetY;
+
+            let xel = copy_x(main_x);
+            xel.style.left = el_offset2(main_x, O).x + "px";
+            xel.style.top = el_offset2(main_x, O).y + "px";
+            xel.style.position = "absolute";
+            集_for_each((d) => {
+                if (d.id == xel.id) {
+                    set_data_style(d, "position", "absolute");
+                    return true;
+                }
+            });
+            main_x.remove();
+            free_o_rects = [{ el: xel.id, x: x / zoom, y: y / zoom }];
+            free_old_point = e2p(e);
+            free_o_a = -1;
+
+            set_模式("设计");
+
+            for (let i of 集.中转站) {
+                if (xel.id == i.id) {
+                    drag_block = true;
+                    if (!i.global) {
+                        集.中转站 = 集.中转站.filter((x) => x != i);
+                        tmp_s_reflash();
+                    }
+                    data_changed();
+                }
+            }
+            return;
+        } else {
+            free_old_point = e2p(e);
+            free_o_a = -1;
+
+            selected_el.push(main_x.id);
+
+            free_o_rects = [{ el: main_x.id, x: main_x.offsetLeft, y: main_x.offsetTop }];
+        }
+    };
+
+    f.onclick = () => {
+        f.classList.toggle("buttom_a");
+        if (f.classList.contains("buttom_a")) {
+            global_x.push({
+                pid: 集.meta.UUID,
+                data: { id: main_x.id, 子元素: main_x.value, class: main_x.className, type: "X-X", style: "" },
+            });
+        } else {
+            remove_global(main_x.id);
+        }
+    };
+
+    for (let x of global_x)
+        if (x.data.id == main_x.id)
+            if (x.data.global) {
+                f.classList.add("buttom_a");
+                break;
+            }
+
+    copy.onpointerdown = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        free_drag = true;
+        画布.classList.add("拖拽");
+        new_free_drag_tip();
+        let x = e.clientX - O.getBoundingClientRect().x - copy.offsetLeft - e.offsetX,
+            y = e.clientY - O.getBoundingClientRect().y + copy.offsetHeight - e.offsetY;
+        let xel = copy_x(main_x);
+        let nid = uuid_id();
+        copy_value(main_x.id, nid);
+        xel.id = nid;
+        z.push(xel);
+        xel.style.left = el_offset2(main_x, O).x + "px";
+        xel.style.top = el_offset2(main_x, O).y + "px";
+        xel.style.position = "absolute";
+        集_for_each((el, p) => {
+            if (el.id == main_x.id) {
+                for (let pc of 集.数据) {
+                    if (pc.id == p.id) {
+                        let v = [...el.子元素];
+                        for_each(v, (data) => {
+                            let nid = uuid_id();
+                            copy_value(data.id, nid);
+                            data.id = nid;
+                            link(nid).add();
+                        });
+                        pc.data.push({
+                            id: nid,
+                            class: main_x.className,
+                            style: xel.getAttribute("style"),
+                            type: "X-X",
+                            rect: el_offset2(main_x, O),
+                            子元素: v,
+                        });
+                        return true;
+                    }
+                }
+            }
+        });
+        free_o_rects = [{ el: xel.id, x: x / zoom, y: y / zoom }];
+        free_old_point = e2p(e);
+        free_o_a = -1;
+    };
+
+    d.onclick = () => {
+        selected_el = selected_el.filter((el) => el != main_x.id);
+        z.remove(main_x.id);
+
+        if (main_x.querySelector("x-file")) assets_reflash();
+    };
+    d.onpointerenter = () => {
+        main_x.style.opacity = "0.5";
+    };
+    d.onpointerleave = () => {
+        main_x.style.opacity = "";
+    };
+
+    return bar;
+}
+
 type md_type =
     | "text"
     | "h1"
@@ -6032,6 +7098,7 @@ type md_type =
     | "blockquote"
     | "code"
     | "todo"
+    | "latex math"
     | "math"
     | "iframe";
 
@@ -6049,413 +7116,426 @@ class markdown extends HTMLElement {
 
     h: HTMLElement;
 
+    add_event: () => void;
+    set_text_po: () => void;
+
     connectedCallback() {
-        var s = createEl("div");
-        s.id = "h";
-        this.h = s;
-        var text = createEl("textarea");
+        var s = this;
+        this.h = this;
+        var text = md_text;
         this.text = text;
-        this.append(s);
-        this.append(text);
 
         if (this.getAttribute("value")) {
             let v = this.getAttribute("value");
             this._value = JSON5.parse(v);
-            let t = this._value.text;
-            this.text.value = t;
             this.render();
         }
 
-        text.oninput = () => {
-            this._value.text = text.value;
-            data_changed();
-            setTimeout(() => {
-                this.render();
-            }, 0);
-        };
-        text.onfocus = () => {
-            selections[0] = { id: this.parentElement.id, start: text.selectionStart, end: text.selectionEnd };
-        };
-        text.onkeydown = (e) => {
-            if (模式 != "浏览") e.preventDefault();
-            if (e.key == "Enter") {
-                e.preventDefault();
-                if (this._value.type != "text" && this._value.type != "code")
-                    set_O_p(null, O.offsetTop - this.offsetHeight * zoom);
+        this.add_event = () => {
+            let text = md_text;
+            text.oninput = () => {
+                this._value.text = text.value;
                 data_changed();
-                if (this._value.type == "text") {
-                    let last_line_start = text.value.lastIndexOf("\n", text.selectionStart - 1) + 1;
-                    let last_line = text.value.slice(last_line_start, text.selectionStart);
-                    let l_task = last_line.match(/^ *[-+*] +\[[x\s]\] +/i);
-                    if (l_task) {
-                        text.setRangeText("\n" + l_task[0]);
-                        text.selectionStart = text.selectionEnd += l_task[0].length + 1;
-                        text.dispatchEvent(new Event("input"));
-                        return;
-                    } else {
-                        let l_l = last_line.match(/^ *[-+*] +/);
-                        if (l_l) {
-                            text.setRangeText("\n" + l_l[0]);
-                            text.selectionStart = text.selectionEnd += l_l[0].length + 1;
+                setTimeout(() => {
+                    this.render();
+                }, 0);
+            };
+            text.onfocus = () => {
+                selections[0] = { id: this.parentElement.id, start: text.selectionStart, end: text.selectionEnd };
+            };
+            text.onkeydown = (e) => {
+                if (模式 != "浏览") e.preventDefault();
+                if (e.key == "Enter") {
+                    e.preventDefault();
+                    if (this._value.type != "text" && this._value.type != "code")
+                        set_O_p(null, null, null, -this.offsetHeight * zoom);
+                    data_changed();
+                    if (this._value.type == "text") {
+                        let last_line_start = text.value.lastIndexOf("\n", text.selectionStart - 1) + 1;
+                        let last_line = text.value.slice(last_line_start, text.selectionStart);
+                        let l_task = last_line.match(/^ *[-+*] +\[[x\s]\] +/i);
+                        if (l_task) {
+                            text.setRangeText("\n" + l_task[0]);
+                            text.selectionStart = text.selectionEnd += l_task[0].length + 1;
+                            text.dispatchEvent(new Event("input"));
+                            return;
+                        } else {
+                            let l_l = last_line.match(/^ *[-+*] +/);
+                            if (l_l) {
+                                text.setRangeText("\n" + l_l[0]);
+                                text.selectionStart = text.selectionEnd += l_l[0].length + 1;
+                                text.dispatchEvent(new Event("input"));
+                                return;
+                            }
+                        }
+                        let l_n = last_line.match(/^ *\d+\. +/);
+                        if (l_n) {
+                            let t = "\n" + l_n[0].replace(/\d+/, (n) => String(Number(n) + 1));
+                            text.setRangeText(t);
+                            text.selectionStart = text.selectionEnd += t.length;
                             text.dispatchEvent(new Event("input"));
                             return;
                         }
                     }
-                    let l_n = last_line.match(/^ *\d+\. +/);
-                    if (l_n) {
-                        let t = "\n" + l_n[0].replace(/\d+/, (n) => String(Number(n) + 1));
-                        text.setRangeText(t);
-                        text.selectionStart = text.selectionEnd += t.length;
-                        text.dispatchEvent(new Event("input"));
-                        return;
-                    }
-                }
 
-                if (e.ctrlKey) {
-                    if (e.shiftKey) {
-                        let rel = find_root_layout(this.parentElement);
-                        let xel = createEl("x-x");
-                        xel.style.left = rel.offsetLeft + "px";
-                        xel.style.top = rel.offsetTop + rel.offsetHeight + 16 + "px";
-                        z.push(xel);
-                        var md = createEl("x-md");
-                        xel.append(md);
-                        md.edit = true;
-                    }
-                } else {
-                    if (e.shiftKey || this._value.type == "text") {
-                        text.setRangeText("\n");
-                        text.selectionStart = text.selectionEnd = text.selectionStart + 1;
+                    if (e.ctrlKey) {
+                        if (e.shiftKey) {
+                            let rel = find_root_layout(this.parentElement);
+                            let xel = createEl("x-x");
+                            xel.style.left = rel.offsetLeft + "px";
+                            xel.style.top = rel.offsetTop + rel.offsetHeight + 16 + "px";
+                            z.push(xel);
+                            var md = createEl("x-md");
+                            xel.append(md);
+                            md.edit = true;
+                        }
                     } else {
-                        let t = this.text.value;
-                        let t0 = t.slice(0, this.text.selectionStart),
-                            t1 = t.slice(this.text.selectionEnd, t.length);
-                        this._value.text = t0;
-                        this.value = JSON.stringify(this._value);
-
-                        let p = this.parentElement as x;
-                        let pxel = null as x;
-                        if (
-                            p.parentElement.classList.contains("flex-column") ||
-                            p.parentElement.classList.contains("flex-row")
-                        ) {
-                            pxel = p.parentElement as x;
+                        if (e.shiftKey || this._value.type == "text") {
+                            text.setRangeText("\n");
+                            text.selectionStart = text.selectionEnd = text.selectionStart + 1;
                         } else {
-                            // 不存在上级堆叠元素，需要新建并把此元素套进去
-                            pxel = createEl("x-x");
-                            pxel.id = uuid_id();
-                            link(pxel.id).add();
-                            pxel.style.left = p.offsetLeft + "px";
-                            pxel.style.top = p.offsetTop + "px";
-                            pxel.classList.add("flex-column");
-                            z.push(pxel);
-                            let x = createEl("x-x");
-                            x.id = p.id;
-                            x.setAttribute("style", p.getAttribute("style"));
-                            pxel.append(x);
-                            x.style.left = "";
-                            x.style.top = "";
-                            x.style.position = "relative";
-                            x.value = p.value;
-                            p.remove();
-                            p = x;
+                            let t = text.value;
+                            let t0 = t.slice(0, text.selectionStart),
+                                t1 = t.slice(text.selectionEnd, t.length);
+                            this._value.text = t0;
+                            this.value = JSON.stringify(this._value);
+
+                            let p = this.parentElement as x;
+                            let pxel = null as x;
+                            if (
+                                p.parentElement.classList.contains("flex-column") ||
+                                p.parentElement.classList.contains("flex-row")
+                            ) {
+                                pxel = p.parentElement as x;
+                            } else {
+                                // 不存在上级堆叠元素，需要新建并把此元素套进去
+                                pxel = createEl("x-x");
+                                pxel.id = uuid_id();
+                                link(pxel.id).add();
+                                pxel.style.left = p.offsetLeft + "px";
+                                pxel.style.top = p.offsetTop + "px";
+                                pxel.classList.add("flex-column");
+                                z.push(pxel);
+                                let x = createEl("x-x");
+                                x.id = p.id;
+                                x.setAttribute("style", p.getAttribute("style"));
+                                pxel.append(x);
+                                x.style.left = "";
+                                x.style.top = "";
+                                x.style.position = "relative";
+                                x.value = p.value;
+                                p.remove();
+                                remove_x_data(p.id); // 后面的get_data会把p里的子元素都刷新，加回来
+                                p = x;
+                            }
+
+                            let xel = createEl("x-x");
+                            let md = createEl("x-md");
+                            xel.append(md);
+                            xel.id = uuid_id();
+                            link(xel.id).add();
+                            xel.style.position = "relative";
+                            p.after(xel);
+                            md.edit = true;
+                            let type: md_type = (["h1", "h2", "h3", "h4", "h5", "h6"] as md_type[]).includes(
+                                this._value.type
+                            )
+                                ? "p"
+                                : this._value.type;
+                            md.value = JSON.stringify({ type: type, text: t1 });
+                            md.text.setSelectionRange(0, 0);
+
+                            get_data();
                         }
-
-                        let xel = createEl("x-x");
-                        let md = createEl("x-md");
-                        xel.append(md);
-                        xel.id = uuid_id();
-                        link(xel.id).add();
-                        xel.style.position = "relative";
-                        p.after(xel);
-                        md.edit = true;
-                        md.value = JSON.stringify({ type: this._value.type, text: t1 });
-                        md.text.setSelectionRange(0, 0);
-
-                        get_data();
-                        z.reflash();
+                    }
+                } else {
+                    let l_l = [
+                        ["(", ")"],
+                        ["[", "]"],
+                        ["{", "}"],
+                        ["<", ">"],
+                        ["'", "'"],
+                        ['"', '"'],
+                        ["$", "$"],
+                        ["*", "*"],
+                        ["~", "~"],
+                    ];
+                    for (let i of l_l) {
+                        if (e.key == i[0] && (i[0] == i[1] || e.key != i[1])) {
+                            e.preventDefault();
+                            let t = text.value.slice(text.selectionStart, text.selectionEnd);
+                            let s = text.selectionStart;
+                            text.setRangeText(i[0] + t + i[1]);
+                            text.selectionStart = s + i[0].length;
+                            text.selectionEnd = s + i[0].length + t.length;
+                            if (e.key == "[" && text.value.charAt(text.selectionStart - 2) == "[") {
+                                let id = uuid_id();
+                                text.setRangeText(`${t}#${id}`);
+                                if (t) text.selectionEnd -= id.length + 1;
+                            }
+                            text.dispatchEvent(new Event("input"));
+                        }
                     }
                 }
-            } else {
-                let l_l = [
-                    ["(", ")"],
-                    ["[", "]"],
-                    ["{", "}"],
-                    ["<", ">"],
-                    ["'", "'"],
-                    ['"', '"'],
-                    ["$", "$"],
-                    ["*", "*"],
-                    ["~", "~"],
-                ];
-                for (let i of l_l) {
-                    if (e.key == i[0] && (i[0] == i[1] || e.key != i[1])) {
-                        e.preventDefault();
-                        let t = text.value.slice(text.selectionStart, text.selectionEnd);
+                if (e.key == "Tab") {
+                    e.preventDefault();
+                    if (e.ctrlKey || this.text.selectionStart != 0) {
                         let s = text.selectionStart;
-                        text.setRangeText(i[0] + t + i[1]);
-                        text.selectionStart = s + i[0].length;
-                        text.selectionEnd = s + i[0].length + t.length;
-                        if (e.key == "[" && text.value.charAt(text.selectionStart - 2) == "[") {
-                            let id = uuid_id();
-                            text.setRangeText(`${t}#${id}`);
-                            if (t) text.selectionEnd -= id.length + 1;
-                        }
+                        text.setRangeText("\t");
+                        text.selectionStart = s + 1;
+                        text.selectionEnd = s + 1;
                         text.dispatchEvent(new Event("input"));
-                    }
-                }
-            }
-            if (e.key == "Tab") {
-                e.preventDefault();
-                if (e.ctrlKey || this.text.selectionStart != 0) {
-                    let s = text.selectionStart;
-                    text.setRangeText("\t");
-                    text.selectionStart = s + 1;
-                    text.selectionEnd = s + 1;
-                    text.dispatchEvent(new Event("input"));
-                } else {
-                    let p = this.parentElement as x;
-                    let t = this.text.value;
-                    let x = createEl("x-x"),
-                        md = createEl("x-md");
-                    x.id = p.id;
-                    x.setAttribute("style", p.getAttribute("style"));
-                    p.classList.add("flex-column");
-                    p.classList.add("list");
-                    this.remove();
-                    p.append(x);
-                    x.append(md);
-                    md.value = this.value;
-                    p.id = uuid_id();
-                    link(p.id).add();
-                    md.edit = true;
-                    md.text.setSelectionRange(0, 0);
-
-                    z.reflash();
-                }
-            }
-            if (e.key == "/" && e.ctrlKey) {
-                e.preventDefault();
-                let s = this.getBoundingClientRect();
-                console.log(document.getSelection().getRangeAt(0), s);
-
-                search_pel.style.left = s.left + "px";
-                search_pel.style.top = s.top + "px";
-                search_pel.classList.add("搜索展示");
-                search_el.setAttribute("data-fid", this.parentElement.id);
-                search_el.value = "type ";
-                setTimeout(() => {
-                    search_el.focus();
-                }, 10);
-            }
-            if (e.key == " ") {
-                if (this._value.type == "code" || this._value.type == "text") return;
-                let mark = this.text.value.slice(0, text.selectionStart);
-                console.log(mark);
-                let t = this.text.value.slice(text.selectionStart, this.text.value.length);
-                let type: md_type;
-                let m2: { [key: string]: md_type } = {
-                    "#": "h1",
-                    "##": "h2",
-                    "###": "h3",
-                    "####": "h4",
-                    "#####": "h5",
-                    "######": "h6",
-                    "[]": "todo",
-                    $$: "math",
-                    "```": "code",
-                };
-                for (let m in m2) {
-                    if (m == mark) {
-                        e.preventDefault();
-                        type = m2[m];
-                        break;
-                    }
-                }
-                if (!type) return;
-                this.text.value = t;
-                text.selectionStart = text.selectionEnd = 0;
-                this._value = { type, text: t };
-                this.type = type;
-                this.render();
-            }
-            if (e.key == "Backspace") {
-                if (this._value.type != "text") {
-                    if (text.selectionStart == 0 && text.selectionEnd == 0) {
-                        this.type = "p";
-                    }
-                }
-            }
-            if (e.key == "ArrowUp") {
-                if (this._value.type != "text" && this._value.type != "code") {
-                    if (
-                        is_flex(this.parentElement.parentElement) == "flex" &&
-                        this.parentElement.previousElementSibling &&
-                        this.parentElement.previousElementSibling.querySelector("x-md")
-                    ) {
-                        e.preventDefault();
-                        let md = this.parentElement.previousElementSibling.querySelector("x-md") as markdown;
-                        md.text.setSelectionRange(this.text.selectionStart, this.text.selectionStart);
-                        md.edit = true;
                     } else {
-                        z.focus(this.parentElement as x);
-                        set_模式("设计");
-                    }
-                } else {
-                    if (this.text.selectionStart == 0) {
-                        z.focus(this.parentElement as x);
-                        set_模式("设计");
-                    }
-                }
-            }
-            if (e.key == "ArrowDown") {
-                if (this._value.type != "text" && this._value.type != "code") {
-                    if (
-                        is_flex(this.parentElement.parentElement) == "flex" &&
-                        this.parentElement.nextElementSibling &&
-                        this.parentElement.nextElementSibling.querySelector("x-md")
-                    ) {
-                        e.preventDefault();
-                        let md = this.parentElement.nextElementSibling.querySelector("x-md") as markdown;
-                        md.text.setSelectionRange(this.text.selectionStart, this.text.selectionStart);
-                        md.edit = true;
-                    } else {
-                        z.focus(this.parentElement as x);
-                        set_模式("设计");
-                    }
-                } else {
-                    if (this.text.selectionEnd == this.text.value.length) {
-                        z.focus(this.parentElement as x);
-                        set_模式("设计");
-                    }
-                }
-            }
-            if (e.key == "ArrowLeft") {
-                if (is_flex(this.parentElement.parentElement) == "flex" && this.text.selectionStart == 0) {
-                    if (
-                        this.parentElement.previousElementSibling &&
-                        this.parentElement.previousElementSibling.querySelector("x-md")
-                    ) {
-                        e.preventDefault();
-                        let md = this.parentElement.previousElementSibling.querySelector("x-md") as markdown;
-                        md.edit = true;
-                        md.text.setSelectionRange(md.text.value.length, md.text.value.length);
-                    } else {
-                        z.focus(this.parentElement as x);
-                        set_模式("设计");
-                    }
-                }
-            }
-            if (e.key == "ArrowRight") {
-                if (
-                    is_flex(this.parentElement.parentElement) == "flex" &&
-                    this.text.selectionEnd == this.text.value.length
-                ) {
-                    if (
-                        this.parentElement.nextElementSibling &&
-                        this.parentElement.nextElementSibling.querySelector("x-md")
-                    ) {
-                        e.preventDefault();
-                        let md = this.parentElement.nextElementSibling.querySelector("x-md") as markdown;
+                        let p = this.parentElement as x;
+                        let x = createEl("x-x"),
+                            md = createEl("x-md");
+                        x.id = p.id;
+                        x.setAttribute("style", p.getAttribute("style"));
+                        p.classList.add("flex-column");
+                        p.classList.add("list");
+                        this.remove();
+                        p.append(x);
+                        x.append(md);
+                        md.value = this.value;
+                        p.id = uuid_id();
+                        link(p.id).add();
                         md.edit = true;
                         md.text.setSelectionRange(0, 0);
-                    } else {
-                        z.focus(this.parentElement as x);
-                        set_模式("设计");
                     }
                 }
-            }
+                if (e.key == "/" && e.ctrlKey) {
+                    e.preventDefault();
+                    let s = this.getBoundingClientRect();
+                    console.log(document.getSelection().getRangeAt(0), s);
+
+                    search_pel.style.left = s.left + "px";
+                    search_pel.style.top = s.top + "px";
+                    search_pel.classList.add("搜索展示");
+                    search_el.setAttribute("data-fid", this.parentElement.id);
+                    search_el.value = "type ";
+                    setTimeout(() => {
+                        search_el.focus();
+                    }, 10);
+                }
+                if (e.key == " ") {
+                    if (this._value.type == "code" || this._value.type == "text") return;
+                    let mark = text.value.slice(0, text.selectionStart);
+                    console.log(mark);
+                    let t = text.value.slice(text.selectionStart, text.value.length);
+                    let type: md_type;
+                    let m2: { [key: string]: md_type } = {
+                        "#": "h1",
+                        "##": "h2",
+                        "###": "h3",
+                        "####": "h4",
+                        "#####": "h5",
+                        "######": "h6",
+                        "[]": "todo",
+                        $$: "math",
+                        "```": "code",
+                    };
+                    for (let m in m2) {
+                        if (m == mark) {
+                            e.preventDefault();
+                            type = m2[m];
+                            break;
+                        }
+                    }
+                    if (!type) return;
+                    text.value = t;
+                    text.selectionStart = text.selectionEnd = 0;
+                    this._value = { type, text: t };
+                    this.type = type;
+                    this.render();
+                }
+                if (e.key == "Backspace") {
+                    if (this._value.type == "p") {
+                        if (text.selectionStart == 0 && text.selectionEnd == 0) {
+                            z.remove(this.parentElement.id);
+                        }
+                    }
+                    if (this._value.type != "text") {
+                        if (text.selectionStart == 0 && text.selectionEnd == 0) {
+                            this.type = "p";
+                        }
+                    }
+                }
+                if (e.key == "ArrowUp") {
+                    if (this._value.type != "text" && this._value.type != "code") {
+                        if (
+                            is_flex(this.parentElement.parentElement) == "flex" &&
+                            this.parentElement.previousElementSibling &&
+                            this.parentElement.previousElementSibling.querySelector("x-md")
+                        ) {
+                            e.preventDefault();
+                            let md = this.parentElement.previousElementSibling.querySelector("x-md") as markdown;
+                            md.text.setSelectionRange(text.selectionStart, text.selectionStart);
+                            md.edit = true;
+                        } else {
+                            z.focus(this.parentElement.id);
+                            set_模式("设计");
+                        }
+                    } else {
+                        if (text.selectionStart == 0) {
+                            z.focus(this.parentElement.id);
+                            set_模式("设计");
+                        }
+                    }
+                }
+                if (e.key == "ArrowDown") {
+                    if (this._value.type != "text" && this._value.type != "code") {
+                        if (
+                            is_flex(this.parentElement.parentElement) == "flex" &&
+                            this.parentElement.nextElementSibling &&
+                            this.parentElement.nextElementSibling.querySelector("x-md")
+                        ) {
+                            e.preventDefault();
+                            let md = this.parentElement.nextElementSibling.querySelector("x-md") as markdown;
+                            md.text.setSelectionRange(text.selectionStart, text.selectionStart);
+                            md.edit = true;
+                        } else {
+                            z.focus(this.parentElement.id);
+                            set_模式("设计");
+                        }
+                    } else {
+                        if (text.selectionEnd == text.value.length) {
+                            z.focus(this.parentElement.id);
+                            set_模式("设计");
+                        }
+                    }
+                }
+                if (e.key == "ArrowLeft") {
+                    if (is_flex(this.parentElement.parentElement) == "flex" && text.selectionStart == 0) {
+                        if (
+                            this.parentElement.previousElementSibling &&
+                            this.parentElement.previousElementSibling.querySelector("x-md")
+                        ) {
+                            e.preventDefault();
+                            let md = this.parentElement.previousElementSibling.querySelector("x-md") as markdown;
+                            md.edit = true;
+                            md.text.setSelectionRange(md.text.value.length, md.text.value.length);
+                        } else {
+                            z.focus(this.parentElement.id);
+                            set_模式("设计");
+                        }
+                    }
+                }
+                if (e.key == "ArrowRight") {
+                    if (is_flex(this.parentElement.parentElement) == "flex" && text.selectionEnd == text.value.length) {
+                        if (
+                            this.parentElement.nextElementSibling &&
+                            this.parentElement.nextElementSibling.querySelector("x-md")
+                        ) {
+                            e.preventDefault();
+                            let md = this.parentElement.nextElementSibling.querySelector("x-md") as markdown;
+                            md.edit = true;
+                            md.text.setSelectionRange(0, 0);
+                        } else {
+                            z.focus(this.parentElement.id);
+                            set_模式("设计");
+                        }
+                    }
+                }
+            };
+            text.onclick = text.onkeyup = () => {
+                if (模式 != "浏览") return;
+                this.set_text_po();
+
+                selections[0] = { id: this.parentElement.id, start: text.selectionStart, end: text.selectionEnd };
+            };
+            text.onblur = () => {
+                if (模式 == "浏览") this.edit = false;
+            };
+            text.onpaste = (e) => {
+                if (e.clipboardData.files.length) {
+                    e.preventDefault();
+                    put_datatransfer(e.clipboardData, el_offset(this, O).x, el_offset(this, O).y);
+                    if (!text.value) {
+                        link(this.parentElement.id).rm();
+                        this.parentElement.remove();
+                    }
+                } else {
+                    let t = e.clipboardData.getData("text/plain").trim();
+                    if (this._value.type == "code") {
+                        if (!this._value.text && e.clipboardData.getData("text/html")) {
+                            this.init_v("code");
+                            集.values[this.parentElement.id].code["html"] = e.clipboardData.getData("text/html");
+                        } else {
+                            集.values[this.parentElement.id].code["html"] = "";
+                        }
+                        this.reload();
+                        data_changed();
+                    } else {
+                        if (this._value.type != "text" && (t.includes("\n") || t.includes("\r"))) {
+                            e.preventDefault();
+                            let el = this.parentElement as x;
+                            let pel = el.parentElement;
+                            let md: markdown;
+                            if (!(pel.classList.contains("flex-column") || pel.classList.contains("flex-row"))) {
+                                let nel = createEl("x-x");
+                                nel.id = el.id;
+                                el.id = uuid_id();
+                                link(el.id).add();
+                                this.remove();
+                                el.append(nel);
+                                md = createEl("x-md");
+                                nel.append(md);
+                                md.value = this.value;
+                                md.text.setSelectionRange(text.selectionStart, text.selectionEnd);
+                                pel = el;
+                                el = nel;
+                                pel.classList.add("flex-column");
+                            } else {
+                                md = this;
+                            }
+                            const l = t.split(/[\n\r]+/);
+                            let last_el = el;
+                            for (let i in l) {
+                                const tt = l[i];
+                                if (!tt) continue;
+                                if (i == "0") {
+                                    md._value.text = tt;
+                                    md.text.setRangeText(tt);
+                                    md.reload();
+                                } else {
+                                    let x = createEl("x-x");
+                                    let md = createEl("x-md");
+                                    last_el.after(x);
+                                    x.append(md);
+                                    x.id = uuid_id();
+                                    link(x.id).add();
+                                    md.value = JSON.stringify({ type: "p", text: tt });
+                                    last_el = x;
+                                }
+                            }
+                            get_data();
+                        } else if (this._value.type != "text") {
+                            e.preventDefault();
+                            let t = e.clipboardData.getData("text/plain").replace("\n", "");
+                            text.setRangeText(t);
+                            let s = text.selectionStart;
+                            if (s == text.selectionEnd) {
+                                text.setSelectionRange(s + t.length, s + t.length);
+                            }
+                            this._value.text = text.value;
+                            this.reload();
+                        }
+                    }
+                }
+            };
         };
-        text.onclick = text.onkeyup = () => {
-            if (模式 != "浏览") return;
-            let x = el_offset2(this.h).x,
-                y = el_offset2(this.h).y + s.offsetHeight;
+
+        this.set_text_po = () => {
+            let x = el_offset(this.h, 画布).x,
+                y = el_offset(this.h, 画布).y + el_offset(this).h;
             text.style.left = x + "px";
             text.style.top = y + "px";
+        };
 
-            selections[0] = { id: this.parentElement.id, start: text.selectionStart, end: text.selectionEnd };
+        s.onpointerdown = () => {
+            if (模式 == "浏览") this.edit = true;
         };
-        text.onblur = () => {
-            if (模式 == "浏览") this.edit = false;
-        };
-        text.onpaste = (e) => {
-            if (e.clipboardData.files.length) {
-                e.preventDefault();
-                put_datatransfer(e.clipboardData, el_offset(this, O).x, el_offset(this, O).y);
-                if (!text.value) {
-                    link(this.parentElement.id).rm();
-                    this.parentElement.remove();
-                }
-            } else {
-                let t = e.clipboardData.getData("text/plain").trim();
-                if (this._value.type == "code") {
-                    if (!this._value.text && e.clipboardData.getData("text/html")) {
-                        this.init_v("code");
-                        集.values[this.parentElement.id].code["html"] = e.clipboardData.getData("text/html");
-                    } else {
-                        集.values[this.parentElement.id].code["html"] = "";
-                    }
-                    this.reload();
-                    data_changed();
-                } else {
-                    if (this._value.type != "text" && (t.includes("\n") || t.includes("\r"))) {
-                        e.preventDefault();
-                        let el = this.parentElement as x;
-                        let pel = el.parentElement;
-                        let md: markdown;
-                        if (!(pel.classList.contains("flex-column") || pel.classList.contains("flex-row"))) {
-                            let nel = createEl("x-x");
-                            nel.id = el.id;
-                            el.id = uuid_id();
-                            link(el.id).add();
-                            this.remove();
-                            el.append(nel);
-                            md = createEl("x-md");
-                            nel.append(md);
-                            md.value = this.value;
-                            md.text.setSelectionRange(this.text.selectionStart, this.text.selectionEnd);
-                            pel = el;
-                            el = nel;
-                            pel.classList.add("flex-column");
-                        } else {
-                            md = this;
-                        }
-                        const l = t.split(/[\n\r]+/);
-                        let last_el = el;
-                        for (let i in l) {
-                            const tt = l[i];
-                            if (!tt) continue;
-                            if (i == "0") {
-                                md._value.text = tt;
-                                md.text.setRangeText(tt);
-                                md.reload();
-                            } else {
-                                let x = createEl("x-x");
-                                let md = createEl("x-md");
-                                last_el.after(x);
-                                x.append(md);
-                                x.id = uuid_id();
-                                link(x.id).add();
-                                md.value = JSON.stringify({ type: "p", text: tt });
-                                last_el = x;
-                            }
-                        }
-                        get_data();
-                        z.reflash();
-                    } else if (this._value.type != "text") {
-                        e.preventDefault();
-                        let t = e.clipboardData.getData("text/plain").replace("\n", "");
-                        this.text.setRangeText(t);
-                        let s = this.text.selectionStart;
-                        if (s == this.text.selectionEnd) {
-                            this.text.setSelectionRange(s + t.length, s + t.length);
-                        }
-                        this._value.text = this.text.value;
-                        this.reload();
-                    }
-                }
-            }
-        };
+
         // 点击元素定位到源文本行
         s.onclick = (e) => {
             let el = <HTMLElement>e.target;
@@ -6474,7 +7554,7 @@ class markdown extends HTMLElement {
                         let ml = a.getAttribute("href").split(":");
                         const id = ml[0].slice(1);
                         let el = elFromId(id);
-                        jump_to_x_link(el as x);
+                        jump_to_x_link(id);
                         let mel = el.querySelector("audio") || el.querySelector("video");
                         if (ml[1]) {
                             let ar = ml[1].split(",");
@@ -6488,8 +7568,7 @@ class markdown extends HTMLElement {
                     }
                 }
             }
-            text.style.left = el_offset2(this.h).x + "px";
-            text.style.top = el_offset2(this.h).y + s.offsetHeight + "px";
+            this.set_text_po();
         };
         s.spellcheck = false;
         s.onpointerup = (e) => {
@@ -6590,7 +7669,7 @@ class markdown extends HTMLElement {
                 [start_p, end_p] = [end_p, start_p];
             }
             console.log(start_p, end_p);
-            this.text.setSelectionRange(start_p, end_p);
+            text.setSelectionRange(start_p, end_p);
             setTimeout(() => {
                 this.edit = true;
             }, 10);
@@ -6601,12 +7680,21 @@ class markdown extends HTMLElement {
     set edit(v: boolean | "cr") {
         var text = this.text;
         if (v) {
+            if (md_text.getAttribute("data-id") != this.parentElement.id) {
+                md_text.setAttribute("data-id", this.parentElement.id);
+                this.text = md_text;
+                this.set_text_po();
+                this.add_event();
+                text.value = this._value.text;
+            }
             text.classList.add("show_md");
             if (v != "cr") text.focus();
             set_模式("浏览");
         } else {
+            md_text.setAttribute("data-id", "");
             text.classList.remove("show_md");
             text.blur();
+            text = null;
         }
     }
 
@@ -6614,7 +7702,7 @@ class markdown extends HTMLElement {
         this._value = JSON5.parse(v);
         this.type = this._value.type;
         let t = this._value.text;
-        this.text.value = t;
+        if (this.text.getAttribute("data-id") == this.parentElement.id) this.text.value = t;
         this.render();
     }
 
@@ -6628,7 +7716,7 @@ class markdown extends HTMLElement {
 
     render() {
         let type = this._value.type;
-        let text = this.text.value;
+        let text = this._value.text;
         if (type == "text") {
             this.index = md.parse(text, {});
             this.h.innerHTML = md.render(text);
@@ -6639,8 +7727,10 @@ class markdown extends HTMLElement {
             let i = `<input type="checkbox" ${集.values[this.parentElement.id].todo.checked ? "checked" : ""}>`;
             this.index = md.parse(text, {});
             this.h.innerHTML = i + md.render(text);
+        } else if (type == "latex math") {
+            this.h.innerHTML = get_latex_math_svg(`\\displaylines{${text} }`);
         } else if (type == "math") {
-            this.h.innerHTML = get_svg(`\\displaylines{${text} }`);
+            this.h.innerHTML = xmmath.toMMLHTML(text);
         } else if (type == "iframe") {
             this.h.innerHTML = `<iframe src="${text}"></iframe>`;
         } else if (type == "code") {
@@ -6758,17 +7848,19 @@ class graph extends HTMLElement {
     }
 
     run(code: string) {
-        if (this.s.innerHTML) JXG.JSXGraph.freeBoard(JXG.getBoardByContainerId(this.s.id));
-        this.s.id = `g${uuid_id()}`;
-        eval(`{let gid = '${this.s.id}';${code}}`);
-        const svg = this.s.querySelector("svg");
-        if (!svg) return;
-        const ob = new MutationObserver(() => {
-            svg.setAttribute("width", String(el_offset2(this).w));
-            svg.setAttribute("height", String(el_offset2(this).h));
-            ob.disconnect();
-        });
-        ob.observe(svg, { attributes: true, attributeFilter: ["width"] });
+        setTimeout(() => {
+            if (this.s.innerHTML) JXG.JSXGraph.freeBoard(JXG.getBoardByContainerId(this.s.id));
+            this.s.id = `g${uuid_id()}`;
+            eval(`{let gid = '${this.s.id}';${code}}`);
+            const svg = this.s.querySelector("svg");
+            if (!svg) return;
+            const ob = new MutationObserver(() => {
+                svg.setAttribute("width", String(el_offset2(this).w));
+                svg.setAttribute("height", String(el_offset2(this).h));
+                ob.disconnect();
+            });
+            ob.observe(svg, { attributes: true, attributeFilter: ["width"] });
+        }, 10);
     }
 
     set value(v) {
@@ -6794,16 +7886,26 @@ class symbols extends HTMLElement {
     connectedCallback() {
         var div = createEl("div");
         this.append(div);
-        for (const i in mathSymbols) {
-            for (const j of mathSymbols[i]) {
-                let img = createEl("img");
-                img.title = j.name;
-                img.id = `snippet_${j.source}`;
-                let b = btoa(j.svg);
-                img.src = `data:image/svg+xml;base64,${b}`;
-                div.append(img);
+        let b = createEl("div");
+        b.innerHTML = icon(reload_svg);
+        b.style.position = "relative";
+        b.style.width = "24px";
+        b.style.height = "24px";
+        div.append(b);
+        b.onclick = () => {
+            b.remove();
+            for (const i in mathSymbols) {
+                for (const j of mathSymbols[i]) {
+                    let img = createEl("img");
+                    img.title = j.name;
+                    img.id = `snippet_${j.source}`;
+                    let b = btoa(j.svg);
+                    img.src = `data:image/svg+xml;base64,${b}`;
+                    img.loading = "lazy";
+                    div.append(img);
+                }
             }
-        }
+        };
 
         this.onclick = (e) => {
             e.stopPropagation();
@@ -6922,7 +8024,7 @@ class file extends HTMLElement {
         super();
     }
 
-    _value: { r: boolean; id: string };
+    _value: { r: boolean; id: string; other?: any };
     div: HTMLDivElement;
 
     connectedCallback() {
@@ -6941,7 +8043,7 @@ class file extends HTMLElement {
     set_m() {
         let f = 集.assets[this._value.id];
         if (!f) return;
-        let type = f.base64.match(/data:(.*?);/)[1].split("/");
+        let type = f.type;
         if (
             type[0] != "image" &&
             type[0] != "audio" &&
@@ -6953,39 +8055,43 @@ class file extends HTMLElement {
             this._value.r = false;
         this.div.innerHTML = "";
         if (this._value.r) {
-            this.div.classList.remove("file");
-            if (type[0] == "image") {
-                let img = createEl("x-img");
-                this.div.append(img);
-                img.value = f.base64;
-            }
-            if (type[0] == "audio") {
-                let audio = createEl("x-audio");
-                this.div.append(audio);
-                audio.value = f.base64;
-            }
-            if (type[0] == "video") {
-                let video = createEl("video");
-                video.controls = true;
-                this.div.append(video);
-                video.src = f.base64;
-            }
-            if (type[1] == "pdf") {
-                let pdf = createEl("x-pdf");
-                this.parentElement.append(pdf);
-                pdf.value = JSON.stringify({ id: this._value.id, page: 1 });
-                this.remove();
-            }
-            if (type[1] == "gltf-binary") {
-                let td = createEl("x-three");
-                this.div.append(td);
-                td.value = this._value.id;
-            }
-            if (type[1] == "vnd.geogebra.file") {
-                let ggb = createEl("x-ggb");
-                this.div.append(ggb);
-                ggb.value = this._value.id;
-            }
+            setTimeout(() => {
+                this.div.classList.remove("file");
+                if (type[0] == "image") {
+                    let img = createEl("x-img");
+                    this.div.append(img);
+                    img.value = get_assets(this._value.id);
+                }
+                if (type[0] == "audio") {
+                    let audio = createEl("x-audio");
+                    this.div.append(audio);
+                    audio.value = get_assets(this._value.id);
+                }
+                if (type[0] == "video") {
+                    let video = createEl("video");
+                    video.controls = true;
+                    this.div.append(video);
+                    video.src = get_assets(this._value.id);
+                    video.onload = () => {
+                        URL.revokeObjectURL(video.src);
+                    };
+                }
+                if (type[1] == "pdf") {
+                    let pdf = createEl("x-pdf");
+                    this.div.append(pdf);
+                    pdf.value = this._value.other || JSON.stringify({ id: this._value.id, page: 1 });
+                }
+                if (type[1] == "gltf-binary") {
+                    let td = createEl("x-three");
+                    this.div.append(td);
+                    td.value = this._value.id;
+                }
+                if (type[1] == "vnd.geogebra.file") {
+                    let ggb = createEl("x-ggb");
+                    this.div.append(ggb);
+                    ggb.value = this._value.id;
+                }
+            }, 10);
         } else {
             this.div.classList.add("file");
             let i = createEl("div");
@@ -6997,6 +8103,8 @@ class file extends HTMLElement {
     }
 
     get value() {
+        if ((this.div.querySelector(":scope > *") as any).value)
+            this._value["other"] = (this.div.querySelector(":scope > *") as any).value;
         return JSON.stringify(this._value);
     }
     set value(s) {
@@ -7006,6 +8114,19 @@ class file extends HTMLElement {
 }
 
 window.customElements.define("x-file", file);
+
+function base64_blob(base64: string) {
+    let arr = base64.split(","),
+        mime = arr[0].match(/:(.*?);/)[1],
+        bstr = window.atob(arr[1]),
+        n = bstr.length,
+        u8arr = new Uint8Array(n);
+    while (n--) {
+        u8arr[n] = bstr.charCodeAt(n);
+    }
+    let blob = new Blob([u8arr], { type: mime });
+    return blob;
+}
 
 import * as pdfjsLib from "pdfjs-dist";
 pdfjsLib.GlobalWorkerOptions.workerSrc = "https://unpkg.com/pdfjs-dist@3.1.81/build/pdf.worker.min.js";
@@ -7026,11 +8147,13 @@ class pdf_viewer extends HTMLElement {
     text: HTMLElement;
     old_id = "";
     tasks: { [key: string]: pdfjsLib.RenderTask } = {};
+    now_page_i = 0;
+    now_page = null;
 
     load_pdf = async () => {
         let f = 集.assets[this._value.id];
         if (!f) return;
-        var loadingTask = pdfjsLib.getDocument(f.base64);
+        var loadingTask = pdfjsLib.getDocument(get_assets(this._value.id));
         pdf_cache[this._value.id] = await loadingTask.promise;
         return pdf_cache[this._value.id];
     };
@@ -7079,18 +8202,13 @@ class pdf_viewer extends HTMLElement {
             this._value = JSON5.parse(this.getAttribute("value"));
             this.set_m();
         }
-
-        const ob = new ResizeObserver((entries) => {
-            this.set_m();
-        });
-        ob.observe(this.parentElement);
     }
 
     async set_m() {
         let pdf = pdf_cache[this._value.id] || (await this.load_pdf());
         this.canvas.style.zIndex = "1";
         this.canvas1.style.zIndex = "2";
-        pdf.getPage(this._value.page).then(async (page) => {
+        let set_page = async (page: pdfjsLib.PDFPageProxy) => {
             let scale = 1.5;
             let viewport = page.getViewport({ scale: scale });
 
@@ -7134,45 +8252,18 @@ class pdf_viewer extends HTMLElement {
             })`;
             this.text.innerHTML = "";
             let text = await page.getTextContent();
-            pdfjsLib.renderTextLayer({ container: this.text, viewport, textContent: text }).promise.then(() => {
-                setTimeout(() => {
-                    if (this.old_id != this._value.id) {
-                        this.old_id = this._value.id;
-                        let div = this.pages.querySelector("#pages");
-                        for (let i = 1; i <= pdf.numPages; i++) {
-                            let page = createEl("div");
-                            div.append(page);
-                            page.onclick = () => {
-                                this._value.page = i;
-                                this.set_m();
-                            };
-                            let p = createEl("span");
-                            p.innerText = `${i}`;
-                            page.append(p);
-                        }
-                        for (let i = 1; i <= pdf.numPages; i++) {
-                            pdf.getPage(i).then(async (page) => {
-                                let viewport = page.getViewport({ scale: 0.1 });
-
-                                let canvas = createEl("canvas");
-                                let context = canvas.getContext("2d");
-
-                                this.pages.querySelectorAll("#pages > div")[i - 1].append(canvas);
-
-                                canvas.width = Math.floor(viewport.width);
-                                canvas.height = Math.floor(viewport.height);
-                                let renderContext = {
-                                    canvasContext: context,
-                                    transform: null,
-                                    viewport: viewport,
-                                };
-                                page.render(renderContext);
-                            });
-                        }
-                    }
-                }, 100);
+            pdfjsLib.renderTextLayer({ container: this.text, viewport, textContent: text });
+        };
+        if (this._value.page == this.now_page_i && this.now_page) {
+            set_page(this.now_page);
+        } else {
+            pdf.getPage(this._value.page).then((page) => {
+                this.now_page = page;
+                this.now_page_i = this._value.page;
+                set_page(page);
             });
-        });
+        }
+
         let page_i = this.pages.querySelector("#page_i") as HTMLElement;
         this.pages.querySelector("input").value = String(this._value.page);
         page_i.innerHTML = `${pdf.numPages}`;
@@ -7997,6 +9088,7 @@ class link_value extends HTMLElement {
 
     v: HTMLElement;
     _id: string;
+    vl: HTMLElement;
 
     connectedCallback() {
         const add_el = createEl("img");
@@ -8013,68 +9105,23 @@ class link_value extends HTMLElement {
             this.v.innerHTML = "";
             this.v.append(link_value_text(集.链接[0][this._id].value));
             now_data_id = "0";
-            add_bci(get_link_el_by_id(this._id));
+            add_bci(this._id);
         };
         down_el.onclick = () => {
             link("0").value(this._id, -0.1);
             this.v.innerHTML = "";
             this.v.append(link_value_text(集.链接[0][this._id].value));
             now_data_id = "0";
-            add_bci(get_link_el_by_id(this._id));
+            add_bci(this._id);
         };
 
-        const vl = createEl("div");
-        this.append(vl);
-        let v_text = (i: string) => {
-            let span = link_value_text(link(this._id).get()[i].value);
-            span.innerText = `#${i} ` + span.innerText;
-            return span;
-        };
+        this.vl = createEl("div");
+        this.append(this.vl);
         this.v.onclick = () => {
-            // 展示链接
-            vl.innerHTML = "";
-            for (let i in link(this._id).get()) {
-                if (i == "0") continue;
-                let el = createEl("div");
-                vl.append(el);
-                let n = createEl("div");
-                n.append(v_text(i));
-                el.onpointerover = (e) => {
-                    set_viewer_posi(e.clientX, e.clientY);
-                    move_to_x_link(get_x_by_id(i));
-                };
-                n.onpointerup = () => {
-                    jump_to_x_link(get_x_by_id(i));
-                };
-                let rm = createEl("div");
-                rm.innerHTML = icon(close_svg);
-                rm.onclick = () => {
-                    link(this._id).rm(i);
-                    el.remove();
-                };
-                const add_el = createEl("div");
-                const down_el = createEl("div");
-
-                add_el.innerHTML = icon(add_svg);
-                down_el.innerHTML = icon(minus_svg);
-                add_el.onclick = () => {
-                    link(this._id).value(i, 0.1);
-                    n.innerHTML = "";
-                    n.append(v_text(i));
-                };
-                down_el.onclick = () => {
-                    link(this._id).value(i, -0.1);
-                    n.innerHTML = "";
-                    n.append(v_text(i));
-                };
-                el.append(n, add_el, rm, down_el);
-            }
-
-            this.style.top = el_offset(this).y - vl.offsetHeight + "px";
-
             // 搜索
             let v = "";
             let el = get_x_by_id(this._id);
+            add_bci(this._id);
             if (el.tagName == "X-X") {
                 let w = (v: data) => {
                     for (let i of v) {
@@ -8090,13 +9137,15 @@ class link_value extends HTMLElement {
             } else {
                 v = el.innerText;
             }
+            set_search_de();
+            get_search_list();
             let l = search([v], "str");
             show_search_l(l, this._id);
 
-            search_el.value = `s '${v}'`;
+            search_el.value = search_text(v);
             search_el.focus();
             search_el.selectionStart = 3;
-            search_el.selectionEnd = search_el.value.length - 1;
+            search_el.selectionEnd = 3 + v.length;
 
             let x = el_offset(this, document.body).x,
                 y = el_offset(this, document.body).y - search_pel.getBoundingClientRect().height;
@@ -8108,9 +9157,68 @@ class link_value extends HTMLElement {
         };
     }
 
+    show_links() {
+        link("0").map();
+        let v_text = (i: string) => {
+            let span = link_value_text(link(this._id).get()[i].value);
+            span.innerText = `#${i} ` + span.innerText;
+            return span;
+        };
+        // 展示链接
+        const vl = this.vl;
+        vl.innerHTML = "";
+        console.log(link(this._id).get());
+
+        for (let i in link(this._id).get()) {
+            if (i == "0") continue;
+            let el = createEl("div");
+            vl.append(el);
+            let n = createEl("div");
+            n.append(v_text(i));
+            el.onpointermove = (e) => {
+                window.requestAnimationFrame(() => {
+                    set_viewer_posi(e.clientX, e.clientY);
+                });
+            };
+            el.onpointerover = (e) => {
+                set_viewer_posi(e.clientX, e.clientY);
+                preview_x_link(i);
+            };
+            el.onpointerout = () => {
+                view_el.classList.add("viewer_hide");
+            };
+            n.onpointerup = () => {
+                jump_to_x_link(i);
+            };
+            let rm = createEl("div");
+            rm.innerHTML = icon(close_svg);
+            rm.onclick = () => {
+                link(this._id).rm(i);
+                el.remove();
+            };
+            const add_el = createEl("div");
+            const down_el = createEl("div");
+
+            add_el.innerHTML = icon(add_svg);
+            down_el.innerHTML = icon(minus_svg);
+            add_el.onclick = () => {
+                link(this._id).value(i, 0.1);
+                n.innerHTML = "";
+                n.append(v_text(i));
+            };
+            down_el.onclick = () => {
+                link(this._id).value(i, -0.1);
+                n.innerHTML = "";
+                n.append(v_text(i));
+            };
+            el.append(n, add_el, rm, down_el);
+        }
+    }
+
     set elid(id: string) {
         this._id = id;
         link("0").衰减();
+        link("0").map();
         let v = link(id).get_v();
         if (v) {
             this.v.innerHTML = "";
@@ -8118,6 +9226,7 @@ class link_value extends HTMLElement {
         } else {
             this.v.innerText = "/";
         }
+        this.show_links();
     }
     get elid() {
         return this._id;
@@ -8165,15 +9274,11 @@ class record extends HTMLElement {
                     mediaRecorder.onstop = () => {
                         console.log("录制结束");
                         let blob = new Blob(chunks, { type: "audio/webm;codecs=opus" });
-                        let a = new FileReader();
-                        a.onload = () => {
-                            let id = put_assets("", a.result as string);
-                            let file = createEl("x-file");
-                            this.parentElement.append(file);
-                            file.value = JSON.stringify({ r: true, id });
-                            this.remove();
-                        };
-                        a.readAsDataURL(blob);
+                        let id = put_assets(blob, null);
+                        let file = createEl("x-file");
+                        this.parentElement.append(file);
+                        file.value = JSON.stringify({ r: true, id });
+                        this.remove();
                         stream.getAudioTracks()[0].stop();
                     };
                 });
@@ -8298,6 +9403,9 @@ class audio extends HTMLElement {
     set value(v) {
         this._value = v;
         this.audio.src = v;
+        this.audio.onload = () => {
+            URL.revokeObjectURL(v);
+        };
     }
     get value() {
         return this._value;
@@ -8308,46 +9416,55 @@ window.customElements.define("x-audio", audio);
 
 ignore_el.push("x-audio");
 
-function audio_to_text(el: HTMLAudioElement, id: string) {
-    let arr = el.src.split(","),
-        mime = arr[0].match(/:(.*?);/)[1],
-        bstr = window.atob(arr[1]),
-        n = bstr.length,
-        u8arr = new Uint8Array(n);
-    while (n--) {
-        u8arr[n] = bstr.charCodeAt(n);
-    }
-    let blob = new Blob([u8arr], { type: mime });
+async function audio_to_text(el: HTMLAudioElement, id: string) {
+    await import_script("https://www.unpkg.com/@xenova/transformers/dist/transformers.min.js");
+    // @ts-ignore
+    let blob = 集.assets[elFromId(id).parentElement.parentElement._value.id].source;
 
-    const form = new FormData();
-    form.append("file", blob, "x.flac");
-    fetch(store.asr.url, {
-        method: "POST",
-        body: form,
-    })
-        .then((r) => r.json())
-        .then(async (j) => {
-            console.log(j);
-            let pel = createEl("x-x");
-            pel.style.left = el_offset2(el.parentElement, O).x + "px";
-            pel.style.top = el_offset2(el.parentElement, O).y + el_offset2(el.parentElement, O).h + "px";
-            z.push(pel);
-            if (j.language == "zh" && navigator.language == "zh-CN") {
-                let t = (await import("../../lib/hant2hans")).default;
-                for (let i of j.segments) {
-                    i.text = t(i.text);
-                }
-            }
-            for (let i of j.segments) {
-                let x = createEl("x-x");
-                z.push(x, pel);
-                let md = createEl("x-md");
-                x.append(md);
-                let mdtext = `[${i.start}](#${id}:${i.start})${i.text}`;
-                md.value = JSON.stringify({ type: "p", text: mdtext });
-            }
-            pel.classList.add("flex-column");
+    const sampling_rate = 16000;
+    const audioCTX = new AudioContext({ sampleRate: sampling_rate });
+
+    const response = await blob.arrayBuffer();
+    const decoded = await audioCTX.decodeAudioData(response);
+    let audio = decoded.getChannelData(0);
+
+    async function speech_to_text() {
+        // @ts-ignore
+        let ppipeline = await pipeline("automatic-speech-recognition", "openai/whisper-tiny");
+
+        return await ppipeline(audio, {
+            chunk_length_s: 30,
+            stride_length_s: 5,
+            return_timestamps: true,
+
+            max_new_tokens: 50,
+            num_beams: 1,
+            temperature: 1,
+            top_k: 0,
+            do_sample: false,
         });
+    }
+    let text = await speech_to_text();
+    console.log(text);
+    let pel = createEl("x-x");
+    pel.style.left = el_offset2(el.parentElement, O).x + "px";
+    pel.style.top = el_offset2(el.parentElement, O).y + el_offset2(el.parentElement, O).h + "px";
+    z.push(pel);
+    if (navigator.language == "zh-CN") {
+        let t = (await import("../../lib/hant2hans")).default;
+        for (let i of text.chunks) {
+            i.text = t(i.text);
+        }
+    }
+    for (let i of text.chunks) {
+        let x = createEl("x-x");
+        z.push(x, pel);
+        let md = createEl("x-md");
+        x.append(md);
+        let mdtext = `[${i.timestamp[0]}](#${id}:${i.timestamp[0]})${i.text}`;
+        md.value = JSON.stringify({ type: "p", text: mdtext });
+    }
+    pel.classList.add("flex-column");
 }
 
 import * as THREE from "three";
@@ -8399,8 +9516,7 @@ class three extends HTMLElement {
     }
 
     async set_m() {
-        const url = 集.assets[this._value];
-        this.loader.load(url.base64, (gltf) => {
+        this.loader.load(get_assets(this._value), (gltf) => {
             this.scene.add(gltf.scene);
             this.renderer.render(this.scene, this.camera);
         });
@@ -8438,6 +9554,9 @@ class img extends HTMLElement {
     }
     set value(s: string) {
         this.img.src = s;
+        this.img.onload = () => {
+            URL.revokeObjectURL(s);
+        };
     }
 }
 
@@ -8463,6 +9582,8 @@ async function to_text(img: HTMLImageElement | HTMLCanvasElement) {
         pxel.style.textAlignLast = "justify";
         pxel.style.fontSize = "12px";
         z.push(pxel);
+        let xx = p.w / w,
+            yy = p.h / h;
         for (let i of v) {
             if (!i.text) continue;
             tl.push(i.text);
@@ -8471,10 +9592,10 @@ async function to_text(img: HTMLImageElement | HTMLCanvasElement) {
             let x1 = i.box[2][0];
             let y1 = i.box[2][1];
             let xel = createEl("x-x");
-            xel.style.left = x0 + "px";
-            xel.style.top = y0 + "px";
-            xel.style.width = x1 - x0 + "px";
-            xel.style.height = y1 - y0 + "px";
+            xel.style.left = x0 * xx + "px";
+            xel.style.top = y0 * yy + "px";
+            xel.style.width = (x1 - x0) * xx + "px";
+            xel.style.height = (y1 - y0) * yy + "px";
             z.push(xel, pxel);
             var md = createEl("x-md");
             xel.append(md);
@@ -8492,7 +9613,7 @@ var imported_index: { [key: string]: { loaded: boolean; el: HTMLScriptElement } 
 
 async function import_script(url: string) {
     if (imported_index[url])
-        return new Promise((re, rj) => {
+        return new Promise((re) => {
             if (imported_index[url].loaded) {
                 re(true);
             } else
@@ -8505,7 +9626,7 @@ async function import_script(url: string) {
     console.log(url);
     document.body.append(script);
     imported_index[url] = { loaded: false, el: script };
-    return new Promise((re, rj) => {
+    return new Promise((re) => {
         script.addEventListener("load", () => {
             imported_index[url].loaded = true;
             re(true);
@@ -8564,10 +9685,8 @@ class ggb extends HTMLElement {
         bar.onclick = () => {
             window[this.p.id]["getBase64"]((v) => {
                 console.log(v);
-                let obase = 集.assets[this._value].base64;
-                集.assets[this._value].base64 = obase.match(/(data:.*?;base64,)/)[1] + v;
-                let sha = CryptoJS.SHA256(集.assets[this._value].base64).toString();
-                集.assets[this._value].sha = sha;
+                let bl = base64_blob(v);
+                集.assets[this._value].source = bl;
                 data_changed();
             });
         };
@@ -8586,7 +9705,11 @@ class ggb extends HTMLElement {
     async set_m() {
         const url = 集.assets[this._value];
         this.p.id = this.getid();
-        this.p.ggbBase64 = url.base64;
+        const fileReader = new FileReader();
+        fileReader.onload = (e) => {
+            this.p.ggbBase64 = e.target.result;
+        };
+        fileReader.readAsDataURL(url.source);
         import_script("https://www.geogebra.org/apps/deployggb.js").then(() => {
             this.applet.inject(this.div);
         });
@@ -8672,6 +9795,7 @@ class calendar extends HTMLElement {
                 div.classList.add("calendar_week");
                 pel.append(div);
             }
+            link("0").map();
             for (let i of date_list) {
                 let div = createEl("x-link");
                 div.id = `${this.parentElement.id}:${i.toLocaleDateString()}`;
@@ -8885,6 +10009,7 @@ class time extends HTMLElement {
             this._value2.run.push(new Date().getTime());
             this._value = JSON.stringify(this._value2);
             this.render();
+            this.is_no = false;
         };
         this.time_t = createEl("div");
 
@@ -8998,8 +10123,6 @@ class link_arrow extends HTMLElement {
         super();
     }
     svg: SVGSVGElement;
-    r: MutationObserver;
-    r2: ResizeObserver;
     _value: {
         start: { id: string; a: any; marker?: string };
         center: { id: string };
@@ -9012,20 +10135,17 @@ class link_arrow extends HTMLElement {
     connectedCallback() {
         this.svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
         this.append(this.svg);
-        this.r = new MutationObserver((e) => {
+        let r = () => {
             this.render(null);
-        });
-        this.r2 = new ResizeObserver((e) => {
-            this.render(null);
-        });
-    }
-
-    disconnectedCallback() {
-        this.r.disconnect();
-        this.r2.disconnect();
+            setTimeout(() => {
+                r();
+            }, 300);
+        };
+        r();
     }
 
     render(e: PointerEvent) {
+        if (!this._value.start.id) return;
         let xel = this.parentElement as x;
         let start_p = get_link_arrow_p(this._value.start.id, this._value.start.a);
         let end_p = this._value.end.id ? get_link_arrow_p(this._value.end.id, this._value.end.a) : e2p(e);
@@ -9046,15 +10166,16 @@ class link_arrow extends HTMLElement {
             )
                 end_a = Number(el.className.replace("xxhandle", "")) || end_a;
         }
-        let start_ctrl = get_link_arrow_a(start_p, start_a),
-            end_ctrl = get_link_arrow_a(end_p, end_a);
+        let long = Math.min(Math.sqrt((start_p.x - end_p.x) ** 2 + (start_p.y - end_p.y) ** 2) / 3, 60);
+        let start_ctrl = get_link_arrow_a(start_p, start_a, long),
+            end_ctrl = get_link_arrow_a(end_p, end_a, long);
         let at = `M ${start_p.x} ${start_p.y} C ${start_ctrl.x} ${start_ctrl.y}, ${end_ctrl.x} ${end_ctrl.y}, ${end_p.x} ${end_p.y}`;
         p.setAttribute("d", at);
         if (this._value.start?.marker) {
-            p.setAttribute("marker-start", `url(${arrow_markers_svg}#flowchart-${this._value.start?.marker}Start)`);
+            p.setAttribute("marker-start", `url(#flowchart-${this._value.start?.marker}Start)`);
         }
         if (this._value?.end?.marker) {
-            p.setAttribute("marker-end", `url(${arrow_markers_svg}#flowchart-${this._value?.end?.marker}End)`);
+            p.setAttribute("marker-end", `url(#flowchart-${this._value?.end?.marker}End)`);
         }
         let cx = (start_p.x + 3 * start_ctrl.x + 3 * end_ctrl.x + end_p.x) / 8,
             cy = (start_p.y + 3 * start_ctrl.y + 3 * end_ctrl.y + end_p.y) / 8;
@@ -9067,7 +10188,7 @@ class link_arrow extends HTMLElement {
                 el.style.top = y + "px";
             }
         }
-        this.svg.innerHTML = "";
+        this.svg.innerHTML = arrow_markers_svg;
         this.svg.append(p);
         let r = el_offset2(p, O);
         xel.style.left = r.x + "px";
@@ -9090,23 +10211,66 @@ class link_arrow extends HTMLElement {
         };
     }
 
-    ob() {
-        if (this._value.end.id) {
-            this.r.observe(elFromId(this._value.start.id), { attributes: true, attributeFilter: ["style"] });
-            this.r.observe(elFromId(this._value.end.id), { attributes: true, attributeFilter: ["style"] });
-            this.r2.observe(elFromId(this._value.start.id));
-            this.r2.observe(elFromId(this._value.end.id));
-        }
-    }
-
     get value() {
         return JSON.stringify(this._value);
     }
 
     set value(s) {
         this._value = JSON5.parse(s);
-        this.ob();
     }
 }
 
 window.customElements.define("x-link-arrow", link_arrow);
+
+let will_link = "";
+let tips_id = "";
+class add_link extends HTMLElement {
+    constructor() {
+        super();
+    }
+    lid = "";
+
+    connectedCallback() {
+        this.onclick = () => {
+            if (will_link) {
+                link(will_link).add(this.lid);
+                elFromId(tips_id).remove();
+                will_link = "";
+                tips_id = "";
+            } else {
+                will_link = this.lid;
+                let div = createEl("div");
+                div.innerText = `已选择#${will_link}，请再选择一个链接以连接`;
+                tips_id = add_tips(div);
+            }
+        };
+    }
+
+    get value() {
+        return this.lid;
+    }
+
+    set value(s) {
+        this.lid = s;
+    }
+}
+
+window.customElements.define("x-link-add", add_link);
+
+class x_zi extends HTMLElement {
+    constructor() {
+        super();
+    }
+
+    connectedCallback() {
+        let t = this.getAttribute("value");
+        let c = /[^a-zA-Z0-9]/g.test(t) ? t.codePointAt(0).toString(16) : t.toLocaleLowerCase().replace(/^u/, "");
+
+        let img = createEl("img");
+        img.src = `https://glyphwiki.org/glyph/u${c}@1.svg`;
+
+        this.append(img);
+    }
+}
+
+window.customElements.define("x-zi", x_zi);
