@@ -55,6 +55,7 @@ interface x_tag_map {
     "x-time": time;
     "x-link-arrow": link_arrow;
     "x-link-add": add_link;
+    "x-graph": graph;
 }
 function createEl<K extends keyof HTMLElementTagNameMap>(tagName: K): HTMLElementTagNameMap[K];
 function createEl<K extends keyof HTMLElementDeprecatedTagNameMap>(tagName: K): HTMLElementDeprecatedTagNameMap[K];
@@ -97,6 +98,9 @@ const link_value_bar = createEl("x-link-value");
 
 const md_text = createEl("textarea");
 画布.append(md_text);
+const md_text2 = createEl("input");
+md_text2.style.display = "none";
+画布.append(md_text2);
 
 const breadcrumbs_el = elFromId("breadcrumbs");
 
@@ -651,7 +655,7 @@ elFromId("常驻").onpointerdown = (e) => {
     let x = e.clientX - O.getBoundingClientRect().x,
         y = e.clientY - O.getBoundingClientRect().y;
 
-    let xel = createEl("x-x");
+    let xel = createX(null);
     xel.style.left = x / zoom + "px";
     xel.style.top = y / zoom + "px";
     z.push(xel);
@@ -1088,7 +1092,8 @@ function add_blank(op: p_point, p: p_point) {
 
     for (let i of 集.数据) {
         if (i.id == 当前画布.id) {
-            for (let xel of i.data) {
+            for (let xelId of i.data) {
+                const xel = getDataFromId(xelId);
                 let el_o = xel.rect;
                 switch (a) {
                     case 0:
@@ -1195,6 +1200,9 @@ function render_select_rects() {
                 if (selected_el.length <= 1) {
                     z.focus(i.id);
                 }
+                const data = get_x_data(i.id);
+                set_data_style(data, "max-width", "");
+                i.setAttribute("style", data.style);
             }
             clearTimeout(free_db_time);
         };
@@ -1445,16 +1453,16 @@ function el_offset2(el: Element, pel?: Element, xz?: number): rect {
     };
 }
 
-function el_has(data: data[0], id: string) {
+function el_has(data: srcData[0], id: string) {
     if (data.id == id) return true;
+    if (!data.子元素) return false;
     w(data.子元素);
     function w(data: data) {
         for (let i of data) {
-            if (i.id == id) {
-                return true;
-            }
-            if (i.子元素) {
-                w(i.子元素);
+            if (i === id) return true;
+            const el = getDataFromId(i);
+            if (el.子元素) {
+                w(el.子元素);
             }
         }
     }
@@ -1495,8 +1503,9 @@ function reflash_rect() {
             if (i.id == 当前画布.id) w(i.data);
         }
     function w(data: data) {
-        for (let i of data) {
-            if (集.values?.[i.id]?.fixed) return;
+        for (let id of data) {
+            if (集.values?.[id]?.fixed) return;
+            const i = getDataFromId(id);
             if (i.rect) els_rect.push(i.rect);
             if (i.子元素) {
                 w(i.子元素);
@@ -1619,11 +1628,16 @@ elFromId("画布").onwheel = (e) => {
 let middle_b: PointerEvent;
 let middle_p = { x: 0, y: 0 };
 画布.addEventListener("pointerdown", (e) => {
-    if (e.button == 1) {
-        middle_b = e;
-        middle_p.x = el_offset(O).x;
-        middle_p.y = el_offset(O).y;
-    }
+    if (e.target === 画布)
+        if (
+            (e.button === 1 && e.pointerType === "mouse") ||
+            e.pointerType === "touch" ||
+            (e.button === 0 && e.pointerType === "pen")
+        ) {
+            middle_b = e;
+            middle_p.x = el_offset(O).x;
+            middle_p.y = el_offset(O).y;
+        }
 });
 document.addEventListener("pointermove", (e) => {
     if (middle_b) {
@@ -1777,7 +1791,7 @@ document.addEventListener("pointerup", (e: PointerEvent) => {
         }
         function cx(pel: Element, id: string, before: boolean) {
             let x = get_x_data(id);
-            let xel = createEl("x-x");
+            let xel = createX("x-x");
             xel.id = id;
             xel.setAttribute("style", x.style);
             xel.style.left = "";
@@ -1819,20 +1833,14 @@ document.addEventListener("pointerup", (e: PointerEvent) => {
     if (free_old_point && free_o_a == -1 && 临时中转站.contains(e.target as HTMLElement)) {
         for (let i of selected_el) {
             let had = false;
-            for (let x of global_x) {
-                if (x.data.id == i) {
-                    had = true;
-                    break;
-                }
-            }
             for (let x of 集.中转站) {
-                if (x.id == i) {
+                if (x == i) {
                     had = true;
                     break;
                 }
             }
             if (had) continue;
-            集.中转站.push(get_x_out_value(get_x_by_id(i)));
+            集.中转站.push(get_x_out_value(get_x_by_id(i)).id);
             z.remove(i, true);
         }
         free_o_rects = [];
@@ -1863,7 +1871,7 @@ document.addEventListener("pointerup", (e: PointerEvent) => {
             free_db_time = setTimeout(() => {
                 let id = uuid_id();
                 free_link = id;
-                let x = createEl("x-x");
+                let x = createX("x-link-arrow");
                 x.id = id;
                 z.push(x);
                 let arrow = createEl("x-link-arrow");
@@ -1908,7 +1916,9 @@ var free_mouse = (e: MouseEvent) => {
         for (const xel of free_o_rects) {
             集_for_each((data, p, path) => {
                 if (data.id == xel.el) {
-                    let f = path[path.length - 1] ? is_data_flex(path[path.length - 1]) == "flex" : false;
+                    let f = path[path.length - 1]
+                        ? is_data_flex(getDataFromId(path[path.length - 1])) == "flex"
+                        : false;
                     let np = e2p(e);
                     let dx = np.x - free_old_point.x,
                         dy = np.y - free_old_point.y;
@@ -2086,11 +2096,18 @@ function get_link_arrow_a(p: p_point, a: free_a, long: number): p_point {
     return { x: p.x + dx, y: p.y + dy };
 }
 
+function createX(type: keyof x_tag_map) {
+    const el = createEl("x-x");
+    if (type) el.type = type;
+    return el;
+}
+
 /** 通过画布坐标创建主元素 */
 function create_x_x(x: number, y: number) {
-    let xel = createEl("x-x");
+    let xel = createX("x-md");
     xel.style.left = x + "px";
     xel.style.top = y + "px";
+    xel.style.maxWidth = "320px";
     z.push(xel);
     var md = createEl("x-md");
     xel.append(md);
@@ -2101,13 +2118,11 @@ function create_x_x(x: number, y: number) {
 function tmp_s_reflash() {
     临时中转站.innerHTML = "";
     let l = [...集.中转站];
-    for (let i of global_x) {
-        l.push(i.data);
-    }
-    for (let x of l) {
+    for (let id of l) {
+        const x = getDataFromId(id);
         let t = createEl("div");
         临时中转站.append(t);
-        let xel = createEl("x-x");
+        let xel = createX(x.type);
         xel.id = x.id;
         t.append(xel);
         let bar = new_x_bar(x.id);
@@ -2117,30 +2132,6 @@ function tmp_s_reflash() {
         xel.style.top = "0px";
         xel.className = x.class;
         xel.value = x.子元素;
-    }
-}
-
-var global_x: { pid: string; data: data[0] }[] = [];
-
-/** 移除全局中转 */
-function remove_global(id: string) {
-    let l: typeof global_x = [];
-    for (let i of global_x) {
-        if (i.data.id == id) {
-            let customerObjectStore = db.transaction(db_store_name, "readwrite").objectStore(db_store_name);
-            let r = customerObjectStore.get(i.pid);
-            r.onsuccess = () => {
-                let obj = r.result as 集type;
-                for (let i of obj.中转站) {
-                    if (i.id == id) {
-                        i.global = false;
-                    }
-                }
-                customerObjectStore.put(obj);
-            };
-        } else {
-            l.push(i);
-        }
     }
 }
 
@@ -2261,8 +2252,9 @@ type 集type = {
         style: string;
         slide?: ys_type;
     };
+    data: srcData;
     数据: 画布type[];
-    链接: { [key: string]: { [key: string]: { value?: number; time?: number; s: number } } };
+    链接: { [key: string]: { [key: string]: { time: number } } };
     assets: {
         [key: string]: {
             source: Blob | File;
@@ -2287,16 +2279,18 @@ type meta = {
 };
 
 /** 主元素 */
-type data = Array<{
-    id: string;
-    style: string;
-    class: string;
-    type: string;
-    子元素?: data;
-    value?: string;
-    global?: boolean;
-    rect?: rect;
-}>;
+type srcData = {
+    [id: string]: {
+        id: string;
+        style: string;
+        class: string;
+        type: keyof x_tag_map;
+        子元素?: data;
+        value?: xelValue;
+        rect?: rect;
+    };
+};
+type data = string[];
 /** 画布 */
 type 画布type = {
     id: string;
@@ -2324,6 +2318,7 @@ function new_集(pname: string): 集type {
         extra: {
             style: "",
         },
+        data: {},
         数据: [{ id: pid, name: pname, p: { x: 0, y: 0, zoom: 1 }, data: [] }],
         链接: { 0: {} },
         assets: {},
@@ -2339,30 +2334,30 @@ function get_data() {
         let show = (O as HTMLElement).style.visibility != "hidden";
         for (let i of 集.数据) {
             if (i.id == O.id) {
-                let els = O.querySelectorAll(":scope > *");
+                let els = O.querySelectorAll(":scope x-x");
                 let z = get_zoom(i.id);
                 els.forEach((el: x) => {
                     let data = i.data;
-                    let has = false;
-                    for (let i of data) {
-                        if (i.id == el.id) {
-                            if (el.getAttribute("style")) i.style = el.getAttribute("style");
-                            i.class = el.className;
-                            i.子元素 = el.value;
-                            i.rect = el_offset2(el, O, z);
-                            has = true;
-                            break;
-                        }
+                    const id = data.find((i) => i === el.id);
+                    if (!id && el.id && el.parentElement === O) {
+                        data.push(el.id);
                     }
-                    if (!has && el.id) {
-                        data.push({
-                            id: el.id,
-                            style: el.getAttribute("style"),
-                            type: "X-X",
-                            class: el.className,
-                            子元素: el.value,
-                            rect: el_offset2(el, O, z),
-                        });
+
+                    {
+                        let i = getDataFromId(el.id);
+                        if (!i && el.id)
+                            i = 集.data[el.id] = {
+                                id: el.id,
+                                style: null,
+                                type: el.type,
+                                class: "",
+                            };
+                        if (el.getAttribute("style")) i.style = el.getAttribute("style");
+                        i.class = el.className;
+                        if (el.parentElement === O) i.rect = el_offset2(el, O, z);
+                        i.type = el.type;
+                        if (i.type === "x-x") i.子元素 = el.value as data;
+                        else i.value = el.value as xelValue;
                     }
                 });
                 if (show)
@@ -2419,7 +2414,7 @@ function version_is_big(v: string, v2: string) {
 }
 
 /**
- * 判断版本是否处于区间
+ * 判断版本是否处于闭区间
  * @param v 版本
  * @param min 最小
  * @param max 最大
@@ -2586,7 +2581,51 @@ function version_tr(obj): 集type {
                 }
             }
             obj.meta.version = "0.25.0";
-        case version_in(v, "0.25.0", "0.25.0"):
+        case version_in(v, "0.25.0", "0.25.0"): {
+            const o = obj;
+            const n: 集type = {
+                assets: obj.assets,
+                data: {},
+                extra: obj.extra,
+                meta: obj.meta,
+                values: obj.values,
+                中转站: [],
+                数据: structuredClone(o.数据),
+                链接: obj.链接,
+                links: obj.links,
+            };
+            // @ts-ignore
+            n.数据.forEach((i) => (i.data = i.data.map((x) => x.id)));
+            n.中转站 = o.中转站.map((i) => i.id);
+            for (let x of obj.数据) {
+                w(x.data);
+            }
+            w(obj.中转站);
+            function w(data) {
+                for (let i of data) {
+                    if (i.type == "X-X") {
+                        if (i.子元素.length && i.子元素[0]?.type != "X-X") {
+                            n.data[i.id] = i;
+                            i.type = i.子元素[0].type.toLowerCase();
+                            i.class = i.子元素[0].class;
+                            i.value = i.子元素[0].value;
+                            if (i.type === "x-md") i.value = JSON5.parse(i.value);
+                            delete i.子元素;
+                        } else {
+                            n.data[i.id] = i;
+                            i.type = i.type.toLowerCase();
+                            const c = structuredClone(i.子元素);
+                            i.子元素 = i.子元素.map((x) => x.id);
+                            if (c) w(c);
+                        }
+                    }
+                }
+            }
+            obj = n;
+            obj.meta.version = "0.26.0";
+            console.log(n);
+        }
+        case version_in(v, "0.26.0", "0.26.0"):
             return obj;
         default:
             put_toast(`文件版本是 ${v}，与当前软件版本 ${packagejson.version} 不兼容，请升级软件`);
@@ -2656,6 +2695,7 @@ rez.style.position = "relative";
 
 /** 渲染画布 */
 function render_data(inputdata: 画布type) {
+    // return
     let rect: rect = {
         x: inputdata.p.x - (10 + 画布.offsetWidth / 2) / inputdata.p.zoom,
         y: inputdata.p.y - (10 + 画布.offsetHeight / 2) / inputdata.p.zoom,
@@ -2669,16 +2709,17 @@ function render_data(inputdata: 画布type) {
     let values = {};
     function w(data: data, pid?: string) {
         let text = "";
-        for (let i of data) {
-            if (pid || can_rander_x(i, rect)) {
+        for (let id of data) {
+            const i = getDataFromId(id);
+            if (pid || can_rander_x(id, rect)) {
                 let style = i.style ? `style='${i.style}'` : "";
                 let _class = i.class ? `class='${i.class}'` : "";
                 if (i.value) {
-                    values[pid] = i.value;
+                    values[id] = i.value;
                 }
                 let s = i.子元素 ? w(i.子元素, i.id) : "";
-                if (i.type == "X-X" && !i.id) i.id = uuid_id();
-                text += `<${i.type} id='${i.id}' ${style} ${_class}>${s}</${i.type}>`;
+                if (i.type == "x-x" && !i.id) i.id = uuid_id();
+                text += `<x-x id='${i.id}' ${style} ${_class} data-type='${i.type}'>${s}</x-x>`;
             }
             link(i.id).add();
         }
@@ -2693,18 +2734,17 @@ function render_data(inputdata: 画布type) {
 
     fixed_el();
 
-    function v(data: data, pid?: string) {
+    function v(data: data) {
         try {
-            for (let i of data) {
-                if (values[pid]) {
-                    if (<markdown>get_x_by_id(pid)?.querySelector(i.type))
-                        (<markdown>get_x_by_id(pid).querySelector(i.type)).value = values[pid];
+            for (let id of data) {
+                const i = getDataFromId(id);
+                if (values[id]) {
+                    if (get_x_by_id(id)) get_x_by_id(id).value = values[id];
                 }
-                if (i.子元素) v(i.子元素, i.id);
+                if (i.子元素) v(i.子元素);
             }
         } catch (error) {
             console.error(error);
-            console.log(pid);
         }
     }
     v(inputdata.data);
@@ -2761,23 +2801,28 @@ function set_zoom(zooms: string) {
     zoom_o(Number(zooms.match(/scale\((.*)\)/)[1]) || zoom);
 }
 
-function render_x(data: data[0]) {
+function render_x(data: srcData[0]) {
     if (O.contains(elFromId(data.id))) return;
-    let xel = createEl("x-x");
+    let xel = createX(data.type);
     xel.id = data.id;
     O.append(xel);
     xel.className = data.class;
     xel.setAttribute("style", data.style);
-    xel.value = data.子元素;
+    if (data.type === "x-x") xel.value = data.子元素;
+    else xel.value = data.value;
 }
 
-function can_rander_x(data: data[0], rect: rect) {
-    let large =
-        data.子元素[0]?.type == "X-FILE" || data.子元素[0]?.type == "X-GRAPH" || data.子元素[0]?.type == "X-DRAW";
-    let none_layout = !is_data_flex(data) && (data.子元素.length > 1 || data.子元素[0]?.type == "X-X");
+function can_rander_x(id: data[0], rect: rect) {
+    const data = getDataFromId(id);
+    const fc = data;
+    let large = fc?.type == "x-file" || fc?.type == "x-graph" || fc?.type == "x-draw";
+    let none_layout = !is_data_flex(data) && (data.子元素?.length > 1 || fc?.type == "x-x");
     if (none_layout) {
         let rects: rect[] = [];
-        for (let i of data.子元素) {
+        for (let id of data.子元素) {
+            const i = getDataFromId(id);
+            // if(!i)console.log();
+
             if (i.rect) rects.push(i.rect);
         }
         none_layout = rect_x_rect(get_out_rect(rects), rect);
@@ -2793,11 +2838,11 @@ function check_render_x() {
     let y = (-el_offset(O).y - 10) / zoom;
     for (let i of 集.数据) {
         if (i.id == 当前画布.id) {
-            for (let data of i.data) {
-                if (can_rander_x(data, { x, y, w, h })) {
-                    render_x(data);
+            for (let id of i.data) {
+                if (can_rander_x(id, { x, y, w, h })) {
+                    render_x(getDataFromId(id));
                 } else {
-                    elFromId(data.id)?.remove();
+                    elFromId(id)?.remove();
                 }
             }
         }
@@ -2857,10 +2902,12 @@ async function file_load() {
         if (i.name == "assets") {
             for (let a of i.children) {
                 const zipWriter = new zip.BlobWriter();
+                // @ts-ignore
                 assets[a.name] = await a.data.getData(zipWriter, { password: store.webdav.加密密钥 });
             }
         } else if (i.name.includes(".xln")) {
             const zipWriter = new zip.TextWriter();
+            // @ts-ignore
             str = await i.data.getData(zipWriter, { password: store.webdav.加密密钥 });
             o = JSON5.parse(<string>str);
         }
@@ -2965,14 +3012,8 @@ function db_get() {
         reload_file_list();
 
         let ihash = false;
-        global_x = [];
 
-        for (let f of r.result) {
-            if ((f as 集type)?.中转站)
-                for (let x of (f as 集type).中转站) {
-                    if (x.global) global_x.push({ pid: (f as 集type).meta.UUID, data: x });
-                }
-
+        for (let f of result) {
             if (`#${f.meta.UUID}` == location.hash || `#${f.meta.file_name}` == decodeURIComponent(location.hash)) {
                 ihash = true;
                 set_data(f);
@@ -3106,10 +3147,14 @@ async function db_load(file: File) {
         if (i.name == "assets") {
             for (let a of i.children) {
                 const zipWriter = new zip.BlobWriter();
+                // @ts-ignore
                 assets[a.name] = await a.data.getData(zipWriter);
             }
         } else {
             const zipWriter = new zip.TextWriter();
+            console.log(i);
+
+            // @ts-ignore
             let str = await i.data.getData(zipWriter);
             data = JSON5.parse(<string>str);
         }
@@ -3319,18 +3364,19 @@ import TurndownService from "turndown";
 /** 添加文件或文字到画布 */
 function add_file(type: string, text: string, data: File, x: number, y: number) {
     let types = type.split("/");
-    let xel = createEl("x-x");
+    let xel = createX(null);
     xel.style.left = x / zoom + "px";
     xel.style.top = y / zoom + "px";
     z.push(xel);
     if (types[0] == "text") {
         let md = createEl("x-md");
+        xel.type = "x-md";
         xel.append(md);
         if (type == "text/html") {
             let turndownService = new TurndownService({ headingStyle: "atx" });
-            md.value = JSON.stringify({ type: "text", text: turndownService.turndown(text) });
+            md.value = { type: "text", text: turndownService.turndown(text) };
         } else if (type == "text/xln") {
-            let data = JSON5.parse(text) as { data: data[0]; links: [string, string][] };
+            let data = JSON5.parse(text) as { data: srcData[0]; links: [string, string][] };
             xel.setAttribute("class", data.data.class);
             xel.value = data.data.子元素;
             for (let i of data.links) {
@@ -3338,19 +3384,20 @@ function add_file(type: string, text: string, data: File, x: number, y: number) 
             }
         } else {
             try {
-                let data = JSON5.parse(text) as { data: data[0]; links: [string, string][] };
+                let data = JSON5.parse(text) as { data: srcData[0]; links: [string, string][] };
                 xel.setAttribute("class", data.data.class);
                 xel.value = data.data.子元素;
                 for (let i of data.links) {
                     link(i[0]).add(i[1]);
                 }
             } catch (error) {
-                md.value = JSON.stringify({ type: "p", text });
+                md.value = { type: "p", text };
             }
         }
     } else {
         let id = put_assets(null, data);
         let file = createEl("x-file");
+        xel.type = "x-file";
         xel.append(file);
         file.value = JSON.stringify({ r: true, id });
     }
@@ -3380,13 +3427,15 @@ document.addEventListener("message", (msg: any) => {
                     j = 集;
                 }
                 j.meta.file_name = "摘录";
-                j.中转站.push({
-                    id: uuid_id(),
+                const id = uuid_id();
+                j.中转站.push(id);
+                j.data[id] = {
+                    id: id,
                     style: "",
                     class: "",
                     value: data.text,
-                    type: "X-MD",
-                });
+                    type: "x-md",
+                };
                 set_data(j);
             }
         }
@@ -3399,7 +3448,7 @@ function put_assets(blob: Blob, file: File) {
     let has: boolean | string = false;
 
     for (let i in 集.assets) {
-        if (file && file.size == 集.assets[i].source.size && file.name == 集.assets[i].source.name) {
+        if (file && file.size == 集.assets[i].source.size && file.name == 集.assets[i].source["name"]) {
             has = i;
             break;
         }
@@ -3449,23 +3498,18 @@ function assets_reflash() {
         let goto = createEl("div");
         goto.classList.add("assets_goto");
 
-        集_for_each((data) => {
-            if (data.子元素?.[0]?.type == "X-FILE") {
-                if (JSON5.parse(data.子元素[0].value).id == i) {
+        for (let i in 集.data) {
+            const f = 集.data[i];
+            if (f?.type == "x-file") {
+                if (f.value.id == i) {
                     r.classList.add("not_click");
-                    let go = createEl("div");
-                    go.onclick = () => {
-                        jump_to_x_link(data.id);
-                    };
-                    goto.append(go);
-                }
-            }
-        });
-
-        for (let data of 集.中转站) {
-            if (data.子元素?.[0]?.type == "X-FILE") {
-                if (JSON5.parse(data.子元素[0].value).id == i) {
-                    r.classList.add("not_click");
+                    if (!集.中转站.includes(i)) {
+                        let go = createEl("div");
+                        go.onclick = () => {
+                            jump_to_x_link(i);
+                        };
+                        goto.append(go);
+                    }
                 }
             }
         }
@@ -3487,7 +3531,7 @@ function assets_reflash() {
         let add = createEl("div");
         add.onclick = (e) => {
             let p = e2p(e);
-            let xel = createEl("x-x");
+            let xel = createX("x-file");
             xel.style.left = p.x + "px";
             xel.style.top = p.y + "px";
             z.push(xel);
@@ -3550,7 +3594,7 @@ function assets_reflash() {
 
 /** 新建绘制元素 */
 function new_draw() {
-    let xel = createEl("x-x");
+    let xel = createX("x-draw");
     xel.id = uuid_id();
     xel.style.left = -el_offset(O).x / zoom + "px";
     xel.style.top = -el_offset(O).y / zoom + "px";
@@ -3645,7 +3689,7 @@ function get_link_el_by_id(id: string) {
 class 图层 {
     聚焦元素 = <string>null;
 
-    create_li(i: data[0]) {
+    create_li(i: srcData[0]) {
         let li = createEl("li");
         let c = createEl("input");
         c.type = "checkbox";
@@ -3692,7 +3736,8 @@ class 图层 {
             c.checked = true;
         }
         if (i?.子元素?.length > 0) {
-            if (i.子元素[0].type != "X-X") {
+            const f = i;
+            if (f.type != "x-x") {
                 const type = {
                     "x-md": "md",
                     "x-draw": "墨迹",
@@ -3703,7 +3748,7 @@ class 图层 {
                     "x-link-arrow": "箭头链接",
                     "x-graph": "几何",
                 };
-                s.innerText += ` ${type[i.子元素[0].type.toLowerCase()] || i.子元素[0].type}`;
+                s.innerText += ` ${type[f.type.toLowerCase()] || f.type}`;
             } else {
                 let x = createEl("img");
                 x.src = ul_show_svg;
@@ -3731,10 +3776,10 @@ class 图层 {
             let ul = createEl("ul");
             let ulf = document.createDocumentFragment();
             for (let n in data) {
-                const i = data[n];
+                const i = getDataFromId(data[n]);
 
                 if (i.id && get_x_by_id(i.id)) get_x_by_id(i.id).style.zIndex = String(Number(n) + 1);
-                if (i.type != "X-X") {
+                if (i.type != "x-x") {
                     return;
                 } else {
                     if (i.id && get_x_by_id(i.id) && is_flex(get_x_by_id(i.id)) == "flex")
@@ -3857,12 +3902,12 @@ class 图层 {
     add(id: string) {
         集_for_each((data, p, path) => {
             if (data.id == id) {
-                let ppel = path[path.length - 1];
+                let ppel = getDataFromId(path[path.length - 1]);
                 if (!data.style.includes("z-index") && !(is_data_flex(ppel) == "flex")) {
                     set_data_style(data, "z-index", String(ppel.子元素.length + 1));
                 }
                 let li = this.create_li(data);
-                let pli = 图层_el.querySelector(`li[data-id="${path[path.length - 1].id}"]`);
+                let pli = 图层_el.querySelector(`li[data-id="${path[path.length - 1]}"]`);
                 if (pli?.querySelector(":scope > ul")) {
                     pli.querySelector(":scope > ul").insertAdjacentElement("afterbegin", li);
                 } else {
@@ -3949,7 +3994,7 @@ class 图层 {
 
         add_bci(id);
 
-        link(id).value("0", link_value_min_d());
+        link(id).value("0");
 
         if (模式 == "设计") {
             let d = el?.querySelector("x-draw") as draw;
@@ -3963,9 +4008,10 @@ class 图层 {
         let w = (data: data) => {
             for (let n in data) {
                 const i = data[n];
-                if (i.id == id) return { n: Number(n), data };
-                if (i?.子元素?.length > 0) {
-                    w(i.子元素);
+                if (i == id) return { n: Number(n), data };
+                const c = getDataFromId(i);
+                if (c?.子元素?.length > 0) {
+                    w(c.子元素);
                 }
             }
         };
@@ -3997,14 +4043,24 @@ class 图层 {
 
 var z = new 图层();
 
-function for_each(data: data, f: (data: data[0], i: number, path?: data) => boolean | void) {
+function getDataFromId(id: string) {
+    const x = 集.data[id];
+    if (!x) {
+        console.log(id);
+    }
+
+    return x || null;
+}
+
+function for_each(data: data, f: (data: srcData[0], i: number, path?: data) => boolean | void) {
     w(data, []);
     function w(data: data, path: data) {
         for (let i in data) {
-            let stop = f(data[i], Number(i), path);
+            const di = getDataFromId(i);
+            let stop = f(di, Number(i), path);
             if (!stop) {
-                if (data[i].子元素) {
-                    w(data[i].子元素, path.concat(data[i]));
+                if (di.子元素) {
+                    w(di.子元素, path.concat(data[i]));
                 }
             } else {
                 break;
@@ -4012,16 +4068,17 @@ function for_each(data: data, f: (data: data[0], i: number, path?: data) => bool
         }
     }
 }
-function 集_for_each(f: (data: data[0], p?: 画布type, path?: data) => boolean | void) {
+function 集_for_each(f: (data: srcData[0], p?: 画布type, path?: data) => boolean | void) {
     for (let i of 集.数据) {
         w(i.data, i, []);
     }
     function w(data: data, p: 画布type, path: data) {
         for (let i of data) {
-            let stop = f(i, p, path);
+            const di = getDataFromId(i);
+            let stop = f(di, p, path);
             if (!stop) {
-                if (i.子元素) {
-                    w(i.子元素, p, path.concat(i));
+                if (di.子元素) {
+                    w(di.子元素, p, path.concat(i));
                 }
             } else {
                 break;
@@ -4030,29 +4087,27 @@ function 集_for_each(f: (data: data[0], p?: 画布type, path?: data) => boolean
     }
 }
 function get_x_data(id: string) {
-    let xdata: data[0];
-    集_for_each((data, path) => {
-        if (data.id == id) {
-            xdata = data;
-            return true;
-        }
-    });
-    return xdata;
+    return getDataFromId(id);
 }
 
-function remove_x_data(id: string) {
+function removeXID(id: string) {
     for (let i of 集.数据) {
         w(i.data);
     }
     function w(data: data) {
         for (let i in data) {
-            if (data[i].type == "X-X" && data[i].id == id) {
+            const x = getDataFromId(data[i]);
+            if (x.type == "x-x" && x.id == id) {
                 data.splice(Number(i), 1);
             } else {
-                if (data[i].子元素) w(data[i].子元素);
+                if (x.子元素) w(x.子元素);
             }
         }
     }
+}
+function remove_x_data(id: string) {
+    removeXID(id);
+    delete 集.data[id];
 }
 
 function move_x_data(id: string, to: string, posi?: number) {
@@ -4062,10 +4117,11 @@ function move_x_data(id: string, to: string, posi?: number) {
     }
     function w(data: data) {
         for (let i in data) {
-            if (data[i].type == "X-X" && data[i].id == id) {
+            const x = getDataFromId(data[i]);
+            if (x.type == "x-x" && x.id == id) {
                 d = data.splice(Number(i), 1)[0];
             } else {
-                if (data[i].子元素) w(data[i].子元素);
+                if (x.子元素) w(x.子元素);
             }
         }
     }
@@ -4087,7 +4143,11 @@ function move_x_data(id: string, to: string, posi?: number) {
     });
 }
 
-function set_data_style(el: data[0], x: string, v: string) {
+function addXData(id: string, v: srcData[0]) {
+    集.data[id] = v;
+}
+
+function set_data_style(el: srcData[0], x: string, v: string) {
     let ns = el.style.split(";").reduce((styleObj, rule) => {
         if (!rule.trim()) return styleObj;
         const [key, value] = rule.split(":");
@@ -4095,6 +4155,7 @@ function set_data_style(el: data[0], x: string, v: string) {
         return styleObj;
     }, {});
     ns[x] = v;
+    if (!v) delete ns[x];
     el.style = Object.entries(ns)
         .map(([key, value]) => `${key}: ${value};`)
         .join(" ");
@@ -4225,7 +4286,7 @@ function add_style_item() {
             includeScore: true,
         });
         let fr = fuse.search(text);
-        let result: { l: readonly Fuse.FuseResultMatch[] }[] = [];
+        let result: { l: readonly FuseResultMatch[] }[] = [];
         for (let i of fr) {
             result.push({
                 l: i.matches,
@@ -4256,7 +4317,7 @@ function add_style_item() {
                 };
         }
     }
-    function mt(m: readonly Fuse.FuseResultMatch[]) {
+    function mt(m: readonly FuseResultMatch[]) {
         let p = createEl("span");
         for (let j of m) {
             let indices = [...j.indices].sort((a, b) => a[0] - b[0]);
@@ -4439,10 +4500,12 @@ async function get_xln_value(path: string) {
             if (i.name == "assets") {
                 for (let a of i.children) {
                     const zipWriter = new zip.BlobWriter();
+                    // @ts-ignore
                     assets[a.name] = await a.data.getData(zipWriter, { password: store.webdav.加密密钥 });
                 }
             } else if (i.name.includes(".xln")) {
                 const zipWriter = new zip.TextWriter();
+                // @ts-ignore
                 str = await i.data.getData(zipWriter, { password: store.webdav.加密密钥 });
                 o = JSON5.parse(<string>str);
             }
@@ -4643,10 +4706,11 @@ version_el.onclick = async () => {
 };
 
 // 搜索
-import Fuse from "fuse.js";
+import Fuse, { FuseResultMatch } from "fuse.js";
+import { FuseResult } from "fuse.js";
 type search_result = {
     id: string;
-    l?: readonly Fuse.FuseResultMatch[];
+    l?: readonly FuseResultMatch[];
     text?: string;
     n?: number;
     type?: "str" | "regex";
@@ -4663,10 +4727,11 @@ function get_search_list() {
     }
     function w(data: data, pid?: string) {
         // TODO pdf
-        for (let i of data) {
-            if (i.type == "X-MD") {
+        for (let id of data) {
+            const i = getDataFromId(id);
+            if (i.type == "x-md") {
                 if (!集.链接[0][pid]) continue;
-                search_list[pid] = JSON5.parse(i.value);
+                search_list[pid] = i.value as any;
             } else {
                 if (i.子元素) {
                     w(i.子元素, i.id);
@@ -4809,8 +4874,9 @@ function search_cmd(str: string[]) {
     let fun: sf;
     if (str?.[1]?.[0] == "#") {
         let data = get_x_data(str[1].replace("#", ""));
-        if (data && data.子元素[0].type == "X-MD") {
-            let code = JSON5.parse(data.子元素[0].value).text;
+        const fc = data;
+        if (data && fc.type == "x-md") {
+            let code = fc.value.text as string;
             let f: sf = eval(code);
             fun = f;
         } else {
@@ -4944,24 +5010,27 @@ function load_more_search(id: string) {
     let c = link(id).get(1);
     for (let i in c) {
         集_for_each((xel) => {
-            if (xel.id == i && xel.子元素.length == 1 && xel.子元素[0].type == "X-MD") {
+            if (xel.id == i && xel.type == "x-md") {
                 chainr.push({
                     id: i,
                     score: 1,
-                    text: JSON5.parse(xel.子元素[0].value).text,
+                    text: xel.value.text as string,
                 });
                 return true;
             }
         });
     }
     集_for_each((i, p, path) => {
-        if (i.id == id && path[path.length - 1]?.子元素) {
-            for (let i of path[path.length - 1].子元素) {
-                if (i.子元素?.length == 1 && i.子元素[0].type != "X-X") {
+        const l = getDataFromId(path.at(-1))?.子元素;
+        if (i.id == id && l) {
+            for (let id of l) {
+                const i = getDataFromId(id);
+                const f = i;
+                if (f.type != "x-x") {
                     flex.push({
                         id: i.id,
                         score: 1,
-                        text: i.子元素[0].type == "X-MD" ? JSON5.parse(i.子元素[0].value).text : i.子元素[0].value,
+                        text: f.type == "x-md" ? (f.value.text as string) : JSON5.stringify(f.value),
                     });
                 }
             }
@@ -5097,7 +5166,6 @@ function show_search_l(l: search_result, exid?: string) {
         };
     }
 
-    link("0").衰减();
     let ddd = createEl("div");
     search_main.append(ddd);
     ddd.style.height = search_r_divs.length * search_i_height + 8 + "px";
@@ -5274,11 +5342,7 @@ function is_smallest_data_el(id: string) {
     let data = get_x_data(id);
     if (!data) return true;
     if (集.links?.[id]) return true;
-    let has = false;
-    for_each(data.子元素, (d) => {
-        if (d.type == "X-X") has = true;
-    });
-    return !has;
+    if (data.type === "x-x") return false;
 }
 
 /** 展示链接栏 */
@@ -5341,8 +5405,9 @@ function preview_x_link(id: string) {
         if (rect) break;
     }
     function w(data: data) {
-        for (let i of data) {
-            if (i.type == "X-X") {
+        for (let id of data) {
+            const i = getDataFromId(id);
+            if (i.type == "x-x") {
                 if (i.id == id) {
                     rect = i.rect;
                     return;
@@ -5369,10 +5434,11 @@ function preview_x_link(id: string) {
         h: 2 * dy,
     };
 
-    let els: { el: data[0]; x: number; y: number }[] = [];
+    let els: { el: srcData[0]; x: number; y: number }[] = [];
     for (let p of 集.数据) {
         if (p.id == pid) {
-            for (let x of p.data) {
+            for (let xid of p.data) {
+                const x = getDataFromId(xid);
                 let r = x.rect;
                 if (
                     rect_x_rect(r, out_rect) ||
@@ -5393,7 +5459,7 @@ function preview_x_link(id: string) {
     view_children_el.innerHTML = "";
     view_el.classList.remove("viewer_hide");
     for (let x of els) {
-        let xel = createEl("x-x");
+        let xel = createX(x.el.type);
         xel.setAttribute("style", x.el.style);
         xel.style.left = x.x - out_rect.x + "px";
         xel.style.top = x.y - out_rect.y + "px";
@@ -5425,7 +5491,7 @@ function jump_to_x_link(id: string, nrc?: boolean) {
             check_render_x();
             render_map();
             set_O_p(ex, ey);
-            if (data.type == "X-X") {
+            if (data.type == "x-x") {
                 z.focus(id);
             }
             return true;
@@ -5498,16 +5564,16 @@ function link(key0: string) {
                 if (key0 == key1) return;
                 link(key0).add();
                 link(key1).add();
-                if (集.链接[key0][key1]?.value === undefined || 集.链接[key1][key0]?.value === undefined) {
+                if (集.链接[key0][key1] === undefined || 集.链接[key1][key0] === undefined) {
                     // 只存储在边的一个方向上，以时间换空间
-                    集.链接[key0][key1] = { value: 1, time: t, s: default_down_s };
+                    集.链接[key0][key1] = { time: t };
                 }
             } else {
                 if (!集.链接[key0]) {
                     集.链接[key0] = {};
                 }
                 if (!集.链接[0][key0]) {
-                    集.链接[0][key0] = { value: 1, time: t, s: default_down_s };
+                    集.链接[0][key0] = { time: t };
                 }
             }
         },
@@ -5531,23 +5597,27 @@ function link(key0: string) {
          */
         get: (chain?: number) => {
             const l = link_map[key0];
+            function sort(obj: typeof l) {
+                const l = Object.keys(obj);
+                l.sort((a, b) => obj[b].time - obj[a].time);
+                let o: typeof obj = {};
+                for (let i of l) {
+                    o[i] = obj[i];
+                }
+                return o;
+            }
             if (!chain) {
-                return l;
+                return sort(l);
             } else {
                 const walk = (list: typeof l, chain_n: number) => {
                     const xl = {};
                     let next = null;
-                    let maxn = 0;
                     for (const i of Object.keys(list || [])) {
                         if (i === "0") continue;
                         if (xl[i]) continue;
-                        if (list[i].value > maxn) {
-                            next = i;
-                            maxn = list[i].value;
-                        }
                     }
                     if (!next) return xl;
-                    const ln = chain_n - list[next].value;
+                    const ln = chain_n; // todo 搜索loss
                     if (ln > 0) {
                         return walk(link(next).get(), ln);
                     } else {
@@ -5555,17 +5625,15 @@ function link(key0: string) {
                         return xl;
                     }
                 };
-                return walk(l, chain);
+                return sort(walk(l, chain));
             }
         },
-        value: (key1: string, dv: number) => {
+        value: (key1: string) => {
             if (key1) {
                 // 尝试正向、反向寻找边的值，否则新建
-                if (集.链接[key0]?.[key1]?.value !== undefined) {
-                    集.链接[key0][key1].value = clip(集.链接[key0][key1].value + dv, 0, 1);
+                if (集.链接[key0]?.[key1] !== undefined) {
                     集.链接[key0][key1].time = t;
-                } else if (集.链接[key1]?.[key0]?.value !== undefined) {
-                    集.链接[key1][key0].value = clip(集.链接[key1][key0].value + dv, 0, 1);
+                } else if (集.链接[key1]?.[key0] !== undefined) {
                     集.链接[key1][key0].time = t;
                 } else {
                     link(key0).add(key1);
@@ -5576,26 +5644,13 @@ function link(key0: string) {
         get_v: (is_small?: boolean) => {
             const el = get_link_el_by_id(key0);
             if (is_small || !el || is_smallest_el(el)) {
-                const link_value = 集.链接[0][key0]?.value;
+                const link_value = 集.链接[0][key0];
                 if (link_value) {
                     const l = link(key0).get();
-                    let n = 0;
-                    l["0"] = 集.链接[0][key0];
-                    for (const i in l) {
-                        n += l[i].value;
-                    }
-                    return n;
+                    return Object.keys(l).filter((i) => i !== "0").length;
                 }
             } else {
-                let n = 0;
-                let count = 0;
-                el.querySelectorAll("x-x, x-link").forEach((child) => {
-                    if (集.链接[0][child.id]) {
-                        n += link(child.id).get_v(true);
-                        count++;
-                    }
-                });
-                return count === 0 ? 0 : n / count;
+                return 0;
             }
         },
         map: () => {
@@ -5612,32 +5667,6 @@ function link(key0: string) {
                     }
                     link_map[x][i] = value;
                 }
-            }
-        },
-        衰减: () => {
-            for (let i in 集.链接) {
-                for (let j in 集.链接[i]) {
-                    let target = 集.链接[i][j];
-                    集.链接[i][j].value = down(target.value, target.time, t, target.s || default_down_s);
-                    集.链接[i][j].time = t;
-                }
-            }
-            function down(value: number, t0: number, t1: number, xv_s: number) {
-                const xv_c = 0.9;
-                // 计算衰减值
-                function x2v(x: number) {
-                    return Math.exp((x * Math.log(xv_c)) / xv_s);
-                }
-                // 通过值反推原先输入的x
-                function v2x(v: number) {
-                    return Math.log(v) * (xv_s / Math.log(xv_c));
-                }
-                let old_x = v2x(value);
-                // 半天为一个单位
-                let t = (t1 - t0) / 1000 / 60 / 60 / 12;
-                let new_x = t + old_x;
-                let new_v = Math.max(x2v(new_x), link_value_min_d() / 2); // 下限为精度四舍五入后保留1，如2->0.005
-                return new_v;
             }
         },
     };
@@ -5689,17 +5718,27 @@ function find_p(el: HTMLElement) {
 
 /** 获取主元素值 */
 function get_x_out_value(el: x) {
-    return {
-        id: el.id,
-        style: el.getAttribute("style") || "",
-        class: el.className,
-        子元素: el.value,
-        type: el.tagName,
-    };
+    if (el.type === "x-x") {
+        return {
+            id: el.id,
+            style: el.getAttribute("style") || "",
+            class: el.className,
+            子元素: el.value as data,
+            type: el.type,
+        };
+    } else {
+        return {
+            id: el.id,
+            style: el.getAttribute("style") || "",
+            class: el.className,
+            value: el.value as xelValue,
+            type: el.type,
+        };
+    }
 }
 
 function copy_x(x: x, pel?: x) {
-    let new_x = createEl("x-x");
+    let new_x = createX(x.type);
     new_x.id = x.id;
     (pel || O).append(new_x);
     new_x.setAttribute("style", x.getAttribute("style"));
@@ -5729,11 +5768,11 @@ function to_flex(els: string[], d: "x" | "y") {
         get_data();
         return;
     }
-    let xels = [] as data;
+    let xels = [] as srcData[0][];
     for (let i of els) {
         xels.push(get_x_data(i));
     }
-    let xel = createEl("x-x");
+    let xel = createX("x-x");
     xel.id = uuid_id();
     if (d == "x") {
         xel.classList.add("flex-row");
@@ -5745,14 +5784,13 @@ function to_flex(els: string[], d: "x" | "y") {
     xel.style.left = xels[0].rect.x + "px";
     xel.style.top = xels[0].rect.y + "px";
     z.push(xel);
-    let data = [] as data;
+    let data: data = [];
     for (let el of xels) {
         set_data_style(el, "left", "");
         set_data_style(el, "top", "");
         set_data_style(el, "position", "relative");
-        data.push(el);
-        remove_x_data(el.id);
-        elFromId(el.id)?.remove();
+        data.push(el.id);
+        removeXID(el.id);
     }
     xel.value = data;
     get_data();
@@ -5770,7 +5808,8 @@ function is_flex(el: HTMLElement) {
         return "row";
     }
 }
-function is_data_flex(data: data[0]) {
+function is_data_flex(data: srcData[0]) {
+    if (data.type != "x-x") return false;
     if (data.class.split(" ").includes("flex-column") || data.class.split(" ").includes("flex-row")) {
         return "flex";
     }
@@ -5784,7 +5823,7 @@ function is_data_flex(data: data[0]) {
 
 /** 添加一个固定布局元素 */
 function add_none_layout() {
-    let x = createEl("x-x");
+    let x = createX("x-x");
     x.style.left = "0";
     x.style.top = "0";
     z.push(x);
@@ -5822,9 +5861,7 @@ function to_none_layout(els: string[]) {
     let x = add_none_layout();
     let data = [] as data;
     for (let id of els) {
-        data.push(get_x_data(id));
-        remove_x_data(id);
-        elFromId(id)?.remove();
+        data.push(id);
     }
     x.value = data;
     reflash_none_layout(x);
@@ -5841,19 +5878,20 @@ function to_one_line(xels: string[]) {
                     let type: md_type;
                     let p_ids: string[] = [];
                     for_each(data.子元素, (x, i, path) => {
-                        if (x.type == "X-MD") {
-                            t += JSON5.parse(x.value).text;
-                            if (i == 0) type = JSON5.parse(x.value).type;
+                        if (x.type == "x-md") {
+                            const v = x.value as markdown["value"];
+                            t += v.text;
+                            if (i == 0) type = v.type;
 
-                            p_ids.push(path[path.length - 1].id);
+                            p_ids.push(path[path.length - 1]);
                         }
                     });
                     for (let i of p_ids) {
                         z.remove(i);
                     }
-                    data.子元素 = [
-                        { id: "", type: "X-MD", class: type, style: "", value: JSON.stringify({ text: t, type }) },
-                    ];
+                    data.type = "x-md";
+                    data.value = { text: t, type };
+                    data.class = type;
                     // TODO 链接合并
                     let x = get_x_by_id(id);
                     if (x) {
@@ -5873,28 +5911,21 @@ function to_more_line(xels: string[], c?: string | RegExp) {
     for (let id of xels) {
         集_for_each((el, path) => {
             if (el.id == id) {
-                if (el.子元素.length == 1 && el.子元素[0].type == "X-MD") {
-                    let v = JSON5.parse(el.子元素[0].value);
+                if (el.type == "x-md") {
+                    let v = el.value as markdown["value"];
                     let l = v.text.trim().split(c || "\n");
                     el.子元素 = [];
                     el.class += " flex-column";
                     for (let t of l) {
                         if (!t) continue;
                         let id = uuid_id();
-                        el.子元素.push({
-                            type: "X-X",
-                            id,
-                            class: "",
+                        el.子元素.push(id);
+                        addXData(id, {
+                            type: "x-md",
+                            id: "",
+                            class: v.type,
                             style: "",
-                            子元素: [
-                                {
-                                    type: "X-MD",
-                                    id: "",
-                                    class: v.type,
-                                    style: "",
-                                    value: JSON.stringify({ text: t, type: v.type }),
-                                },
-                            ],
+                            value: { text: t, type: v.type },
                         });
                         z.add(id);
                     }
@@ -5945,22 +5976,16 @@ function fixed_el() {
 function out_group(els: string[]) {
     for (let id of els) {
         let el = get_x_data(id);
-        if (el.子元素.length > 1 || el.子元素[0].type == "X-X") {
-            let p: { [id: string]: data[0] } = {};
-            for (let data of el.子元素) {
-                if (data.type == "X-X") {
-                    p[data.id] = data;
-                }
-            }
+        if (el.子元素.length > 1 || el.type == "x-x") {
             for (let r of 集.数据) {
                 if (r.id == 当前画布.id) {
-                    for (let i in p) {
-                        let el = p[i];
-                        set_data_style(el, "left", p[i].rect.x + "px");
-                        set_data_style(el, "top", p[i].rect.y + "px");
+                    for (let i of el.子元素) {
+                        let el = getDataFromId(i);
+                        set_data_style(el, "left", el.rect.x + "px");
+                        set_data_style(el, "top", el.rect.y + "px");
                         set_data_style(el, "position", "absolute");
                         set_data_style(el, "z-index", String(r.data.length + 1));
-                        r.data.push(p[i]);
+                        r.data.push(i);
                     }
                 }
             }
@@ -6359,14 +6384,13 @@ menu_el.onclick = () => {
 // MD
 import markdownit from "markdown-it";
 import markdownitTaskLists from "markdown-it-task-lists";
-import markdownitEmoji from "markdown-it-emoji";
+// import {markdownitEmoji} from "markdown-it-emoji";
 var md = markdownit({
     html: true,
     linkify: true,
     typographer: true,
-})
-    .use(markdownitTaskLists, { enabled: true })
-    .use(markdownitEmoji);
+}).use(markdownitTaskLists, { enabled: true });
+// .use(markdownitEmoji);
 
 import * as xmmath from "xmmath";
 
@@ -6384,11 +6408,9 @@ md.renderer.rules.fence = function (tokens, idx, options, env, self) {
     return f(tokens, idx, options, env, self);
 };
 function mermaid_code(content: string) {
-    let o = "";
-    mermaid.mermaidAPI.render("mgraph" + String(new Date().getTime()), content, (svg) => {
-        o = svg;
-    });
-    return o;
+    const o = document.createElement("div");
+    mermaid.mermaidAPI.render("mgraph" + String(new Date().getTime()), content, o);
+    return o.innerHTML;
 }
 // 代码来自 https://github.com/artisticat1/obsidian-tikzjax 和 https://github.com/kisonecat/tikzjax
 var import_latex = false;
@@ -6820,12 +6842,19 @@ function time_text(time: number) {
     };
 }
 
+type xelValue = { [key: string]: unknown };
+interface xel extends HTMLElement {
+    value: xelValue;
+}
+
 // template
 /** 主元素 */
 class x extends HTMLElement {
     constructor() {
         super();
     }
+
+    private _type: keyof x_tag_map = "x-x";
 
     connectedCallback() {
         this.onmouseleave = () => {
@@ -6856,16 +6885,28 @@ class x extends HTMLElement {
             this.set_v(JSON5.parse(this.getAttribute("value")));
         }
 
+        if (this.getAttribute("data-type")) {
+            this._type = this.getAttribute("data-type").toLowerCase() as any;
+        }
+
         this.onpointerover = (e) => {
             e.stopPropagation();
             show_link_value_bar(this);
         };
     }
 
+    get type() {
+        return this._type;
+    }
+
+    set type(t) {
+        this._type = t;
+    }
+
     get value() {
         let p_el = find_p(this);
         let z = p_el ? get_zoom(p_el.id) : NaN;
-        let list = [] as data;
+        let list: data = [];
         let els = this.querySelectorAll(":scope > *");
         let map: { index: number; z: number }[] = [];
         const _is_flex = is_flex(this);
@@ -6873,60 +6914,49 @@ class x extends HTMLElement {
             map.push({ index: i, z: Number(el.style.zIndex) || 1 });
         });
         if (!_is_flex) map = map.sort((a, b) => a.z - b.z);
+        if (map.length === 1 && els[0].tagName != "X-X") return (els[0] as xel).value;
         for (let n of map) {
             const l = els[n.index];
             let el = l as HTMLElement;
-            if (el.tagName == "X-X") {
-                if (el.querySelector("x-link")) {
-                    if (!集.links) 集.links = {};
-                    el.querySelectorAll("x-link").forEach((lel) => {
-                        if (z) 集.links[lel.id] = { pid: el.id, rect: el_offset2(lel, p_el, z) };
-                    });
-                }
-                let data = {
-                    id: el.id,
-                    style: el.getAttribute("style") || "",
-                    class: el.className,
-                    子元素: (el as x).value,
-                    type: el.tagName,
-                };
-                if (z) data["rect"] = el_offset2(el, p_el, z);
-                list.push(data);
-            } else {
-                list.push({
-                    id: el.id,
-                    style: el.getAttribute("style") || "",
-                    class: el.className,
-                    value: (el as markdown).value,
-                    type: el.tagName,
+            if (el.querySelector("x-link")) {
+                if (!集.links) 集.links = {};
+                el.querySelectorAll("x-link").forEach((lel) => {
+                    if (z) 集.links[lel.id] = { pid: el.id, rect: el_offset2(lel, p_el, z) };
                 });
             }
+            list.push(el.id);
         }
         return list;
     }
 
-    set_v(data: data) {
+    set_v(data: data | xelValue) {
         for (let x of this.children) {
             if (x.tagName != "DIV") {
                 x.remove();
             }
         }
-        for (let d of data) {
-            if (d.type == "X-X") {
-                let el = createEl(d.type) as x;
+        if (Array.isArray(data)) {
+            if (this._type != "x-x") throw `${this.id} type`;
+            for (let id of data) {
+                const d = getDataFromId(id);
+                let el = createX(d.type);
                 el.setAttribute("style", d.style);
+                el.setAttribute("data-type", d.type);
                 el.className = d.class;
                 el.id = d.id;
                 this.append(el);
-                el.value = d.子元素;
-            } else {
-                let el = createEl(d.type) as markdown;
-                el.setAttribute("style", d.style);
-                el.className = d.class;
-                el.id = d.id;
-                this.append(el);
-                el.value = d.value;
+                if (d.type === "x-x") {
+                    el.value = d.子元素;
+                } else {
+                    el.value = d.value;
+                }
             }
+        } else {
+            if (this._type === "x-x") throw `${this.id} type`;
+            const d = data;
+            let el = createEl(this._type) as xel;
+            this.append(el);
+            el.value = d;
         }
     }
 
@@ -6946,8 +6976,6 @@ function new_x_bar(id: string) {
     bar.className = "x-x_bar";
     const m = createEl("div");
     m.innerHTML = icon(handle_svg);
-    var f = createEl("div");
-    f.innerHTML = icon(ding_svg);
     var d = createEl("div");
     d.innerHTML = icon(close_svg);
     let copy = createEl("div");
@@ -6955,7 +6983,6 @@ function new_x_bar(id: string) {
 
     bar.append(m);
     bar.append(copy);
-    bar.append(f);
     bar.append(d);
 
     m.onpointerdown = (e) => {
@@ -6986,12 +7013,10 @@ function new_x_bar(id: string) {
             set_模式("设计");
 
             for (let i of 集.中转站) {
-                if (xel.id == i.id) {
+                if (xel.id == i) {
                     drag_block = true;
-                    if (!i.global) {
-                        集.中转站 = 集.中转站.filter((x) => x != i);
-                        tmp_s_reflash();
-                    }
+                    集.中转站 = 集.中转站.filter((x) => x != i);
+                    tmp_s_reflash();
                     data_changed();
                 }
             }
@@ -7005,25 +7030,6 @@ function new_x_bar(id: string) {
             free_o_rects = [{ el: main_x.id, x: main_x.offsetLeft, y: main_x.offsetTop }];
         }
     };
-
-    f.onclick = () => {
-        f.classList.toggle("buttom_a");
-        if (f.classList.contains("buttom_a")) {
-            global_x.push({
-                pid: 集.meta.UUID,
-                data: { id: main_x.id, 子元素: main_x.value, class: main_x.className, type: "X-X", style: "" },
-            });
-        } else {
-            remove_global(main_x.id);
-        }
-    };
-
-    for (let x of global_x)
-        if (x.data.id == main_x.id)
-            if (x.data.global) {
-                f.classList.add("buttom_a");
-                break;
-            }
 
     copy.onpointerdown = (e) => {
         e.preventDefault();
@@ -7052,14 +7058,7 @@ function new_x_bar(id: string) {
                             data.id = nid;
                             link(nid).add();
                         });
-                        pc.data.push({
-                            id: nid,
-                            class: main_x.className,
-                            style: xel.getAttribute("style"),
-                            type: "X-X",
-                            rect: el_offset2(main_x, O),
-                            子元素: v,
-                        });
+                        pc.data.push(nid);
                         return true;
                     }
                 }
@@ -7086,6 +7085,343 @@ function new_x_bar(id: string) {
     return bar;
 }
 
+/** 文字元素 */
+class Text extends HTMLElement {
+    constructor() {
+        super();
+    }
+
+    _value: { type: md_type; index: RichTextType } = { type: "p", index: [] };
+
+    selectRange: range = { start: 0, end: 0 };
+
+    text: HTMLInputElement;
+
+    h: HTMLElement;
+
+    map: Map<range, Node>;
+
+    cursor = createEl("div");
+
+    add_event: () => void;
+
+    connectedCallback() {
+        const s = this;
+        this.h = this;
+
+        if (this.getAttribute("value")) {
+            let v = this.getAttribute("value");
+            this._value = JSON5.parse(v);
+            this.render();
+        }
+
+        this.add_event = () => {
+            this.text = md_text2;
+            const text = this.text;
+            text.oninput = (e) => {
+                const t = text.value;
+                const select = rSelect(this._value.index, this.selectRange.start, this.selectRange.end);
+                select.replace(t);
+                this._value.index = select.get();
+
+                text.value = "";
+
+                this.selectRange.start = this.selectRange.end = select.getRange().end;
+
+                this.render();
+            };
+        };
+
+        s.onpointerdown = () => {
+            if (模式 === "浏览") this.edit = true;
+        };
+        s.spellcheck = false;
+        s.onpointerup = (e) => {
+            if (模式 != "浏览") return;
+            let el = <HTMLElement>e.target;
+            if (el.tagName != "INPUT") {
+                s.contentEditable = "true";
+            } else {
+                return;
+            }
+            console.log(document.getSelection().getRangeAt(0));
+            let r = document.getSelection().getRangeAt(0);
+            const Range2Select = (node: Node, of: number) => {
+                let before = 0;
+                this.map.forEach((n, r) => {
+                    if (n.contains(node)) {
+                        before = of + r.start;
+                    }
+                });
+
+                return before;
+            };
+            let start_t = Range2Select(r.startContainer, r.startOffset);
+            let end_t = Range2Select(r.endContainer, r.endOffset);
+            console.log(start_t, end_t);
+            this.selectRange.start = start_t;
+            this.selectRange.end = end_t;
+            setTimeout(() => {
+                this.edit = true;
+            }, 10);
+            s.contentEditable = "false";
+            this.text.focus();
+        };
+    }
+
+    setSelect(start: number, end: number) {
+        let range = new Range();
+        this.map.forEach((n, r) => {
+            if (r.start <= start && start < r.end) {
+                range.setStart(n, start - r.start);
+            }
+        });
+        this.map.forEach((n, r) => {
+            if (r.start < end && end <= r.end) {
+                range.setEnd(n, end - r.start);
+            }
+        });
+        console.log(range);
+        return range;
+    }
+
+    set edit(v: boolean | "cr") {
+        if (v) {
+            if (md_text.getAttribute("data-id") != this.parentElement.id) {
+                md_text.setAttribute("data-id", this.parentElement.id);
+                this.add_event();
+            }
+            this.text.classList.add("show_md");
+            if (v != "cr") this.text.focus();
+            set_模式("浏览");
+        } else {
+            md_text.setAttribute("data-id", "");
+            this.text.classList.remove("show_md");
+            this.text.blur();
+            this.text = null;
+        }
+    }
+
+    set value(v) {
+        this._value = JSON5.parse(v);
+        this.type = this._value.type;
+        this.render();
+    }
+
+    get value() {
+        return JSON.stringify(this._value);
+    }
+
+    reload() {
+        this.render();
+    }
+
+    render() {
+        let type = this._value.type;
+        let index = this._value.index;
+        if (type === "text") {
+            this.h.innerHTML = "";
+            const x = renderRich(index);
+            this.h.append(x.f);
+            this.map = x.map;
+        } else if (type === "todo") {
+            this.init_v("todo");
+            if (!集.values[this.parentElement.id].todo["checked"])
+                集.values[this.parentElement.id].todo["checked"] = false;
+            let i = `<input type="checkbox" ${集.values[this.parentElement.id].todo.checked ? "checked" : ""}>`;
+            this.h.innerHTML = i;
+            const x = renderRich(index);
+            this.h.append(x.f);
+            this.map = x.map;
+        } else if (type === "latex math") {
+            this.h.innerHTML = get_latex_math_svg(`\\displaylines{${index[0].text} }`);
+        } else if (type === "math") {
+            this.h.innerHTML = xmmath.toMMLHTML(index[0].text);
+        } else if (type === "iframe") {
+            this.h.innerHTML = `<iframe src="${index[0].text}"></iframe>`;
+        } else if (type === "code") {
+            this.init_v("code");
+            if (!集.values[this.parentElement.id].code?.lan) 集.values[this.parentElement.id].code["lan"] = "";
+            if (集.values?.[this.parentElement.id]?.code?.["html"]) {
+                this.h.innerHTML = 集.values[this.parentElement.id].code["html"];
+            } else {
+                switch (集.values[this.parentElement.id].code["lan"]) {
+                    case "mermaid":
+                        this.h.innerHTML = mermaid_code(index[0].text);
+                        break;
+                    case "tikz":
+                        this.h.innerHTML = tikz_code(index[0].text);
+                        break;
+                    case "jxg":
+                        this.h.innerHTML = jxg_code(index[0].text);
+                        break;
+                    default:
+                        this.h.innerText = index[0].text;
+                        break;
+                }
+            }
+        } else {
+            this.h.innerHTML = "";
+            const x = renderRich(index);
+            this.h.append(x.f);
+            this.map = x.map;
+        }
+    }
+
+    init_v(type: md_type) {
+        if (!集.values[this.parentElement.id]) 集.values[this.parentElement.id] = {};
+        if (!集.values[this.parentElement.id][type]) 集.values[this.parentElement.id][type] = {};
+    }
+
+    set type(type: md_type) {
+        this._value.type = type;
+        this.h.className = type;
+        this.render();
+    }
+}
+
+window.customElements.define("x-text", Text);
+
+type range = { start: number; end: number };
+type RichTextType = {
+    text: string;
+    index: range; // [], ![)
+    style?: { [key in keyof CSSStyleDeclaration]?: string };
+    classList?: string[];
+    isHTML?: boolean;
+}[];
+
+function rSelect(_index: RichTextType, start?: number, end?: number) {
+    let length = len(_index);
+    if (start === undefined) start = 0;
+    if (end === undefined) end = length;
+    if (start > end) [start, end] = [end, start];
+    start = clip(start, 0, length);
+    end = clip(end, 0, length);
+    let range = { start, end };
+    let { before, center, after } = clipI(range, _index);
+    function replace(_range: range, text: string) {
+        let p = center[0] ?? before.at(-1) ?? { text: "", index: { start: _range.start, end: _range.start } }; // 以左边样式为准
+        p = structuredClone(p);
+        p.text = text;
+        p.index.start = _range.start;
+        p.index.end = _range.start + text.length;
+        center = [p];
+        after = rightAdd(text.length - (_range.end - _range.start), after);
+        range.end = p.index.end;
+    }
+    function setStyle(styleName: keyof CSSStyleDeclaration, style: string) {
+        center.forEach((i) => {
+            if (!i.style) i["style"] = {};
+            if (styleName === "length" || styleName === "parentRule") return;
+            i.style[styleName] = style;
+            if (!style) delete i.style[styleName];
+        });
+    }
+    function addClass(_class: string) {
+        center.forEach((i) => {
+            if (i.classList?.includes(_class)) return;
+            if (!i.classList) i["classList"] = [];
+            i.classList.push(_class);
+        });
+    }
+    function rmClass(_class: string) {
+        center.forEach((i) => {
+            if (i.classList) i.classList = i.classList.filter((c) => c != _class);
+        });
+    }
+    function clipI(range: range, _index: RichTextType) {
+        let index = structuredClone(_index);
+        function c(point: number, _index: typeof index) {
+            let index = structuredClone(_index);
+            let a: typeof index = [];
+            let b: typeof index = [];
+            let isA = true;
+            for (let i of index) {
+                if (i.index.start < point && point < i.index.end) {
+                    const dp = point - i.index.start;
+                    let ai = structuredClone(i);
+                    ai.index.end = point;
+                    ai.text = ai.text.slice(0, dp);
+                    let bi = structuredClone(i);
+                    bi.index.start = point;
+                    bi.text = bi.text.slice(dp);
+                    a.push(ai);
+                    b.push(bi);
+                    isA = false;
+                    continue;
+                }
+                if (i.index.start === point) isA = false;
+                if (isA) a.push(i);
+                else b.push(i);
+            }
+            return [a, b];
+        }
+
+        let [before, tmp] = c(range.start, index);
+        let [center, after] = c(range.end, tmp);
+        return { before, center, after, range };
+    }
+    function join(..._indexes: RichTextType[]) {
+        let index = _indexes.flat();
+        return index as RichTextType;
+    }
+    function rightAdd(num: number, _index: RichTextType) {
+        let index = structuredClone(_index);
+        return index.map((i) => {
+            i.index.start += num;
+            i.index.end += num;
+            return i;
+        });
+    }
+    function len(_index: RichTextType) {
+        if (_index.length === 0) return 0;
+        return _index.at(-1).index.end - _index.at(0).index.start;
+    }
+    return {
+        replace: (text: string) => replace({ start, end }, text),
+        setStyle: setStyle,
+        addClass: (_class: string) => addClass(_class),
+        rmClass: (_class: string) => rmClass(_class),
+        get: () => join(before, center, after),
+        getSelect: () => join(center),
+        getRange: () => join(center)[0].index,
+        getABC: () => {
+            return { before, center, after };
+        },
+        len: () => len(center),
+    };
+}
+
+function renderRich(index: RichTextType) {
+    let span = document.createDocumentFragment();
+    let map: Map<range, Node> = new Map();
+    for (let i of index) {
+        if (i.isHTML) {
+            let el = createEl("span");
+            el.setAttribute("data-html", "true");
+            el.innerHTML = i.text;
+            span.append(el);
+            map.set(i.index, el);
+            continue;
+        }
+        if (!i.classList && !i.style) {
+            const textNode = document.createTextNode(i.text);
+            span.append(textNode);
+            map.set(i.index, textNode);
+            continue;
+        }
+        let el = createEl("span");
+        const textNode = document.createTextNode(i.text);
+        el.append(textNode);
+        if (i.classList) for (let c of i.classList) el.classList.add(c);
+        if (i.style) for (let n in i.style) el.style[n] = i.style[n];
+        map.set(i.index, textNode);
+        span.append(el);
+    }
+    return { f: span, map: map };
+}
+
 type md_type =
     | "text"
     | "h1"
@@ -7108,7 +7444,7 @@ class markdown extends HTMLElement {
         super();
     }
 
-    _value: { type: md_type; text: string } = { type: "p", text: "" };
+    private _value: { type: md_type; text: string } = { type: "p", text: "" };
 
     index: ReturnType<typeof md.parse>;
 
@@ -7181,7 +7517,7 @@ class markdown extends HTMLElement {
                     if (e.ctrlKey) {
                         if (e.shiftKey) {
                             let rel = find_root_layout(this.parentElement);
-                            let xel = createEl("x-x");
+                            let xel = createX("x-md");
                             xel.style.left = rel.offsetLeft + "px";
                             xel.style.top = rel.offsetTop + rel.offsetHeight + 16 + "px";
                             z.push(xel);
@@ -7198,7 +7534,7 @@ class markdown extends HTMLElement {
                             let t0 = t.slice(0, text.selectionStart),
                                 t1 = t.slice(text.selectionEnd, t.length);
                             this._value.text = t0;
-                            this.value = JSON.stringify(this._value);
+                            this.value = this._value;
 
                             let p = this.parentElement as x;
                             let pxel = null as x;
@@ -7209,14 +7545,14 @@ class markdown extends HTMLElement {
                                 pxel = p.parentElement as x;
                             } else {
                                 // 不存在上级堆叠元素，需要新建并把此元素套进去
-                                pxel = createEl("x-x");
+                                pxel = createX("x-x");
                                 pxel.id = uuid_id();
                                 link(pxel.id).add();
                                 pxel.style.left = p.offsetLeft + "px";
                                 pxel.style.top = p.offsetTop + "px";
                                 pxel.classList.add("flex-column");
                                 z.push(pxel);
-                                let x = createEl("x-x");
+                                let x = createX(p.type);
                                 x.id = p.id;
                                 x.setAttribute("style", p.getAttribute("style"));
                                 pxel.append(x);
@@ -7229,7 +7565,7 @@ class markdown extends HTMLElement {
                                 p = x;
                             }
 
-                            let xel = createEl("x-x");
+                            let xel = createX("x-md");
                             let md = createEl("x-md");
                             xel.append(md);
                             xel.id = uuid_id();
@@ -7242,7 +7578,7 @@ class markdown extends HTMLElement {
                             )
                                 ? "p"
                                 : this._value.type;
-                            md.value = JSON.stringify({ type: type, text: t1 });
+                            md.value = { type: type, text: t1 };
                             md.text.setSelectionRange(0, 0);
 
                             get_data();
@@ -7287,7 +7623,7 @@ class markdown extends HTMLElement {
                         text.dispatchEvent(new Event("input"));
                     } else {
                         let p = this.parentElement as x;
-                        let x = createEl("x-x"),
+                        let x = createX(p.type),
                             md = createEl("x-md");
                         x.id = p.id;
                         x.setAttribute("style", p.getAttribute("style"));
@@ -7472,7 +7808,7 @@ class markdown extends HTMLElement {
                             let pel = el.parentElement;
                             let md: markdown;
                             if (!(pel.classList.contains("flex-column") || pel.classList.contains("flex-row"))) {
-                                let nel = createEl("x-x");
+                                let nel = createX("x-md");
                                 nel.id = el.id;
                                 el.id = uuid_id();
                                 link(el.id).add();
@@ -7498,13 +7834,13 @@ class markdown extends HTMLElement {
                                     md.text.setRangeText(tt);
                                     md.reload();
                                 } else {
-                                    let x = createEl("x-x");
+                                    let x = createX("x-md");
                                     let md = createEl("x-md");
                                     last_el.after(x);
                                     x.append(md);
                                     x.id = uuid_id();
                                     link(x.id).add();
-                                    md.value = JSON.stringify({ type: "p", text: tt });
+                                    md.value = { type: "p", text: tt };
                                     last_el = x;
                                 }
                             }
@@ -7699,7 +8035,7 @@ class markdown extends HTMLElement {
     }
 
     set value(v) {
-        this._value = JSON5.parse(v);
+        this._value = v;
         this.type = this._value.type;
         let t = this._value.text;
         if (this.text.getAttribute("data-id") == this.parentElement.id) this.text.value = t;
@@ -7707,7 +8043,7 @@ class markdown extends HTMLElement {
     }
 
     get value() {
-        return JSON.stringify(this._value);
+        return this._value;
     }
 
     reload() {
@@ -7767,7 +8103,7 @@ class markdown extends HTMLElement {
 
     set type(type: md_type) {
         this._value.type = type;
-        this.h.className = type;
+        this.parentElement.className = type;
         this.render();
     }
 
@@ -8282,6 +8618,8 @@ class pdf_viewer extends HTMLElement {
 window.customElements.define("x-pdf", pdf_viewer);
 
 /** 绘画元素 */
+import { getStroke } from "perfect-freehand";
+
 import nDollar from "ndollar-js";
 let recognizer = new nDollar.Recognizer(false);
 
@@ -8595,112 +8933,77 @@ class draw extends HTMLElement {
         if (type == "s") pen_s(this);
 
         function pen_p(d: draw) {
-            if (d.points.length != 1) {
-                let ps1 = [],
-                    ps2 = [];
-                let so = (i: number) => {
-                    let w = d.points[i - 1].p * (d.pen.width / 2);
-                    if (d.pen.zoom) w = w / zoom;
-                    let x0 = d.points[i - 2].x,
-                        y0 = d.points[i - 2].y,
-                        x1 = d.points[i - 1].x,
-                        y1 = d.points[i - 1].y,
-                        x2 = d.points?.[i]?.x || x,
-                        y2 = d.points?.[i]?.y || y;
-                    let a = Math.atan2(y2 - y0, x2 - x0);
-                    let p1 = { x: x1 + w * Math.cos(a + Math.PI / 2), y: y1 + w * Math.sin(a + Math.PI / 2) };
-                    let p2 = { x: x1 + w * Math.cos(a - Math.PI / 2), y: y1 + w * Math.sin(a - Math.PI / 2) };
-                    ps1.push(p1);
-                    ps2.push(p2);
-                };
-                for (let i = 3; i < d.points.length; i++) {
-                    so(i);
-                }
-                so(d.points.length);
-                ps1.push({ x, y });
-
-                let ps = [];
-                for (let i of ps1) {
-                    ps.push(i);
-                }
-                for (let i = ps2.length - 1; i >= 0; i--) {
-                    ps.push(ps2[i]);
-                }
-                let at = draw_curve(ps);
-                let p = document.createElementNS("http://www.w3.org/2000/svg", "path");
-                let t = `translate(${d.ox},${d.oy})`;
-                p.setAttribute("transform", t);
-                if (d.points.length != 2) p.setAttribute("d", at);
-                p.setAttribute("fill", d.pen.color);
-
-                d.tmp_svg.innerHTML = "";
-
-                d.tmp_svg.append(p);
-            }
-            if (d.points.length == 1 || d.points.length == 2) {
-                d.points.push({ x, y, p: e.pressure });
-            } else {
-                let a1 = Math.atan2(
-                    d.points[d.points.length - 1].y - d.points[d.points.length - 2].y,
-                    d.points[d.points.length - 1].x - d.points[d.points.length - 2].x
-                );
-                let a2 = Math.atan2(d.points[d.points.length - 1].y - y, d.points[d.points.length - 1].x - x);
-                let s = Math.sqrt(
-                    (d.points[d.points.length - 1].y - y) ** 2 + (d.points[d.points.length - 1].x - x) ** 2
-                );
-                if (
-                    s >
-                        ((d.pen.width / 2) * (e.pressure + d.points[d.points.length - 1].p)) /
-                            (d.pen.zoom ? zoom : 1) ||
-                    Math.abs(a1 - a2) < Math.PI / 2
-                ) {
-                    d.points.push({ x, y, p: e.pressure });
-                }
-            }
-        }
-
-        function pen_s(d: draw) {
             d.points.push({ x, y, p: e.pressure });
-            if (d.points.length < 2) return;
-            let ps = d.points.slice(1, d.points.length - 1);
-            let at = draw_curve(ps);
+            let ps = d.points.map((i) => [i.x, i.y, i.p]);
+            ps = ps.slice(1);
+            const outlinePoints = getStroke(ps, {
+                simulatePressure: false,
+                size: d.pen.zoom ? d.pen.width / zoom : d.pen.width,
+            });
+
+            console.log(ps);
+
+            let at = getSvgPathFromStroke(outlinePoints);
+
             let p = document.createElementNS("http://www.w3.org/2000/svg", "path");
             let t = `translate(${d.ox},${d.oy})`;
             p.setAttribute("transform", t);
-            p.setAttribute("d", at);
-            p.setAttribute("fill", "none");
-            p.setAttribute("stroke", d.pen.color);
-            p.setAttribute("stroke-width", (d.pen.zoom ? d.pen.width / zoom : d.pen.width) + "px");
-            p.setAttribute("stroke-linecap", "round");
-            p.setAttribute("stroke-linejoin", "round");
+            if (d.points.length != 2) p.setAttribute("d", at);
+            p.setAttribute("fill", d.pen.color);
+
             d.tmp_svg.innerHTML = "";
 
             d.tmp_svg.append(p);
         }
 
-        function draw_curve(p: { x: number; y: number }[]) {
-            let t = 1 / 5;
-            let pc = [];
-            for (let i = 1; i < p.length - 1; i++) {
-                let dx = p[i - 1].x - p[i + 1].x;
-                let dy = p[i - 1].y - p[i + 1].y;
-                pc[i] = [
-                    { x: p[i].x - dx * t, y: p[i].y - dy * t },
-                    { x: p[i].x + dx * t, y: p[i].y + dy * t },
-                ];
+        function pen_s(d: draw) {
+            d.points.push({ x, y, p: e.pressure });
+            if (d.points.length < 2) return;
+            let ps = d.points.map((i) => [i.x, i.y, i.p]);
+            ps = ps.slice(1);
+            const outlinePoints = getStroke(ps, {
+                size: d.pen.zoom ? d.pen.width / zoom : d.pen.width,
+            });
+
+            let at = getSvgPathFromStroke(outlinePoints);
+            let p = document.createElementNS("http://www.w3.org/2000/svg", "path");
+            let t = `translate(${d.ox},${d.oy})`;
+            p.setAttribute("transform", t);
+            p.setAttribute("d", at);
+            p.setAttribute("fill", d.pen.color);
+            d.tmp_svg.innerHTML = "";
+
+            d.tmp_svg.append(p);
+        }
+
+        function getSvgPathFromStroke(points: number[][], closed = true) {
+            const average = (a: number, b: number) => (a + b) / 2;
+            const len = points.length;
+
+            if (len < 4) {
+                return ``;
             }
 
-            let d = `M${p[0].x},${p[0].y} Q${pc[1][1].x},${pc[1][1].y}, ${p[1].x},${p[1].y} `;
-            if (p.length > 2) {
-                for (var i = 1; i < p.length - 2; i++) {
-                    d += `C${pc[i][0].x}, ${pc[i][0].y}, ${pc[i + 1][1].x}, ${pc[i + 1][1].y}, ${p[i + 1].x},${
-                        p[i + 1].y
-                    }`;
-                }
-                let n = p.length - 1;
-                d += `Q${pc[n - 1][0].x}, ${pc[n - 1][0].y}, ${p[n].x}, ${p[n].y}`;
+            let a = points[0];
+            let b = points[1];
+            const c = points[2];
+
+            let result = `M${a[0].toFixed(2)},${a[1].toFixed(2)} Q${b[0].toFixed(2)},${b[1].toFixed(2)} ${average(
+                b[0],
+                c[0]
+            ).toFixed(2)},${average(b[1], c[1]).toFixed(2)} T`;
+
+            for (let i = 2, max = len - 1; i < max; i++) {
+                a = points[i];
+                b = points[i + 1];
+                result += `${average(a[0], b[0]).toFixed(2)},${average(a[1], b[1]).toFixed(2)} `;
             }
-            return d;
+
+            if (closed) {
+                result += "Z";
+            }
+
+            return result;
         }
     }
 
@@ -9091,29 +9394,10 @@ class link_value extends HTMLElement {
     vl: HTMLElement;
 
     connectedCallback() {
-        const add_el = createEl("img");
-        const down_el = createEl("img");
         this.v = createEl("div");
         const c = createEl("div");
-        c.append(down_el, this.v, add_el);
+        c.append(this.v);
         this.append(c);
-
-        add_el.src = add_svg;
-        down_el.src = minus_svg;
-        add_el.onclick = () => {
-            link("0").value(this._id, 0.1);
-            this.v.innerHTML = "";
-            this.v.append(link_value_text(集.链接[0][this._id].value));
-            now_data_id = "0";
-            add_bci(this._id);
-        };
-        down_el.onclick = () => {
-            link("0").value(this._id, -0.1);
-            this.v.innerHTML = "";
-            this.v.append(link_value_text(集.链接[0][this._id].value));
-            now_data_id = "0";
-            add_bci(this._id);
-        };
 
         this.vl = createEl("div");
         this.append(this.vl);
@@ -9122,18 +9406,21 @@ class link_value extends HTMLElement {
             let v = "";
             let el = get_x_by_id(this._id);
             add_bci(this._id);
-            if (el.tagName == "X-X") {
+            if (el.type == "x-x") {
                 let w = (v: data) => {
-                    for (let i of v) {
-                        if (i.type == "X-MD") {
-                            return JSON5.parse(i.value).text;
+                    for (let id of v) {
+                        const i = getDataFromId(id);
+                        if (i.type == "x-md") {
+                            return i.value.text as string;
                         } else {
                             if (i.子元素) return w(i.子元素);
                             else return "";
                         }
                     }
                 };
-                v = w(get_x_by_id(this._id).value);
+                v = w(get_x_by_id(this._id).value as data);
+            } else if (el.type === "x-md") {
+                return (el.value as xelValue).text as string;
             } else {
                 v = el.innerText;
             }
@@ -9160,8 +9447,8 @@ class link_value extends HTMLElement {
     show_links() {
         link("0").map();
         let v_text = (i: string) => {
-            let span = link_value_text(link(this._id).get()[i].value);
-            span.innerText = `#${i} ` + span.innerText;
+            let span = createEl("span");
+            span.innerText = `#${i}`;
             return span;
         };
         // 展示链接
@@ -9197,27 +9484,18 @@ class link_value extends HTMLElement {
                 el.remove();
             };
             const add_el = createEl("div");
-            const down_el = createEl("div");
 
             add_el.innerHTML = icon(add_svg);
-            down_el.innerHTML = icon(minus_svg);
             add_el.onclick = () => {
-                link(this._id).value(i, 0.1);
-                n.innerHTML = "";
-                n.append(v_text(i));
+                link(this._id).value(i);
+                this.show_links();
             };
-            down_el.onclick = () => {
-                link(this._id).value(i, -0.1);
-                n.innerHTML = "";
-                n.append(v_text(i));
-            };
-            el.append(n, add_el, rm, down_el);
+            el.append(n, add_el, rm);
         }
     }
 
     set elid(id: string) {
         this._id = id;
-        link("0").衰减();
         link("0").map();
         let v = link(id).get_v();
         if (v) {
@@ -9446,7 +9724,7 @@ async function audio_to_text(el: HTMLAudioElement, id: string) {
     }
     let text = await speech_to_text();
     console.log(text);
-    let pel = createEl("x-x");
+    let pel = createX("x-x");
     pel.style.left = el_offset2(el.parentElement, O).x + "px";
     pel.style.top = el_offset2(el.parentElement, O).y + el_offset2(el.parentElement, O).h + "px";
     z.push(pel);
@@ -9457,12 +9735,12 @@ async function audio_to_text(el: HTMLAudioElement, id: string) {
         }
     }
     for (let i of text.chunks) {
-        let x = createEl("x-x");
+        let x = createX("x-md");
         z.push(x, pel);
         let md = createEl("x-md");
         x.append(md);
         let mdtext = `[${i.timestamp[0]}](#${id}:${i.timestamp[0]})${i.text}`;
-        md.value = JSON.stringify({ type: "p", text: mdtext });
+        md.value = { type: "p", text: mdtext };
     }
     pel.classList.add("flex-column");
 }
@@ -9573,7 +9851,7 @@ async function to_text(img: HTMLImageElement | HTMLCanvasElement) {
     ocr.ocr(canvas.getContext("2d").getImageData(0, 0, w, h)).then((v) => {
         let tl = [];
         let p = el_offset2(img, O);
-        let pxel = createEl("x-x");
+        let pxel = createX("x-x");
         pxel.id = uuid_id();
         pxel.style.left = p.x + "px";
         pxel.style.top = p.y + "px";
@@ -9591,7 +9869,7 @@ async function to_text(img: HTMLImageElement | HTMLCanvasElement) {
             let y0 = i.box[0][1];
             let x1 = i.box[2][0];
             let y1 = i.box[2][1];
-            let xel = createEl("x-x");
+            let xel = createX("x-md");
             xel.style.left = x0 * xx + "px";
             xel.style.top = y0 * yy + "px";
             xel.style.width = (x1 - x0) * xx + "px";
@@ -9599,15 +9877,13 @@ async function to_text(img: HTMLImageElement | HTMLCanvasElement) {
             z.push(xel, pxel);
             var md = createEl("x-md");
             xel.append(md);
-            let v = JSON.stringify({ type: "p", text: i.text });
-            md.value = v;
+            md.value = { type: "p", text: i.text };
         }
         console.log(tl);
     });
 }
 
 var ocr_init = false;
-var ocr;
 
 var imported_index: { [key: string]: { loaded: boolean; el: HTMLScriptElement } } = {};
 
@@ -9634,17 +9910,21 @@ async function import_script(url: string) {
     });
 }
 
+import * as ocr from "esearch-ocr";
+
 async function ocr_start() {
     await import_script("https://unpkg.com/opencv.js@1.2.1/opencv.js");
     await import_script("https://unpkg.com/onnxruntime-web@1.13.1/dist/ort.min.js");
-    ocr = (await import("../../ai/ocr")).default;
-    var dic = (await import("../../public/ocr/ppocr_keys_v1.txt?raw")).default;
+    const dic = (await import("../../public/ocr/ppocr_keys_v1.txt?raw")).default;
     await ocr.init({
-        det_path: "./ocr/ppocr_det.onnx",
-        rec_path: "./ocr/ppocr_rec.onnx",
+        detPath: "./ocr/ppocr_det.onnx",
+        recPath: "./ocr/ppocr_rec.onnx",
         dic: dic,
         dev: false,
-        node: true,
+        ort: window["ort"],
+        cv: window["cv"],
+        detShape: [640, 640],
+        ortOption: {},
     });
     ocr_init = true;
 }
@@ -10199,7 +10479,7 @@ class link_arrow extends HTMLElement {
         p.setAttribute("transform", t2);
 
         p.ondblclick = () => {
-            let x = createEl("x-x");
+            let x = createX("x-md");
             x.id = uuid_id();
             z.push(x);
             if (!this._value["center"]) this._value["center"] = { id: "" };

@@ -113,6 +113,7 @@ body {
     width: 100%;
     height: 100%;
     color: var(--color6);
+    font-family: sans-serif, misansl3;
 }
 
 input,
@@ -1338,6 +1339,7 @@ x-md {
     min-width: 0.5rem;
     min-height: 0.5rem;
     outline: none;
+    word-wrap: break-word;
 }
 x-md *:hover > .handle {
     opacity: 1;
@@ -1348,7 +1350,12 @@ p {
 
 @font-face {
     font-family: mathfont;
-    src: url("../assets/latinmodern-math.otf");
+    src: url("../assets/fonts/latinmodern-math.otf");
+}
+
+@font-face {
+    font-family: misansl3;
+    src: url("../assets/fonts/MiSans L3.otf");
 }
 
 math {
